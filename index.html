@@ -1,279 +1,640 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>출퇴근 위치 테스트</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173A63">
+  <title>현장 출퇴근 확인</title>
+
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, "Malgun Gothic", sans-serif;
-      background: #f4f6f8;
-      color: #1f2937;
-    }
-    .wrap {
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 24px 16px 40px;
-    }
-    .card {
-      background: white;
-      border-radius: 16px;
-      padding: 22px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.08);
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 24px;
-    }
-    .sub {
-      color: #6b7280;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-    .person {
-      padding: 14px;
-      background: #f8fafc;
-      border-radius: 12px;
-      margin-bottom: 18px;
-    }
-    .person strong { font-size: 18px; }
-
-    .notice {
-      font-size: 13px;
-      line-height: 1.55;
-      color: #4b5563;
-      background: #fff7ed;
-      border: 1px solid #fed7aa;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 18px;
+    :root{
+      --navy:#173A63;
+      --navy-dark:#102C4D;
+      --blue:#2E7CF6;
+      --green:#26A269;
+      --red:#D94B4B;
+      --bg:#F3F6FA;
+      --card:#FFFFFF;
+      --line:#DDE5EE;
+      --text:#182230;
+      --muted:#718096;
     }
 
-    .buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 18px 12px;
-      font-size: 18px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .inBtn {
-      background: #2563eb;
-      color: white;
-    }
-    .outBtn {
-      background: #111827;
-      color: white;
-    }
-    button:disabled {
-      opacity: .55;
-      cursor: not-allowed;
+    *{box-sizing:border-box;}
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;
+      background:linear-gradient(180deg,#EAF1F8 0,#F6F8FB 220px);
+      color:var(--text);
     }
 
-    .result {
-      border-top: 1px solid #e5e7eb;
-      padding-top: 16px;
-      display: grid;
-      gap: 10px;
+    .topbar{
+      background:var(--navy);
+      color:#fff;
+      padding:18px 20px;
+      box-shadow:0 3px 12px rgba(16,44,77,.18);
     }
-    .row {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: flex-start;
-    }
-    .label {
-      color: #6b7280;
-      min-width: 110px;
-    }
-    .value {
-      text-align: right;
-      font-weight: 600;
-      word-break: break-word;
-    }
-    .ok { color: #15803d; }
-    .bad { color: #b91c1c; }
-    .wait { color: #92400e; }
 
-    .settings {
-      margin-top: 18px;
-      font-size: 12px;
-      color: #6b7280;
-      line-height: 1.5;
+    .topbar-inner{
+      max-width:520px;
+      margin:0 auto;
+    }
+
+    .brand{
+      margin:0;
+      font-size:21px;
+      font-weight:800;
+      letter-spacing:-.5px;
+    }
+
+    .brand-sub{
+      margin-top:5px;
+      font-size:12px;
+      color:rgba(255,255,255,.72);
+    }
+
+    .wrap{
+      width:100%;
+      max-width:520px;
+      margin:0 auto;
+      padding:22px 16px 40px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid rgba(221,229,238,.9);
+      border-radius:18px;
+      box-shadow:0 10px 32px rgba(16,44,77,.08);
+      padding:22px 18px;
+    }
+
+    .title{
+      font-size:21px;
+      font-weight:800;
+      margin:0 0 7px;
+    }
+
+    .desc{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.55;
+      margin-bottom:24px;
+    }
+
+    .field{
+      margin-bottom:19px;
+    }
+
+    .label{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:8px;
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .num{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:23px;
+      height:23px;
+      border-radius:50%;
+      background:#E8F0FC;
+      color:var(--navy);
+      font-size:12px;
+      font-weight:800;
+    }
+
+    input, select{
+      width:100%;
+      min-height:50px;
+      padding:0 14px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+      color:var(--text);
+      font-size:16px;
+      outline:none;
+      transition:.18s;
+    }
+
+    input:focus, select:focus{
+      border-color:var(--blue);
+      box-shadow:0 0 0 3px rgba(46,124,246,.12);
+    }
+
+    input::placeholder{
+      color:#A0AABA;
+    }
+
+    .password-wrap{
+      position:relative;
+    }
+
+    .password-wrap input{
+      padding-right:72px;
+    }
+
+    .show-btn{
+      position:absolute;
+      right:7px;
+      top:7px;
+      height:36px;
+      padding:0 10px;
+      border:0;
+      border-radius:8px;
+      background:#EEF3F8;
+      color:#526172;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .attendance{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:3px;
+    }
+
+    .action-btn{
+      min-height:64px;
+      border:0;
+      border-radius:14px;
+      font-size:19px;
+      font-weight:800;
+      cursor:pointer;
+      color:#fff;
+      transition:.15s;
+      box-shadow:0 5px 14px rgba(0,0,0,.08);
+    }
+
+    .action-btn:active{
+      transform:translateY(1px) scale(.995);
+    }
+
+    .checkin{background:var(--blue);}
+    .checkout{background:var(--navy-dark);}
+
+    .status-card{
+      display:none;
+      margin-top:20px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:#FAFCFE;
+    }
+
+    .status-head{
+      padding:12px 14px;
+      font-size:14px;
+      font-weight:800;
+      background:#F0F5FA;
+      border-bottom:1px solid var(--line);
+    }
+
+    .status-body{
+      padding:4px 14px;
+    }
+
+    .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:15px;
+      padding:11px 0;
+      border-bottom:1px solid #E8EDF3;
+      font-size:13px;
+    }
+
+    .row:last-child{border-bottom:0;}
+    .row .k{color:var(--muted);}
+    .row .v{
+      font-weight:700;
+      text-align:right;
+      word-break:keep-all;
+    }
+
+    .good{color:var(--green);}
+    .bad{color:var(--red);}
+    .waiting{color:#A56800;}
+
+    .privacy{
+      margin-top:18px;
+      padding:12px 13px;
+      border-radius:11px;
+      background:#F7F9FC;
+      color:#667587;
+      font-size:11.5px;
+      line-height:1.6;
+    }
+
+    .footer{
+      text-align:center;
+      color:#97A3B2;
+      font-size:11px;
+      margin-top:16px;
+    }
+
+    @media (max-width:380px){
+      .attendance{grid-template-columns:1fr;}
+      .card{padding:19px 15px;}
     }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>출퇴근 위치 확인</h1>
-      <div class="sub">버튼을 누른 시점의 현재 위치를 1회 확인하여 현장 반경 안인지 판정합니다.</div>
 
-      <div class="person">
-        근로자<br>
-        <strong id="workerName">테스트 근로자</strong>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">현장 출퇴근 확인</div>
+    <div class="brand-sub">출근 · 퇴근 위치 확인 시스템</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+
+    <h1 class="title">출퇴근 등록</h1>
+    <div class="desc">
+      아래 정보를 입력한 뒤 출근 또는 퇴근 버튼을 눌러주세요.
+      버튼을 누르는 시점에 현재 위치를 1회 확인합니다.
+    </div>
+
+    <div class="field">
+      <div class="label">
+        <span class="num">1</span>
+        근로자 이름
       </div>
+      <input
+        id="workerName"
+        type="text"
+        autocomplete="name"
+        placeholder="이름 작성"
+      >
+    </div>
 
-      <div class="notice">
-        위치정보는 이 테스트 페이지에서 현장과의 거리 계산에만 사용합니다.
-        이 버전은 서버로 위치를 전송하거나 저장하지 않습니다.
-        위치 권한을 허용해야 판정할 수 있습니다.
+    <div class="field">
+      <div class="label">
+        <span class="num">2</span>
+        현장 선택
       </div>
+      <select id="site">
+        <option value="">현장을 선택하세요</option>
+        <option value="용인 현장">용인 현장</option>
+        <option value="이천 현장">이천 현장</option>
+        <option value="용인 사무실">용인 사무실</option>
+        <option value="이천 사무실">이천 사무실</option>
+      </select>
+    </div>
 
-      <div class="buttons">
-        <button class="inBtn" onclick="checkAttendance('출근')">출근</button>
-        <button class="outBtn" onclick="checkAttendance('퇴근')">퇴근</button>
+    <div class="field">
+      <div class="label">
+        <span class="num">3</span>
+        암호
       </div>
-
-      <div class="result">
-        <div class="row">
-          <div class="label">처리 구분</div>
-          <div class="value" id="action">-</div>
-        </div>
-        <div class="row">
-          <div class="label">처리 시간</div>
-          <div class="value" id="time">-</div>
-        </div>
-        <div class="row">
-          <div class="label">현장과 거리</div>
-          <div class="value" id="distance">-</div>
-        </div>
-        <div class="row">
-          <div class="label">GPS 정확도</div>
-          <div class="value" id="accuracy">-</div>
-        </div>
-        <div class="row">
-          <div class="label">판정</div>
-          <div class="value" id="status">확인 전</div>
-        </div>
-      </div>
-
-      <div class="settings">
-        ※ 아래 코드의 SITE_LAT / SITE_LNG 값에 실제 현장 좌표를 입력하세요.<br>
-        ※ 기본 판정 반경은 200m입니다.
+      <div class="password-wrap">
+        <input
+          id="password"
+          type="password"
+          inputmode="numeric"
+          placeholder="암호 입력 (임시)"
+        >
+        <button class="show-btn" type="button" onclick="togglePassword()">보기</button>
       </div>
     </div>
-  </div>
+
+    <div class="field">
+      <div class="label">
+        <span class="num">4</span>
+        출근 / 퇴근
+      </div>
+
+      <div class="attendance">
+        <button class="action-btn checkin" type="button" onclick="submitAttendance('출근')">
+          출근
+        </button>
+        <button class="action-btn checkout" type="button" onclick="submitAttendance('퇴근')">
+          퇴근
+        </button>
+      </div>
+    </div>
+
+    <div id="statusCard" class="status-card">
+      <div class="status-head">처리 결과</div>
+
+      <div class="status-body">
+        <div class="row">
+          <span class="k">근로자</span>
+          <span class="v" id="resultName">-</span>
+        </div>
+        <div class="row">
+          <span class="k">선택 현장</span>
+          <span class="v" id="resultSite">-</span>
+        </div>
+        <div class="row">
+          <span class="k">구분</span>
+          <span class="v" id="resultType">-</span>
+        </div>
+        <div class="row">
+          <span class="k">처리 시간</span>
+          <span class="v" id="resultTime">-</span>
+        </div>
+        <div class="row">
+          <span class="k">현장과 거리</span>
+          <span class="v" id="resultDistance">-</span>
+        </div>
+        <div class="row">
+          <span class="k">GPS 정확도</span>
+          <span class="v" id="resultAccuracy">-</span>
+        </div>
+        <div class="row">
+          <span class="k">판정</span>
+          <span class="v" id="resultStatus">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy">
+      ※ 위치정보는 출근·퇴근 버튼을 누르는 순간 현장 여부를 확인하기 위해 1회 사용합니다.
+      이 테스트 버전은 서버에 출퇴근 기록이나 GPS 좌표를 저장하지 않습니다.
+    </div>
+  </section>
+
+  <div class="footer">Attendance Test v2</div>
+</main>
+
 
 <script>
-  // ==========================
-  // 여기만 수정하면 됩니다.
-  // ==========================
-  const WORKER_NAME = "테스트 근로자";
 
-  // 현장 위도 / 경도
-  const SITE_LAT = 37.000000;
-  const SITE_LNG = 127.000000;
+  /*
+   =====================================================
+   ★ 현장 좌표 설정 부분
+   아래 숫자는 테스트용입니다.
+   실제 사용 전에 각 현장의 위도/경도로 변경하세요.
+   =====================================================
+  */
 
-  // 현장 인정 반경(미터)
-  const ALLOWED_RADIUS = 200;
-  // ==========================
+  const SITES = {
 
-  document.getElementById("workerName").textContent = WORKER_NAME;
+    "용인 현장": {
+      lat: 37.000000,
+      lng: 127.000000,
+      radius: 200
+    },
 
-  function setText(id, text, className = "") {
-    const el = document.getElementById(id);
-    el.textContent = text;
-    el.className = "value" + (className ? " " + className : "");
+    "이천 현장": {
+      lat: 37.000000,
+      lng: 127.000000,
+      radius: 200
+    },
+
+    "용인 사무실": {
+      lat: 37.000000,
+      lng: 127.000000,
+      radius: 200
+    },
+
+    "이천 사무실": {
+      lat: 37.000000,
+      lng: 127.000000,
+      radius: 200
+    }
+
+  };
+
+
+  /*
+   =====================================================
+   ★ 임시 암호
+   테스트 단계용입니다.
+   실제 운영할 때는 HTML 안에 암호를 넣는 방식은 사용하지 않습니다.
+   =====================================================
+  */
+
+  const TEMP_PASSWORD = "1234";
+
+
+  function togglePassword(){
+
+    const input = document.getElementById("password");
+    const btn = document.querySelector(".show-btn");
+
+    if(input.type === "password"){
+      input.type = "text";
+      btn.textContent = "숨김";
+    }else{
+      input.type = "password";
+      btn.textContent = "보기";
+    }
+
   }
 
-  function formatNow() {
+
+  function formatNow(){
+
     const d = new Date();
+
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const ss = String(d.getSeconds()).padStart(2,"0");
+
     return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+
   }
 
-  function toRad(value) {
-    return value * Math.PI / 180;
+
+  function toRad(v){
+    return v * Math.PI / 180;
   }
 
-  function getDistanceMeters(lat1, lon1, lat2, lon2) {
+
+  function getDistanceMeters(lat1,lng1,lat2,lng2){
+
     const R = 6371000;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
+
+    const dLat = toRad(lat2-lat1);
+    const dLng = toRad(lng2-lng1);
 
     const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng/2) *
+      Math.sin(dLng/2);
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const c = 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+
+    return R*c;
+
   }
 
-  function checkAttendance(type) {
-    setText("action", type);
-    setText("time", formatNow());
-    setText("distance", "위치 확인 중...");
-    setText("accuracy", "-");
-    setText("status", "위치 확인 중...", "wait");
 
-    if (!navigator.geolocation) {
-      setText("status", "이 브라우저는 위치 기능을 지원하지 않습니다.", "bad");
+  function setResult(id,text,className=""){
+
+    const el = document.getElementById(id);
+
+    el.textContent = text;
+    el.className = "v" + (className ? " " + className : "");
+
+  }
+
+
+  function submitAttendance(type){
+
+    const name = document.getElementById("workerName").value.trim();
+    const siteName = document.getElementById("site").value;
+    const password = document.getElementById("password").value;
+
+    if(!name){
+      alert("근로자 이름을 입력해주세요.");
+      document.getElementById("workerName").focus();
+      return;
+    }
+
+    if(!siteName){
+      alert("현장을 선택해주세요.");
+      document.getElementById("site").focus();
+      return;
+    }
+
+    if(!password){
+      alert("암호를 입력해주세요.");
+      document.getElementById("password").focus();
+      return;
+    }
+
+    if(password !== TEMP_PASSWORD){
+      alert("암호가 올바르지 않습니다.");
+      document.getElementById("password").focus();
+      return;
+    }
+
+    const site = SITES[siteName];
+
+    document.getElementById("statusCard").style.display = "block";
+
+    setResult("resultName",name);
+    setResult("resultSite",siteName);
+    setResult("resultType",type);
+    setResult("resultTime",formatNow());
+    setResult("resultDistance","위치 확인 중...");
+    setResult("resultAccuracy","-");
+    setResult("resultStatus","위치를 확인하고 있습니다.","waiting");
+
+    document.getElementById("statusCard").scrollIntoView({
+      behavior:"smooth",
+      block:"nearest"
+    });
+
+    if(!navigator.geolocation){
+
+      setResult(
+        "resultStatus",
+        "이 브라우저는 위치 확인 기능을 지원하지 않습니다.",
+        "bad"
+      );
+
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-      function(position) {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
+
+      function(position){
+
+        const currentLat = position.coords.latitude;
+        const currentLng = position.coords.longitude;
         const accuracy = position.coords.accuracy;
 
-        const distance = getDistanceMeters(lat, lng, SITE_LAT, SITE_LNG);
+        const distance = getDistanceMeters(
+          currentLat,
+          currentLng,
+          site.lat,
+          site.lng
+        );
 
-        setText("distance", `${Math.round(distance)} m`);
-        setText("accuracy", `± ${Math.round(accuracy)} m`);
+        setResult(
+          "resultDistance",
+          Math.round(distance) + " m"
+        );
 
-        if (distance <= ALLOWED_RADIUS) {
-          setText("status", `현장 내 · ${type} 가능`, "ok");
-        } else {
-          setText("status", `현장 외 · ${type} 확인 필요`, "bad");
+        setResult(
+          "resultAccuracy",
+          "± " + Math.round(accuracy) + " m"
+        );
+
+        if(distance <= site.radius){
+
+          setResult(
+            "resultStatus",
+            "현장 내 · " + type + " 확인",
+            "good"
+          );
+
+        }else{
+
+          setResult(
+            "resultStatus",
+            "현장 외 · 확인 필요",
+            "bad"
+          );
+
         }
 
         console.log({
-          type,
-          time: formatNow(),
-          latitude: lat,
-          longitude: lng,
-          accuracy,
-          distance
+          worker:name,
+          site:siteName,
+          type:type,
+          time:formatNow(),
+          latitude:currentLat,
+          longitude:currentLng,
+          accuracy:accuracy,
+          distance:distance
         });
-      },
-      function(error) {
-        let msg = "위치를 확인할 수 없습니다.";
 
-        if (error.code === error.PERMISSION_DENIED) {
-          msg = "위치 권한이 거부되었습니다.";
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = "현재 위치 정보를 가져올 수 없습니다.";
-        } else if (error.code === error.TIMEOUT) {
-          msg = "위치 확인 시간이 초과되었습니다.";
+      },
+
+      function(error){
+
+        let message = "현재 위치를 확인할 수 없습니다.";
+
+        if(error.code === error.PERMISSION_DENIED){
+          message = "위치 권한이 거부되었습니다.";
         }
 
-        setText("distance", "-");
-        setText("accuracy", "-");
-        setText("status", msg, "bad");
+        if(error.code === error.POSITION_UNAVAILABLE){
+          message = "현재 위치 정보를 가져올 수 없습니다.";
+        }
+
+        if(error.code === error.TIMEOUT){
+          message = "위치 확인 시간이 초과되었습니다.";
+        }
+
+        setResult("resultDistance","-");
+        setResult("resultAccuracy","-");
+        setResult("resultStatus",message,"bad");
+
       },
+
       {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
+        enableHighAccuracy:true,
+        timeout:15000,
+        maximumAge:0
       }
+
     );
+
   }
+
 </script>
+
 </body>
 </html>
