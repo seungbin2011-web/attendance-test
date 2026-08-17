@@ -180,10 +180,21 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   .task-inline-members{grid-template-columns:1fr}
 }
 
+
+.photo-box{margin:12px 0;padding:12px;border:1px solid #D8E3EF;border-radius:12px;background:#F8FBFF}
+.photo-title{font-size:13px;font-weight:900;color:var(--navy);margin-bottom:5px}
+.photo-help{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+.photo-input{width:100%;height:auto;padding:9px;background:#fff;font-size:12px}
+.photo-preview{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.photo-thumb{position:relative;border:1px solid #D9E3ED;border-radius:9px;overflow:hidden;background:#fff;aspect-ratio:1/1}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-remove{position:absolute;right:4px;top:4px;width:23px;height:23px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:13px;font-weight:900;cursor:pointer}
+.photo-count{font-size:11px;color:var(--muted);margin-top:6px}
+
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.22</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.23</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -226,7 +237,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
       <div class="section-title" style="margin-top:14px"><strong>어제 작업 결과</strong><span class="badge">필요한 것만 선택</span></div>
       <div class="desc">각 작업을 완료 / 오늘로 이월 / 제외 중 하나로 선택하세요.</div>
       <div class="prev-result-list" id="previousResultList"></div>
-      <button class="btn submit" type="button" onclick="applyPreviousResultsToToday()">오늘 작업에 반영</button>
+      <button class="btn submit" id="previousApplyBtn" type="button" onclick="applyPreviousResultsToToday()">오늘 작업에 반영</button>
     </div>
   </div>
 </section>
@@ -296,12 +307,26 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <div id="morningPanel" class="panel">
 <div class="summary" id="morningSummary">작업계획을 먼저 작성하면 이곳에 오늘 작업 내용이 자동으로 표시됩니다.</div>
 <div class="field"><label class="label">출근 TBM 추가 전달사항</label><textarea id="morningNote"></textarea></div>
+<div class="photo-box">
+  <div class="photo-title">출근 TBM 사진</div>
+  <div class="photo-help">현장 사진을 최대 3장까지 첨부할 수 있습니다.</div>
+  <input class="photo-input" id="morningPhotoInput" type="file" accept="image/*" capture="environment" multiple onchange="handlePhotoSelect('morning',this)">
+  <div class="photo-preview" id="morningPhotoPreview"></div>
+  <div class="photo-count" id="morningPhotoCount">사진 0장</div>
+</div>
 <button class="btn submit" id="tbmMorningSubmitBtn" type="button" onclick="submitTBM('출근')">출근 TBM 전파</button>
 </div>
 
 <div id="lunchPanel" class="panel">
   <div class="section-title"><strong>오후 TBM</strong><span class="badge">작업별 저장</span></div>
   <div class="desc">전체가 정상이라면 한 번에 저장하고, 이상이 있는 작업만 개별로 처리합니다.</div>
+<div class="photo-box">
+  <div class="photo-title">오후 TBM 사진</div>
+  <div class="photo-help">오후 TBM 공통 사진을 최대 3장까지 첨부할 수 있습니다.</div>
+  <input class="photo-input" id="afternoonPhotoInput" type="file" accept="image/*" capture="environment" multiple onchange="handlePhotoSelect('afternoon',this)">
+  <div class="photo-preview" id="afternoonPhotoPreview"></div>
+  <div class="photo-count" id="afternoonPhotoCount">사진 0장</div>
+</div>
   <div class="task-tbm-tools">
     <button class="all-clear-btn" id="afternoonAllClearBtn" type="button" onclick="saveAllAfternoonNormal()">전체 이상무</button>
   </div>
@@ -310,7 +335,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 
 <div id="eveningPanel" class="panel">
   <div class="section-title"><strong>퇴근 TBM</strong><span class="badge">작업별 저장</span></div>
-  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div><div class="state-box" style="margin-top:-6px;margin-bottom:12px">퇴근 화면을 열 때마다 DB를 다시 조회하여 오후 작업변경 사항을 최신 내용으로 표시합니다.</div>
+  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div>
+<div class="photo-box">
+  <div class="photo-title">퇴근 TBM 사진</div>
+  <div class="photo-help">최종 현장상태 사진을 최대 3장까지 첨부할 수 있습니다.</div>
+  <input class="photo-input" id="eveningPhotoInput" type="file" accept="image/*" capture="environment" multiple onchange="handlePhotoSelect('evening',this)">
+  <div class="photo-preview" id="eveningPhotoPreview"></div>
+  <div class="photo-count" id="eveningPhotoCount">사진 0장</div>
+</div><div class="state-box" style="margin-top:-6px;margin-bottom:12px">퇴근 화면을 열 때마다 DB를 다시 조회하여 오후 작업변경 사항을 최신 내용으로 표시합니다.</div>
   <div class="task-tbm-tools">
     <button class="all-clear-btn" id="eveningAllCompleteBtn" type="button" onclick="saveAllEveningComplete()">전체 작업 완료</button>
   </div>
@@ -318,7 +350,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.22</div>
+<div class="footer">© 2026 TBM Leader · v0.23</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -332,7 +364,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyt93A2L0atWpgdtnqgw69-GDUIfsiU1fYSiVm44mONTFCo62vW1lzqY8KVATgk0JtpRQ/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPtHjGZXnke0iRRG11jQWFZ-ysxe9vq5YKPr89F80ZN3GxANCNjV2BgzSeql5WK2chwQ/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -343,6 +375,7 @@ let selectedAfternoonTaskIndex = -1;
 let pendingAfternoonChanges = {};
 let tbmSavedStates = {};
 let selectedTaskStatuses = {afternoon:{}, evening:{}};
+let tbmPhotos = {morning:[], afternoon:[], evening:[]};
 
 
 function todayString(){
@@ -586,6 +619,118 @@ function populateMorningSummary(){
 }
 
 
+
+
+function photoTypeKey(type){
+  if(type==='출근') return 'morning';
+  if(type==='오후') return 'afternoon';
+  return 'evening';
+}
+
+function getPhotoGroupId(type){
+  const leader=(currentPlan?.leader||document.getElementById('leaderName').value.trim()).replace(/\s+/g,'');
+  const team=(currentPlan?.team||document.getElementById('teamName').value.trim()).replace(/\s+/g,'');
+  const site=(currentPlan?.site||document.getElementById('siteName').value).replace(/\s+/g,'');
+  const group=currentPlan?.groupId||'NO_GROUP';
+  return `PHOTO-${todayString()}-${type}-${group}-${leader}-${team}-${site}`;
+}
+
+async function compressImageFile(file){
+  const dataUrl=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img=await new Promise((resolve,reject)=>{
+    const image=new Image();
+    image.onload=()=>resolve(image);
+    image.onerror=reject;
+    image.src=dataUrl;
+  });
+
+  const maxSide=1280;
+  let w=img.width, h=img.height;
+  const scale=Math.min(1,maxSide/Math.max(w,h));
+  w=Math.max(1,Math.round(w*scale));
+  h=Math.max(1,Math.round(h*scale));
+
+  const canvas=document.createElement('canvas');
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(img,0,0,w,h);
+
+  const jpeg=canvas.toDataURL('image/jpeg',0.72);
+  return {
+    name:(file.name||'photo').replace(/\.[^.]+$/,'')+'.jpg',
+    mimeType:'image/jpeg',
+    data:jpeg.split(',')[1]
+  };
+}
+
+async function handlePhotoSelect(kind,input){
+  const files=[...(input.files||[])];
+  if(!files.length) return;
+
+  const remaining=Math.max(0,3-tbmPhotos[kind].length);
+  if(remaining===0){
+    alert('사진은 TBM별 최대 3장까지 첨부할 수 있습니다.');
+    input.value='';
+    return;
+  }
+
+  showLoading('사진 준비 중입니다','사진 용량을 줄여 DB 업로드 준비를 하고 있습니다.');
+  try{
+    const selected=files.slice(0,remaining);
+    for(const file of selected){
+      if(!String(file.type||'').startsWith('image/')) continue;
+      tbmPhotos[kind].push(await compressImageFile(file));
+    }
+    renderPhotoPreview(kind);
+    if(files.length>remaining) alert('사진은 최대 3장까지만 등록됩니다.');
+  }catch(err){
+    console.error(err);
+    alert('사진 처리 중 오류가 발생했습니다.');
+  }finally{
+    hideLoading();
+    input.value='';
+  }
+}
+
+function renderPhotoPreview(kind){
+  const wrap=document.getElementById(kind+'PhotoPreview');
+  const count=document.getElementById(kind+'PhotoCount');
+  if(!wrap) return;
+
+  wrap.innerHTML=tbmPhotos[kind].map((p,i)=>`
+    <div class="photo-thumb">
+      <img src="data:${p.mimeType};base64,${p.data}" alt="TBM 사진 ${i+1}">
+      <button type="button" class="photo-remove" onclick="removeTbmPhoto('${kind}',${i})">×</button>
+    </div>
+  `).join('');
+
+  if(count) count.textContent=`사진 ${tbmPhotos[kind].length}장 / 최대 3장`;
+}
+
+function removeTbmPhoto(kind,index){
+  tbmPhotos[kind].splice(index,1);
+  renderPhotoPreview(kind);
+}
+
+function photoPayload(type){
+  const kind=photoTypeKey(type);
+  const groupId=getPhotoGroupId(type);
+  return {
+    photoGroupId:groupId,
+    photos:tbmPhotos[kind].map((p,i)=>({
+      photoId:groupId+'-'+(i+1),
+      name:p.name,
+      mimeType:p.mimeType,
+      data:p.data
+    }))
+  };
+}
 
 function makeTbmRecordId(type, planId){
   const raw=`${todayString()}|${type}|${planId}`;
@@ -859,7 +1004,8 @@ async function saveAfternoonNormal(index){
       planId:t.planId,
       leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
       type:'오후',status:'정상진행',
-      note:'',extra:`작업 ${t.taskNo} 정상진행`
+      note:'',extra:`작업 ${t.taskNo} 정상진행`,
+      ...photoPayload('오후')
     });
     markSavedState(t.planId,'오후','정상진행');
     await syncCurrentPlanFromDb();
@@ -925,7 +1071,8 @@ async function saveAfternoonTask(index){
       leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
       type:'오후',status,
       note:reason,
-      extra:`작업 ${t.taskNo} ${status}`
+      extra:`작업 ${t.taskNo} ${status}`,
+      ...photoPayload('오후')
     });
 
     if(status==='작업변경'){
@@ -966,7 +1113,8 @@ async function saveAllAfternoonNormal(){
         planId:t.planId,
         leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
         type:'오후',status:'정상진행',
-        note:'',extra:`작업 ${t.taskNo} 정상진행`
+        note:'',extra:`작업 ${t.taskNo} 정상진행`,
+        ...photoPayload('오후')
       });
       markSavedState(t.planId,'오후','정상진행');
       selectedTaskStatuses.afternoon[t.planId]='정상진행';
@@ -1069,7 +1217,8 @@ async function saveEveningComplete(index){
       planId:t.planId,
       leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
       type:'퇴근',status:'완료',note:commonNote,
-      extra:`작업 ${t.taskNo} 완료`
+      extra:`작업 ${t.taskNo} 완료`,
+      ...photoPayload('퇴근')
     });
 
     markSavedState(t.planId,'퇴근','완료');
@@ -1116,7 +1265,8 @@ async function saveEveningTask(index){
       planId:t.planId,
       leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
       type:'퇴근',status,note:commonNote,
-      extra:`작업 ${t.taskNo} ${status} / ${carry}`
+      extra:`작업 ${t.taskNo} ${status} / ${carry}`,
+      ...photoPayload('퇴근')
     });
 
     markSavedState(t.planId,'퇴근',status);
@@ -1160,7 +1310,8 @@ async function saveAllEveningComplete(){
         planId:t.planId,
         leader:currentPlan.leader,team:currentPlan.team,site:currentPlan.site,
         type:'퇴근',status:'완료',note:commonNote,
-        extra:`작업 ${t.taskNo} 완료`
+        extra:`작업 ${t.taskNo} 완료`,
+        ...photoPayload('퇴근')
       });
 
       markSavedState(t.planId,'퇴근','완료');
@@ -1443,7 +1594,7 @@ function showPlanEditorOnly(){
   document.getElementById('planSection').classList.remove('view-hidden');
 }
 
-async function applyPreviousResultsToToday(){
+async function applyPreviousResultsToTodayCore(){
   if(!previousPlanGroup?.tasks?.length) return;
 
   const carryTasks=[];
@@ -1522,6 +1673,17 @@ async function applyPreviousResultsToToday(){
     console.error(err);
     alert('전일 작업결과 반영 중 오류가 발생했습니다: '+err.message);
   }
+}
+
+
+async function applyPreviousResultsToToday(){
+  return runLockedAction(
+    'previousCarryApply',
+    'previousApplyBtn',
+    '반영 중...',
+    '전일 작업결과 DB 저장 중입니다',
+    async()=>{ await applyPreviousResultsToTodayCore(); }
+  );
 }
 
 function getRisks(){
@@ -1848,7 +2010,8 @@ async function submitTBM(type){
           workDate:todayString(),
           planId:currentPlan.groupId||'',
           leader,team,site,
-          type:'출근',status:'작업계획 공유',note,extra
+          type:'출근',status:'작업계획 공유',note,extra,
+          ...photoPayload('출근')
         });
 
         alert('출근 TBM DB 저장이 완료되었습니다.');
