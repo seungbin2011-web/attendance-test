@@ -119,6 +119,30 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 }
 .stage-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
 
+
+.prev-choice-box{padding:14px;border:1px solid #D5E2EF;border-radius:14px;background:#F8FBFF}
+.prev-choice-title{font-size:18px;font-weight:900;color:var(--navy);margin-bottom:6px}
+.prev-choice-sub{font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:12px}
+.prev-task-list{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.prev-task-item{padding:11px;border:1px solid #DCE6F1;border-radius:10px;background:#fff}
+.prev-task-item strong{display:block;font-size:13px;color:var(--navy);margin-bottom:3px}
+.prev-task-item span{display:block;font-size:12px;color:var(--muted);line-height:1.45}
+.prev-choice-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.prev-choice-actions button{border:0;border-radius:11px;padding:14px 10px;font-size:14px;font-weight:900;cursor:pointer}
+.prev-continue{background:#2F7DF6;color:#fff}
+.prev-new{background:#EEF4FA;color:#173A63;border:1px solid #CAD8E8!important}
+.prev-result-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.prev-result-card{padding:12px;border:1px solid #D8E3EF;border-radius:11px;background:#fff}
+.prev-result-head{font-size:13px;font-weight:900;color:var(--navy);margin-bottom:8px}
+.prev-result-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.prev-result-actions label{padding:8px 6px;border:1px solid #D6E1ED;border-radius:8px;background:#F9FBFD;font-size:12px;font-weight:800;text-align:center}
+.prev-carry-detail{display:none;margin-top:8px}
+.prev-carry-detail.active{display:block}
+@media(max-width:440px){
+  .prev-choice-actions{grid-template-columns:1fr}
+  .prev-result-actions{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -147,55 +171,30 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <div class="app-stage" id="stagePlan"><div class="stage-nav"><div class="stage-nav-inner">
   <div class="stage-title">오늘 작업계획</div>
   <div class="stage-actions"><button class="stage-small-btn" type="button" onclick="showStage('stageLogin')">뒤로</button></div>
-</div></div><section class="card" id="previousSection">
-<div class="section-title"><strong>전일 최종 작업계획</strong><span class="badge">전일 자료</span></div>
-<div class="desc">로그인한 팀장 기준으로 전날 해당 현장의 마지막 작업계획을 불러오는 영역입니다.</div>
+</div></div><section class="card view-hidden" id="previousSection">
+  <div class="prev-choice-box" id="previousChoiceBox">
+    <div class="prev-choice-title">어제 작업 확인</div>
+    <div class="prev-choice-sub" id="previousChoiceSub">
+      어제 작업계획이 있으면 필요한 내용만 확인하고 오늘 작업으로 넘길 수 있습니다.
+    </div>
 
-<div class="readonly-box">
-  <div class="read-row"><div class="read-key">작업일</div><div class="read-val" id="prevDate">-</div></div>
-  <div class="read-row"><div class="read-key">작업 위치</div><div class="read-val" id="prevPlace">-</div></div>
-  <div class="read-row"><div class="read-key">작업 내용</div><div class="read-val" id="prevContent">-</div></div>
-  <div class="read-row"><div class="read-key">계획 인원</div><div class="read-val" id="prevCount">-</div></div>
-<div class="read-row"><div class="read-key">작업 팀원</div><div class="read-val" id="prevMembers">-</div></div>
-  <div class="read-row"><div class="read-key">위험요인</div><div class="read-val" id="prevRisks">-</div></div>
-  <div class="read-row"><div class="read-key">안전조치</div><div class="read-val" id="prevSafety">-</div></div>
-</div>
-<div class="load-row"><button class="load-btn" type="button" onclick="loadPreviousPlan()">전일 최종 작업계획 불러오기</button></div>
-<div class="load-status" id="loadStatus">팀명과 현장을 선택한 뒤 불러오기를 눌러주세요.</div>
+    <div class="prev-task-list" id="previousTaskList"></div>
 
-<div class="divider-title">전일 작업 결과 정리</div>
+    <div class="prev-choice-actions" id="previousChoiceActions">
+      <button type="button" class="prev-continue" onclick="startPreviousResultReview()">어제 작업 이어서 작성</button>
+      <button type="button" class="prev-new" onclick="startNewPlan()">새 작업계획 작성</button>
+    </div>
 
-<div class="field">
-  <label class="label">가능했던 작업 / 완료한 작업</label>
-  <textarea id="doneWork" placeholder="전일 계획 중 완료한 작업을 작성하세요."></textarea>
-</div>
-
-<div class="field">
-  <label class="label">진행하지 못한 작업 / 이월 작업</label>
-  <textarea id="carryWork" placeholder="미완료 또는 이월 작업을 작성하세요."></textarea>
-</div>
-
-<div class="field">
-  <label class="label">미완료 사유</label>
-  <div class="result-grid">
-    <label class="choice"><input type="checkbox" value="자재 부족">자재 부족</label>
-    <label class="choice"><input type="checkbox" value="작업시간 부족">작업시간 부족</label>
-    <label class="choice"><input type="checkbox" value="타 공정 간섭">타 공정 간섭</label>
-    <label class="choice"><input type="checkbox" value="작업환경 문제">작업환경 문제</label>
-    <label class="choice"><input type="checkbox" value="인원 부족">인원 부족</label>
-    <label class="choice"><input type="checkbox" value="기타">기타</label>
+    <div id="previousResultReview" class="view-hidden">
+      <div class="section-title" style="margin-top:14px"><strong>어제 작업 결과</strong><span class="badge">필요한 것만 선택</span></div>
+      <div class="desc">각 작업을 완료 / 오늘로 이월 / 제외 중 하나로 선택하세요.</div>
+      <div class="prev-result-list" id="previousResultList"></div>
+      <button class="btn submit" type="button" onclick="applyPreviousResultsToToday()">오늘 작업에 반영</button>
+    </div>
   </div>
-</div>
-
-<div class="field">
-  <label class="label">상세 사유</label>
-  <textarea id="reasonDetail" placeholder="미완료 사유를 간단히 작성하세요."></textarea>
-</div>
-
-<button class="btn save" onclick="applyCarryOver()">전일 이월 작업을 금일 계획에 반영</button>
 </section>
 
-<section class="card" id="planSection">
+<section class="card view-hidden" id="planSection">
 <div class="section-title"><strong>금일 작업계획서</strong><span class="badge">작업별 인원배정</span></div>
 <div class="desc">같은 팀이 한 현장에서 여러 작업을 할 경우 작업을 추가하고 각 작업마다 팀원을 따로 선택합니다.</div>
 
@@ -300,7 +299,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section></div>
-<div class="footer">TBM Leader v0.12 · 화면전환형 UI TEST</div>
+<div class="footer">TBM Leader v0.13 · 전일작업 자동분기 TEST</div>
 </main>
 
 <script>
@@ -312,6 +311,8 @@ const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTRcizISrdZvkmp
 let currentPlan = null;
 let previousPlan = null;
 let previousResultSaved = false;
+let previousPlanGroup = null;
+let previousReviewApplied = false;
 let selectedAfternoonTaskIndex = -1;
 let pendingAfternoonChanges = {};
 
@@ -428,9 +429,10 @@ async function checkTodayState(silent=false){
   }
 
   saveLastIdentity();
-  if(msg) msg.textContent='오늘 작업계획 확인 중...';
+  if(msg) msg.textContent='오늘 작업상태 확인 중...';
 
   try{
+    // 1. 오늘 계획 확인
     const res=await jsonp({
       action:'todayPlanGroup',
       leader,team,site,
@@ -462,16 +464,28 @@ async function checkTodayState(silent=false){
       document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
       document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+currentPlan.tasks.length+'건';
       showStage('stageTbmHome');
-return true;
+      return true;
     }
 
-    if(msg) msg.innerHTML='<strong>오늘 저장된 작업계획이 없습니다.</strong> 아래에서 금일 계획을 작성하세요.';
+    // 2. 오늘 계획이 없으면 전일 계획 자동 확인
+    const prev=await loadPreviousPlan();
+
     showStage('stagePlan');
-    if(!silent)
-return false;
+
+    if(prev.found){
+      document.getElementById('previousSection').classList.remove('view-hidden');
+      document.getElementById('planSection').classList.add('view-hidden');
+      if(msg) msg.innerHTML='<strong>어제 작업이 있습니다.</strong> 필요한 작업만 확인 후 오늘 계획으로 이어갈 수 있습니다.';
+    }else{
+      document.getElementById('previousSection').classList.add('view-hidden');
+      document.getElementById('planSection').classList.remove('view-hidden');
+      if(msg) msg.innerHTML='<strong>오늘/전일 저장된 계획이 없습니다.</strong> 오늘 작업계획을 작성합니다.';
+    }
+
+    return false;
   }catch(err){
     console.error(err);
-    if(msg) msg.textContent='오늘 작업계획 확인 실패: '+err.message;
+    if(msg) msg.textContent='오늘 작업상태 확인 실패: '+err.message;
     return false;
   }
 }
@@ -501,6 +515,8 @@ function openTbmFromHome(panelId){
 
 function showPlanEditor(){
   loadCurrentPlanIntoEditor();
+  document.getElementById('previousSection').classList.add('view-hidden');
+  document.getElementById('planSection').classList.remove('view-hidden');
   showStage('stagePlan');
 }
 
@@ -638,63 +654,41 @@ function getEveningResults(){
 }
 
 async function loadPreviousPlan(){
+  const leader=document.getElementById('leaderName').value.trim();
   const team=document.getElementById('teamName').value.trim();
   const site=document.getElementById('siteName').value;
-  const status=document.getElementById('loadStatus');
-  if(!team||!site){alert('팀명과 현장을 먼저 입력해주세요.');return;}
 
-  status.textContent='전일 최종 작업계획을 불러오는 중...';
+  if(!leader||!team||!site) return {found:false};
+
   try{
-    const res=await jsonp({action:'latestPlan',team,site,before:todayString()});
-    if(!res || !res.success){throw new Error(res?.message||'조회 실패');}
-    if(!res.plan){
-      previousPlan=null;
-      setPreviousPlanUI(null);
-      status.textContent='이 팀/현장의 이전 작업계획이 없습니다. 금일 계획부터 새로 작성하세요.';
-      return;
+    const res=await jsonp({
+      action:'latestPlanGroup',
+      leader,team,site,
+      before:todayString()
+    });
+
+    if(res && res.success && res.found){
+      previousPlanGroup=res;
+      renderPreviousPlanChoice(res);
+      return {found:true,data:res};
     }
-    previousPlan=res.plan;
-    previousResultSaved=false;
-    setPreviousPlanUI(previousPlan);
-    status.textContent=`${previousPlan.workDate} 마지막 작업계획을 불러왔습니다.`;
+
+    previousPlanGroup=null;
+    return {found:false};
   }catch(err){
-    console.error(err);
-    status.textContent='불러오기 실패: '+err.message;
+    console.error('전일 작업 조회 실패',err);
+    previousPlanGroup=null;
+    return {found:false,error:err};
   }
 }
 
-function setPreviousPlanUI(plan){
-  document.getElementById('prevDate').textContent=plan?.workDate||'-';
-  document.getElementById('prevPlace').textContent=plan?.place||'-';
-  document.getElementById('prevContent').textContent=plan?.content||'-';
-  document.getElementById('prevCount').textContent=plan?.workerCount ? plan.workerCount+'명' : '-';
-  document.getElementById('prevMembers').textContent=plan?.workerNames||'-';
-  document.getElementById('prevRisks').textContent=plan?.risks||'-';
-  document.getElementById('prevSafety').textContent=plan?.safety||'-';
-  document.getElementById('doneWork').value='';
-  document.getElementById('carryWork').value='';
-  document.getElementById('reasonDetail').value='';
-  document.querySelectorAll('.result-grid input[type="checkbox"]').forEach(e=>e.checked=false);
-}
+
 
 function getReasonCodes(){
   return [...document.querySelectorAll('.result-grid input:checked')].map(e=>e.value);
 }
 
-function applyCarryOver(){
-  const carry=document.getElementById('carryWork').value.trim();
-  if(!carry){alert('이월 작업 내용을 먼저 입력해주세요.');return;}
-  document.getElementById('carryPreview').textContent=carry;
 
-  if(workTasks.length===0) addWorkTask();
-  const firstId=workTasks[0].id;
-  const work=document.getElementById('taskContent_'+firstId);
-  if(work){
-    if(!work.value.trim()) work.value=carry;
-    else if(!work.value.includes(carry)) work.value=carry+'\n'+work.value;
-    work.scrollIntoView({behavior:'smooth',block:'center'});
-  }
-}
 
 
 let availableTeamMembers=[];
@@ -850,34 +844,166 @@ function buildPlanSummary(tasks){
   }).join('');
 }
 
+
+function renderPreviousPlanChoice(group){
+  const list=document.getElementById('previousTaskList');
+  const sub=document.getElementById('previousChoiceSub');
+
+  if(sub){
+    sub.textContent=(group.workDate||'어제')+' 작업 '+(group.tasks?.length||0)+'건이 있습니다. 필요한 작업만 오늘로 이어갈 수 있습니다.';
+  }
+
+  if(list){
+    list.innerHTML=(group.tasks||[]).map((t,i)=>`
+      <div class="prev-task-item">
+        <strong>작업 ${t.taskNo||i+1} · ${escapeHtml(t.place||'-')}</strong>
+        <span>${escapeHtml(t.content||'-')}</span>
+        <span>투입 ${escapeHtml(t.workerCount||'0')}명 · ${escapeHtml(t.workerNames||'-')}</span>
+      </div>
+    `).join('');
+  }
+
+  const review=document.getElementById('previousResultReview');
+  if(review) review.classList.add('view-hidden');
+}
+
+function startPreviousResultReview(){
+  if(!previousPlanGroup?.tasks?.length){
+    alert('불러온 전일 작업이 없습니다.');
+    return;
+  }
+
+  const review=document.getElementById('previousResultReview');
+  const list=document.getElementById('previousResultList');
+
+  list.innerHTML=previousPlanGroup.tasks.map((t,i)=>`
+    <div class="prev-result-card">
+      <div class="prev-result-head">작업 ${t.taskNo||i+1} · ${escapeHtml(t.place||'-')} · ${escapeHtml(t.content||'-')}</div>
+      <div class="prev-result-actions">
+        <label><input type="radio" name="prevResult_${i}" value="완료" onchange="togglePrevCarry(${i})"> 완료</label>
+        <label><input type="radio" name="prevResult_${i}" value="이월" onchange="togglePrevCarry(${i})"> 오늘로 이월</label>
+        <label><input type="radio" name="prevResult_${i}" value="제외" onchange="togglePrevCarry(${i})"> 제외</label>
+      </div>
+      <div class="prev-carry-detail" id="prevCarry_${i}">
+        <div class="field">
+          <label class="label">이월 작업 내용</label>
+          <textarea id="prevCarryContent_${i}">${escapeHtml(t.content||'')}</textarea>
+        </div>
+        <div class="field">
+          <label class="label">이월 사유</label>
+          <textarea id="prevCarryReason_${i}" placeholder="예: 자재 미입고 / 타 공정 간섭"></textarea>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  review.classList.remove('view-hidden');
+}
+
+function togglePrevCarry(index){
+  const selected=document.querySelector(`input[name="prevResult_${index}"]:checked`);
+  const detail=document.getElementById('prevCarry_'+index);
+  if(!selected||!detail) return;
+  detail.classList.toggle('active',selected.value==='이월');
+}
+
+function startNewPlan(){
+  previousReviewApplied=false;
+  previousPlanGroup=null;
+  showPlanEditorOnly();
+}
+
+function showPlanEditorOnly(){
+  document.getElementById('previousSection').classList.add('view-hidden');
+  document.getElementById('planSection').classList.remove('view-hidden');
+}
+
+async function applyPreviousResultsToToday(){
+  if(!previousPlanGroup?.tasks?.length) return;
+
+  const carryTasks=[];
+  const resultRows=[];
+
+  for(let i=0;i<previousPlanGroup.tasks.length;i++){
+    const t=previousPlanGroup.tasks[i];
+    const selected=document.querySelector(`input[name="prevResult_${i}"]:checked`);
+    if(!selected){
+      alert('어제 작업 '+(t.taskNo||i+1)+'의 결과를 선택해주세요.');
+      return;
+    }
+
+    const status=selected.value;
+    const carryContent=(document.getElementById('prevCarryContent_'+i)?.value||t.content||'').trim();
+    const carryReason=(document.getElementById('prevCarryReason_'+i)?.value||'').trim();
+
+    resultRows.push({
+      planId:t.planId,
+      status,
+      content:t.content||'',
+      carryContent,
+      carryReason,
+      place:t.place||''
+    });
+
+    if(status==='이월'){
+      carryTasks.push({
+        place:t.place||'',
+        content:carryContent||t.content||'',
+        members:parseMembersFromServer(t.workerNames,t.workerIds)
+      });
+    }
+  }
+
+  try{
+    const leader=document.getElementById('leaderName').value.trim();
+    const team=document.getElementById('teamName').value.trim();
+    const site=document.getElementById('siteName').value;
+
+    for(const r of resultRows){
+      await postToSheet({
+        action:'saveResult',
+        planId:r.planId,
+        workDate:previousPlanGroup.workDate||'',
+        leader,team,site,
+        doneWork:r.status==='완료' ? r.content : '',
+        carryWork:r.status==='이월' ? r.carryContent : '',
+        reasonCodes:r.status,
+        reasonDetail:r.carryReason||'',
+        submittedAt:nowString()
+      });
+    }
+
+    // 오늘 작업계획 입력폼을 이월 작업으로 구성
+    restoringDraft=true;
+    try{
+      document.getElementById('taskList').innerHTML='';
+      workTasks=[];
+      taskSeq=0;
+
+      if(carryTasks.length){
+        if(!availableTeamMembers.length) await loadTeamMembers();
+        carryTasks.forEach(t=>addWorkTask(t));
+      }else{
+        addWorkTask();
+      }
+    }finally{
+      restoringDraft=false;
+    }
+
+    previousReviewApplied=true;
+    showPlanEditorOnly();
+    schedulePlanDraftSave();
+  }catch(err){
+    console.error(err);
+    alert('전일 작업결과 반영 중 오류가 발생했습니다: '+err.message);
+  }
+}
+
 function getRisks(){
   return [...document.querySelectorAll('.risk input:checked')].map(e=>e.value);
 }
 
-async function savePreviousResultIfNeeded(){
-  if(!previousPlan || previousResultSaved) return;
-  const done=document.getElementById('doneWork').value.trim();
-  const carry=document.getElementById('carryWork').value.trim();
-  const reasons=getReasonCodes();
-  const detail=document.getElementById('reasonDetail').value.trim();
 
-  if(!done && !carry && !detail && reasons.length===0) return;
-
-  await postToSheet({
-    action:'saveResult',
-    planId:previousPlan.planId,
-    workDate:previousPlan.workDate,
-    leader:document.getElementById('leaderName').value.trim(),
-    team:document.getElementById('teamName').value.trim(),
-    site:document.getElementById('siteName').value,
-    doneWork:done,
-    carryWork:carry,
-    reasonCodes:reasons.join(', '),
-    reasonDetail:detail,
-    submittedAt:nowString()
-  });
-  previousResultSaved=true;
-}
 
 
 const PLAN_DRAFT_KEY='tbmLeaderPlanDraft_v10';
@@ -1050,8 +1176,6 @@ async function savePlan(){
   const groupId=makeId('GROUP');
 
   try{
-    await savePreviousResultIfNeeded();
-
     for(const task of tasks){
       const planId=makeId('PLAN');
       await postToSheet({
@@ -1070,7 +1194,7 @@ async function savePlan(){
         endTime,
         risks:risks.join(', '),
         safety,
-        previousPlanId:previousPlan?.planId||''
+        previousPlanId:previousPlanGroup?.tasks?.[0]?.planId||''
       });
       task.planId=planId;
     }
