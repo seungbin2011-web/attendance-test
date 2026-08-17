@@ -103,13 +103,31 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   .evening-status{grid-template-columns:1fr}
 }
 
+
+.app-stage{display:none}
+.app-stage.active{display:block}
+.stage-nav{
+  position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #D8E2EE;
+  padding:10px 12px;margin:0 -12px 14px
+}
+.stage-nav-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stage-title{font-size:14px;font-weight:900;color:var(--navy)}
+.stage-actions{display:flex;gap:6px}
+.stage-small-btn{
+  border:1px solid #CBD8E7;background:#fff;color:#173A63;border-radius:9px;
+  padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer
+}
+.stage-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+
 </style>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner"><div class="brand">팀장 TBM 관리</div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
-<section class="card" id="basicSection">
+<div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
+  <div class="stage-title">팀장 TBM 관리</div><div class="stage-actions"></div>
+</div></div><section class="card" id="basicSection">
 <div class="title">오늘 작업 기본정보</div>
 <div class="desc">팀장과 현장 정보를 먼저 입력합니다.</div>
 <div class="grid2">
@@ -121,12 +139,15 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </div>
 <div class="compact-action">
   <button class="btn submit" type="button" onclick="checkTodayState()">오늘 상태 확인</button>
-  <div class="state-box" id="todayStateMsg">팀장·팀명·현장을 입력하면 오늘 저장된 작업계획이 있는지 확인합니다.</div>
+  <div class="state-box" id="todayStateMsg">팀장·팀명·현장을 입력하면 오늘 저장된 작업계획이 있는지 확인합니다.</div><div class="stage-note">확인 후 다음 화면으로 자동 전환됩니다. 아래로 스크롤할 필요가 없습니다.</div>
 </div>
-</section>
+</section></div>
 
 
-<section class="card" id="previousSection">
+<div class="app-stage" id="stagePlan"><div class="stage-nav"><div class="stage-nav-inner">
+  <div class="stage-title">오늘 작업계획</div>
+  <div class="stage-actions"><button class="stage-small-btn" type="button" onclick="showStage('stageLogin')">뒤로</button></div>
+</div></div><section class="card" id="previousSection">
 <div class="section-title"><strong>전일 최종 작업계획</strong><span class="badge">전일 자료</span></div>
 <div class="desc">로그인한 팀장 기준으로 전날 해당 현장의 마지막 작업계획을 불러오는 영역입니다.</div>
 
@@ -209,10 +230,12 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </div>
 <button class="btn submit" onclick="savePlan()">금일 작업계획 저장</button>
 <div class="notice">각 작업은 작업계획 시트에 한 행씩 저장되며 같은 작업그룹ID로 묶입니다.</div>
-</section>
+</section></div>
 
 
-<section class="card tbm-home" id="tbmHomeSection">
+<div class="app-stage" id="stageTbmHome"><div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">오늘 TBM</div><div class="stage-actions"><button class="stage-small-btn" type="button" onclick="showStage('stageLogin')">뒤로</button></div>
+    </div></div><section class="card tbm-home" id="tbmHomeSection">
   <div class="tbm-home-head">
     <div class="tbm-home-title" id="tbmHomeTitle">오늘 TBM</div>
     <div class="tbm-home-sub" id="tbmHomeSub">오늘 저장된 작업계획을 불러오면 바로 TBM을 진행할 수 있습니다.</div>
@@ -223,9 +246,11 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
     <button class="tbm-home-btn evening" type="button" onclick="openTbmFromHome('eveningPanel')">퇴근 TBM</button>
     <button class="tbm-home-btn plan" type="button" onclick="showPlanEditor()">오늘 작업계획 보기/수정</button>
   </div>
-</section>
+</section></div>
 
-<section class="card" id="tbmSection">
+<div class="app-stage" id="stageTbm"><div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">TBM 작성</div><div class="stage-actions"><button class="stage-small-btn" type="button" onclick="showStage('stageTbmHome')">뒤로</button></div>
+    </div></div><section class="card" id="tbmSection">
 <div class="section-title"><strong>TBM 작성</strong><span class="badge">팀원 열람용</span></div>
 <div class="tbm-menu">
 <button class="tbm-btn morning" onclick="openPanel('morningPanel')">출근</button>
@@ -274,8 +299,8 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <div class="field"><label class="label">퇴근 전달사항</label><textarea id="eveningNote"></textarea></div>
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
-</section>
-<div class="footer">TBM Leader v0.11 · 재접속/TBM홈/작업변경 TEST</div>
+</section></div>
+<div class="footer">TBM Leader v0.12 · 화면전환형 UI TEST</div>
 </main>
 
 <script>
@@ -356,23 +381,18 @@ function jsonp(params){
 }
 
 
-function setViewMode(mode){
-  const previous=document.getElementById('previousSection');
-  const plan=document.getElementById('planSection');
-  const tbmHome=document.getElementById('tbmHomeSection');
-  const tbm=document.getElementById('tbmSection');
 
-  if(mode==='tbm'){
-    previous.classList.add('view-hidden');
-    plan.classList.add('view-hidden');
-    tbmHome.classList.add('active');
-    tbm.classList.remove('view-hidden');
-  }else{
-    previous.classList.remove('view-hidden');
-    plan.classList.remove('view-hidden');
-    tbmHome.classList.remove('active');
-    tbm.classList.remove('view-hidden');
-  }
+function showStage(stageId){
+  document.querySelectorAll('.app-stage').forEach(el=>el.classList.remove('active'));
+  const target=document.getElementById(stageId);
+  if(target) target.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function setViewMode(mode){
+  if(mode==='tbm') showStage('stageTbmHome');
+  else if(mode==='plan') showStage('stagePlan');
+  else showStage('stageLogin');
 }
 
 function saveLastIdentity(){
@@ -441,15 +461,14 @@ async function checkTodayState(silent=false){
       renderEveningTaskList();
       document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
       document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+currentPlan.tasks.length+'건';
-      setViewMode('tbm');
-      window.scrollTo({top:document.getElementById('tbmHomeSection').offsetTop-20,behavior:'smooth'});
-      return true;
+      showStage('stageTbmHome');
+return true;
     }
 
     if(msg) msg.innerHTML='<strong>오늘 저장된 작업계획이 없습니다.</strong> 아래에서 금일 계획을 작성하세요.';
-    setViewMode('plan');
-    if(!silent) window.scrollTo({top:document.getElementById('planSection').offsetTop-20,behavior:'smooth'});
-    return false;
+    showStage('stagePlan');
+    if(!silent)
+return false;
   }catch(err){
     console.error(err);
     if(msg) msg.textContent='오늘 작업계획 확인 실패: '+err.message;
@@ -474,17 +493,15 @@ function populateMorningSummary(){
 }
 
 function openTbmFromHome(panelId){
-  document.getElementById('tbmSection').classList.remove('view-hidden');
+  showStage('stageTbm');
   openPanel(panelId);
   if(panelId==='lunchPanel') renderAfternoonTaskList();
   if(panelId==='eveningPanel') renderEveningTaskList();
-  document.getElementById('tbmSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function showPlanEditor(){
-  setViewMode('plan');
   loadCurrentPlanIntoEditor();
-  document.getElementById('planSection').scrollIntoView({behavior:'smooth',block:'start'});
+  showStage('stagePlan');
 }
 
 async function loadCurrentPlanIntoEditor(){
@@ -1073,10 +1090,9 @@ async function savePlan(){
     renderEveningTaskList();
     document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
     document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+tasks.length+'건';
-    setViewMode('tbm');
+    showStage('stageTbmHome');
     alert('금일 작업계획 '+tasks.length+'건 저장 요청이 완료되었습니다. 브라우저 임시저장본은 삭제되었습니다.');
-    document.getElementById('tbmHomeSection').scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(err){
+}catch(err){
     console.error(err);
     alert('저장 중 오류가 발생했습니다: '+err.message);
   }
@@ -1198,14 +1214,14 @@ async function submitTBM(type){
     }
 
     alert(type+' TBM 저장 요청이 완료되었습니다.');
-    setViewMode('tbm');
-    document.getElementById('tbmHomeSection').scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(err){
+    showStage('stageTbmHome');
+}catch(err){
     console.error(err);
     alert('TBM 저장 중 오류가 발생했습니다: '+err.message);
   }
 }
 
+showStage('stageLogin');
 document.getElementById('teamName').addEventListener('change',loadTeamMembers);
 document.getElementById('siteName').addEventListener('change',loadTeamMembers);
 document.querySelectorAll('input[name="lunchStatus"]').forEach(el=>el.addEventListener('change',handleAfternoonStatusChange));
