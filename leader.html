@@ -362,8 +362,7 @@ async function savePlan(){
     document.getElementById('morningSummary').innerHTML=
       `<strong>${escapeHtml(team)} / ${escapeHtml(site)}</strong><br>`+
       `작업 위치: ${escapeHtml(place)}<br>`+
-      `작업 내용: ${escapeHtml(content).replace(/
-/g,'<br>')}<br>`+
+      `작업 내용: ${escapeHtml(content).replace(/\n/g,'<br>')}<br>`+
       `작업 인원: ${escapeHtml(count||'-')}명<br>`+
       `주요 위험요인: ${escapeHtml(risks.length?risks.join(', '):'없음')}<br>`+
       `안전조치: ${escapeHtml(safety||'-')}`;
