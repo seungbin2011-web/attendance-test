@@ -299,7 +299,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.15</div>
+<div class="footer">© 2026 TBM Leader · v0.16</div>
 </main>
 
 <script>
@@ -1018,9 +1018,35 @@ function getRisks(){
 
 
 
-const PLAN_DRAFT_KEY='tbmLeaderPlanDraft_v10';
+const PLAN_DRAFT_KEY_PREFIX='tbmLeaderPlanDraft_v16';
 let draftSaveTimer=null;
 let restoringDraft=false;
+
+
+function getDraftIdentity(){
+  return {
+    leader:(document.getElementById('leaderName')?.value||'').trim(),
+    team:(document.getElementById('teamName')?.value||'').trim(),
+    site:document.getElementById('siteName')?.value||'',
+    workDate:todayString()
+  };
+}
+
+function getPlanDraftKey(identity=null){
+  const x=identity||getDraftIdentity();
+  return [
+    PLAN_DRAFT_KEY_PREFIX,
+    x.workDate||'',
+    x.leader||'',
+    x.team||'',
+    x.site||''
+  ].map(v=>encodeURIComponent(String(v))).join('|');
+}
+
+function clearOtherSiteDraftIfNeeded(){
+  // 다른 현장/팀의 임시저장본은 지우지 않고 그대로 보존한다.
+  // 현재 선택한 팀장+팀+현장 키만 사용하므로 서로 섞이지 않는다.
+}
 
 function collectPlanDraft(){
   return {
@@ -1047,7 +1073,7 @@ function savePlanDraft(){
   if(restoringDraft) return;
   try{
     const draft=collectPlanDraft();
-    localStorage.setItem(PLAN_DRAFT_KEY,JSON.stringify(draft));
+    localStorage.setItem(getPlanDraftKey(draft),JSON.stringify(draft));
     const el=document.getElementById('draftStatus');
     if(el){
       const d=new Date();
@@ -1061,33 +1087,41 @@ function savePlanDraft(){
 }
 
 function clearPlanDraft(showMessage=false){
-  try{localStorage.removeItem(PLAN_DRAFT_KEY);}catch(e){}
+  try{localStorage.removeItem(getPlanDraftKey());}catch(e){}
   const el=document.getElementById('draftStatus');
   if(el) el.innerHTML='<strong>임시저장:</strong> 없음';
   if(showMessage) alert('이 브라우저에 저장된 임시 작업계획을 삭제했습니다.');
 }
 
 async function restorePlanDraft(){
+  const identity=getDraftIdentity();
+
+  // 팀장/팀/현장이 확정되기 전에는 임시저장본을 복원하지 않는다.
+  if(!identity.leader||!identity.team||!identity.site) return false;
+
   let draft=null;
   try{
-    const raw=localStorage.getItem(PLAN_DRAFT_KEY);
-    if(!raw) return;
+    const raw=localStorage.getItem(getPlanDraftKey(identity));
+    if(!raw) return false;
     draft=JSON.parse(raw);
   }catch(err){
     console.warn('임시저장 읽기 실패',err);
-    return;
+    return false;
   }
 
-  if(!draft || draft.workDate!==todayString()){
-    clearPlanDraft(false);
-    return;
+  if(!draft || draft.workDate!==todayString()) return false;
+
+  // 안전장치: 현재 로그인 정보와 정확히 일치하는 경우에만 복원
+  if(
+    String(draft.leader||'').trim()!==identity.leader ||
+    String(draft.team||'').trim()!==identity.team ||
+    String(draft.site||'')!==identity.site
+  ){
+    return false;
   }
 
   restoringDraft=true;
   try{
-    document.getElementById('leaderName').value=draft.leader||'';
-    document.getElementById('teamName').value=draft.team||'';
-    document.getElementById('siteName').value=draft.site||'';
     document.getElementById('endTime').value=draft.endTime||'';
     document.getElementById('safetyNote').value=draft.safety||'';
 
@@ -1095,7 +1129,6 @@ async function restorePlanDraft(){
       cb.checked=(draft.risks||[]).includes(cb.value);
     });
 
-    // 기존 기본 작업카드를 제거하고 임시저장된 작업들로 재구성
     document.getElementById('taskList').innerHTML='';
     workTasks=[];
     taskSeq=0;
@@ -1107,9 +1140,7 @@ async function restorePlanDraft(){
       members:t.members||[]
     }));
 
-    if(draft.team && draft.site){
-      await loadTeamMembers();
-    }
+    await loadTeamMembers();
 
     const el=document.getElementById('draftStatus');
     if(el){
@@ -1119,9 +1150,38 @@ async function restorePlanDraft(){
         : '';
       el.innerHTML='<strong>임시저장 복원:</strong> '+(tm?tm+' 저장본':'오늘 저장본');
     }
+    return true;
   }finally{
     restoringDraft=false;
   }
+}
+
+
+async function handleIdentityChange(){
+  // 현장/팀을 바꾸면 현재 화면에 남아 있는 이전 현장 작업을 즉시 비운다.
+  currentPlan=null;
+  previousPlanGroup=null;
+  pendingAfternoonChanges={};
+  selectedAfternoonTaskIndex=-1;
+
+  const taskList=document.getElementById('taskList');
+  if(taskList){
+    restoringDraft=true;
+    try{
+      taskList.innerHTML='';
+      workTasks=[];
+      taskSeq=0;
+      addWorkTask();
+    }finally{
+      restoringDraft=false;
+    }
+  }
+
+  const draftStatus=document.getElementById('draftStatus');
+  if(draftStatus) draftStatus.innerHTML='<strong>임시저장:</strong> 현재 현장 기준 확인 중';
+
+  await loadTeamMembers();
+  await restorePlanDraft();
 }
 
 function attachPlanDraftListeners(){
@@ -1360,8 +1420,8 @@ async function submitTBM(type){
 }
 
 showStage('stageLogin');
-document.getElementById('teamName').addEventListener('change',loadTeamMembers);
-document.getElementById('siteName').addEventListener('change',loadTeamMembers);
+document.getElementById('teamName').addEventListener('change',handleIdentityChange);
+document.getElementById('siteName').addEventListener('change',handleIdentityChange);
 document.querySelectorAll('input[name="lunchStatus"]').forEach(el=>el.addEventListener('change',handleAfternoonStatusChange));
 addWorkTask();
 attachPlanDraftListeners();
