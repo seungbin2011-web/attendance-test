@@ -183,7 +183,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.19</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.20</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -311,7 +311,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 
 <div id="eveningPanel" class="panel">
   <div class="section-title"><strong>퇴근 TBM</strong><span class="badge">작업별 저장</span></div>
-  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div>
+  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div><div class="state-box" style="margin-top:-6px;margin-bottom:12px">오후 작업변경 사항을 DB에서 다시 확인한 뒤 최신 작업내용으로 표시합니다.</div>
   <div class="task-tbm-tools">
     <button class="all-clear-btn" id="eveningAllCompleteBtn" type="button" onclick="saveAllEveningComplete()">전체 작업 완료</button>
   </div>
@@ -319,7 +319,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.19</div>
+<div class="footer">© 2026 TBM Leader · v0.20</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -333,7 +333,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzhXQDU0D_V7NYdP3BPlp0PzGQp0qCxUFmDmUwh-QwXIRvkWj3uuV6O59VXRGNHR-lFyg/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySwd9oppficpY7wfzrpwxkJ4yhvtne9JA4s1fvGSI44_pir_UpHhXK3dXbKoyRFYXTMg/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -595,6 +595,48 @@ function makeTbmRecordId(type, planId){
   return `TBM-${todayString().replaceAll('-','')}-${type}-${Math.abs(hash)}`;
 }
 
+
+async function syncCurrentPlanFromDb(){
+  const leader=document.getElementById('leaderName').value.trim();
+  const team=document.getElementById('teamName').value.trim();
+  const site=document.getElementById('siteName').value;
+
+  if(!leader||!team||!site) return false;
+
+  try{
+    const res=await jsonp({
+      action:'todayPlanGroup',
+      leader,team,site,
+      date:todayString()
+    });
+
+    if(!(res && res.success && res.found)) return false;
+
+    currentPlan={
+      groupId:res.groupId,
+      leader:res.leader,
+      team:res.team,
+      site:res.site,
+      tasks:(res.tasks||[]).map((t,i)=>({
+        planId:t.planId,
+        taskNo:t.taskNo||i+1,
+        place:t.place||'',
+        content:t.content||'',
+        members:parseMembersFromServer(t.workerNames,t.workerIds)
+      })),
+      endTime:res.endTime||'',
+      risks:(res.risks||'').split(',').map(v=>v.trim()).filter(Boolean),
+      safety:res.safety||''
+    };
+
+    populateMorningSummary();
+    return true;
+  }catch(err){
+    console.warn('최신 작업계획 동기화 실패',err);
+    return false;
+  }
+}
+
 async function refreshTbmSavedStates(){
   if(!currentPlan) return;
   try{
@@ -643,13 +685,22 @@ function updateTbmTimeGuide(){
 async function openTbmFromHome(panelId){
   showStage('stageTbm');
   openPanel(panelId);
+
   if(panelId==='lunchPanel'){
+    await syncCurrentPlanFromDb();
     await refreshTbmSavedStates();
     renderAfternoonTaskCards();
   }
+
   if(panelId==='eveningPanel'){
-    await refreshTbmSavedStates();
-    renderEveningTaskCards();
+    showLoading('최신 작업정보 확인 중입니다','오후 변경사항을 포함한 최신 작업내용을 DB에서 확인하고 있습니다.');
+    try{
+      await syncCurrentPlanFromDb();
+      await refreshTbmSavedStates();
+      renderEveningTaskCards();
+    }finally{
+      hideLoading();
+    }
   }
 }
 
@@ -792,6 +843,7 @@ async function saveAfternoonNormal(index){
       note:'',extra:`작업 ${t.taskNo} 정상진행`
     });
     markSavedState(t.planId,'오후','정상진행');
+    await syncCurrentPlanFromDb();
     renderAfternoonTaskCards();
   });
 }
@@ -864,6 +916,9 @@ async function saveAfternoonTask(index){
     }
 
     markSavedState(t.planId,'오후',status);
+
+    // 변경이력 저장 직후 DB의 최신 상태를 다시 읽어 currentPlan을 동기화한다.
+    await syncCurrentPlanFromDb();
     renderAfternoonTaskCards();
   }catch(err){
     console.error(err);
@@ -897,6 +952,7 @@ async function saveAllAfternoonNormal(){
       selectedTaskStatuses.afternoon[t.planId]='정상진행';
     }
 
+    await syncCurrentPlanFromDb();
     renderAfternoonTaskCards();
     alert('전체 작업을 이상무로 저장했습니다.');
   }catch(err){
