@@ -67,7 +67,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .view-hidden{display:none!important}
 .compact-action{margin-top:10px}
 .state-box{margin-top:10px;padding:11px 12px;border-radius:10px;background:#F6FAFF;border:1px solid #D8E6F5;font-size:12px;color:var(--muted);line-height:1.5}
-.tbm-home{display:none}
+.tbm-home{display:block}
 .tbm-home.active{display:block}
 .tbm-home-head{padding:12px;border-radius:12px;background:#F5F9FF;border:1px solid #D6E4F3;margin-bottom:12px}
 .tbm-home-title{font-size:16px;font-weight:900;color:var(--navy);margin-bottom:4px}
@@ -237,12 +237,12 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
     </div></div><section class="card tbm-home" id="tbmHomeSection">
   <div class="tbm-home-head">
     <div class="tbm-home-title" id="tbmHomeTitle">오늘 TBM</div>
-    <div class="tbm-home-sub" id="tbmHomeSub">오늘 저장된 작업계획을 불러오면 바로 TBM을 진행할 수 있습니다.</div>
+    <div class="tbm-home-sub" id="tbmHomeSub">오늘 저장된 작업계획을 불러오면 바로 TBM을 진행할 수 있습니다.</div><div class="stage-note" id="tbmTimeGuide">시간대에 따라 추천 TBM을 표시하지만 모든 TBM은 언제든 선택할 수 있습니다.</div>
   </div>
   <div class="tbm-home-menu">
-    <button class="tbm-home-btn morning" type="button" onclick="openTbmFromHome('morningPanel')">출근 TBM</button>
-    <button class="tbm-home-btn lunch" type="button" onclick="openTbmFromHome('lunchPanel')">오후 TBM</button>
-    <button class="tbm-home-btn evening" type="button" onclick="openTbmFromHome('eveningPanel')">퇴근 TBM</button>
+    <button class="tbm-home-btn morning" type="button" onclick="openTbmFromHome('morningPanel')">출근 TBM<br><span style="font-size:11px;font-weight:600;opacity:.9">작업계획 공유</span></button>
+    <button class="tbm-home-btn lunch" type="button" onclick="openTbmFromHome('lunchPanel')">오후 TBM<br><span style="font-size:11px;font-weight:600;opacity:.9">정상/지연/작업변경</span></button>
+    <button class="tbm-home-btn evening" type="button" onclick="openTbmFromHome('eveningPanel')">퇴근 TBM<br><span style="font-size:11px;font-weight:600;opacity:.9">작업별 완료/이월</span></button>
     <button class="tbm-home-btn plan" type="button" onclick="showPlanEditor()">오늘 작업계획 보기/수정</button>
   </div>
 </section></div>
@@ -299,7 +299,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section></div>
-<div class="footer">TBM Leader v0.13 · 전일작업 자동분기 TEST</div>
+<div class="footer">TBM Leader v0.14 · TBM홈 표시 수정</div>
 </main>
 
 <script>
@@ -463,6 +463,7 @@ async function checkTodayState(silent=false){
       renderEveningTaskList();
       document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
       document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+currentPlan.tasks.length+'건';
+      updateTbmTimeGuide();
       showStage('stageTbmHome');
       return true;
     }
@@ -504,6 +505,17 @@ function populateMorningSummary(){
     `예상 종료: ${escapeHtml(currentPlan.endTime||'-')}<br>`+
     `주요 위험요인: ${escapeHtml(currentPlan.risks?.length?currentPlan.risks.join(', '):'없음')}<br>`+
     `안전조치: ${escapeHtml(currentPlan.safety||'-')}`;
+}
+
+
+function updateTbmTimeGuide(){
+  const el=document.getElementById('tbmTimeGuide');
+  if(!el) return;
+  const h=new Date().getHours();
+  let recommended='출근 TBM';
+  if(h>=11 && h<16) recommended='오후 TBM';
+  else if(h>=16) recommended='퇴근 TBM';
+  el.innerHTML='현재 시간 기준 추천: <strong>'+recommended+'</strong> · 다른 TBM도 언제든 선택할 수 있습니다.';
 }
 
 function openTbmFromHome(panelId){
@@ -1214,6 +1226,7 @@ async function savePlan(){
     renderEveningTaskList();
     document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
     document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+tasks.length+'건';
+    updateTbmTimeGuide();
     showStage('stageTbmHome');
     alert('금일 작업계획 '+tasks.length+'건 저장 요청이 완료되었습니다. 브라우저 임시저장본은 삭제되었습니다.');
 }catch(err){
@@ -1338,6 +1351,7 @@ async function submitTBM(type){
     }
 
     alert(type+' TBM 저장 요청이 완료되었습니다.');
+    updateTbmTimeGuide();
     showStage('stageTbmHome');
 }catch(err){
     console.error(err);
