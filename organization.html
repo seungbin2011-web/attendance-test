@@ -52,7 +52,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 @media(max-width:760px){.tree-teams,.unassigned-grid{grid-template-columns:1fr}.unassigned-fab{right:10px;top:auto;bottom:14px}}
 
 
-/* v1.5 compact layout */
+/* v1.6 compact layout */
 .page{max-width:1320px}
 .tree-level.top .group{width:min(560px,100%)}
 .tree-level.manager .group{width:min(430px,100%)}
@@ -81,11 +81,20 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
   .page{max-width:none}
 }
 
+
+/* v1.6 upper cards compact */
+.tree-level.top .group{width:min(440px,100%)}
+.tree-level.manager .group{width:min(340px,100%)}
+.tree-level.top .person,
+.tree-level.manager .person{padding:7px;margin:5px}
+.tree-level.top .group-title,
+.tree-level.manager .group-title{padding:8px 10px}
+
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.5</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.6</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" onclick="location.href='index.html'">메인으로</button>
@@ -141,7 +150,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v1.5</div>
+  <div class="footer">© 2026 Yongin Site Organization · v1.6</div>
 </div>
 
 <script>
