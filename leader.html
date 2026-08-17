@@ -16,6 +16,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .risk-grid,.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.risk,.status-option{border:1px solid var(--line);border-radius:10px;padding:11px;font-size:13px;font-weight:700;background:#fff}
 .risk{display:flex;gap:8px;align-items:center}.risk input{width:17px;height:17px}.status-option{text-align:center}.status-option input{display:none}.status-option:has(input:checked){border-color:var(--blue);background:#EDF5FF;color:#195FB8}
 .btn{width:100%;border:0;border-radius:13px;min-height:52px;color:#fff;font-size:15px;font-weight:800;cursor:pointer}.save{background:var(--blue)}.submit{background:var(--green)}
+.btn[disabled],.tbm-home-btn[disabled],.load-btn[disabled],.stage-small-btn[disabled]{opacity:.58;cursor:not-allowed;pointer-events:none}
+.loading-overlay{position:fixed;inset:0;background:rgba(9,21,37,.35);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.loading-overlay.active{display:flex}
+.loading-card{width:min(320px,100%);background:#fff;border-radius:16px;padding:22px 18px;border:1px solid #D6E2EF;box-shadow:0 18px 44px rgba(9,21,37,.18);text-align:center}
+.loading-spinner{width:42px;height:42px;border:4px solid #DCE8F6;border-top-color:#2E7CF6;border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}
+.loading-title{font-size:16px;font-weight:900;color:var(--navy);margin-bottom:6px}
+.loading-sub{font-size:12px;color:var(--muted);line-height:1.55}
+@keyframes spin{to{transform:rotate(360deg)}}
 .tbm-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.tbm-btn{border:0;border-radius:13px;padding:16px 8px;color:#fff;font-weight:800}.morning{background:var(--blue)}.lunch{background:var(--orange)}.evening{background:var(--navy-dark)}
 .panel{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.panel.open{display:block}
 .summary{background:#F7FAFD;border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.6}
@@ -227,7 +235,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <span id="draftStatus"><strong>임시저장:</strong> 대기 중</span>
   <button type="button" class="draft-clear" onclick="clearPlanDraft(true)">임시저장 삭제</button>
 </div>
-<button class="btn submit" onclick="savePlan()">금일 작업계획 저장</button>
+<button class="btn submit" id="planSaveBtn" type="button" onclick="savePlan()">금일 작업계획 저장</button>
 <div class="notice">각 작업은 작업계획 시트에 한 행씩 저장되며 같은 작업그룹ID로 묶입니다.</div>
 </section></div>
 
@@ -260,7 +268,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <div id="morningPanel" class="panel">
 <div class="summary" id="morningSummary">작업계획을 먼저 작성하면 이곳에 오늘 작업 내용이 자동으로 표시됩니다.</div>
 <div class="field"><label class="label">출근 TBM 추가 전달사항</label><textarea id="morningNote"></textarea></div>
-<button class="btn submit" onclick="submitTBM('출근')">출근 TBM 전파</button>
+<button class="btn submit" id="tbmMorningSubmitBtn" type="button" onclick="submitTBM('출근')">출근 TBM 전파</button>
 </div>
 
 <div id="lunchPanel" class="panel">
@@ -287,7 +295,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
     <button class="btn save" type="button" onclick="applyAfternoonTaskChange()">선택 작업 변경내용 반영</button>
   </div>
 </div>
-<button class="btn submit" onclick="submitTBM('오후')">오후 TBM 전파</button>
+<button class="btn submit" id="tbmAfternoonSubmitBtn" type="button" onclick="submitTBM('오후')">오후 TBM 전파</button>
 </div>
 
 <div id="eveningPanel" class="panel">
@@ -296,17 +304,24 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="evening-task-list" id="eveningTaskList"></div>
 </div>
 <div class="field"><label class="label">퇴근 전달사항</label><textarea id="eveningNote"></textarea></div>
-<button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
+<button class="btn submit" id="tbmEveningSubmitBtn" type="button" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.17</div>
+<div class="footer">© 2026 TBM Leader · v0.18</div>
 </main>
+<div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
+  <div class="loading-card">
+    <div class="loading-spinner"></div>
+    <div class="loading-title" id="loadingTitle">저장 중입니다</div>
+    <div class="loading-sub" id="loadingSub">시트에 기록 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
+  </div>
+</div>
 
 <script>
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTRcizISrdZvkmpbsE-yjOSIra6QJTzfNk31UmL2bKg6CnrDSBUDot_8kBFUDv2Bk/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx-Cg5u37Of65YrQ-Hkz0ZyTY_ZX2TSDoQgtRZ2a1TyTqXLoo_nVY0S4kRTAgyV-vWQIg/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -341,6 +356,56 @@ function escapeHtml(value){
   return String(value??'').replace(/[&<>'"]/g, c=>({
     '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
   }[c]));
+}
+
+const actionLocks={};
+
+function showLoading(title, sub){
+  const overlay=document.getElementById('loadingOverlay');
+  const titleEl=document.getElementById('loadingTitle');
+  const subEl=document.getElementById('loadingSub');
+  if(titleEl) titleEl.textContent=title||'저장 중입니다';
+  if(subEl) subEl.textContent=sub||'시트에 기록 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.';
+  if(overlay){
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden','false');
+  }
+}
+
+function hideLoading(){
+  const overlay=document.getElementById('loadingOverlay');
+  if(overlay){
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden','true');
+  }
+}
+
+function setButtonBusy(button, busy, busyText){
+  if(!button) return;
+  if(!button.dataset.defaultText){
+    button.dataset.defaultText=button.textContent.trim();
+  }
+  button.disabled=!!busy;
+  button.textContent=busy ? (busyText||'처리 중...') : button.dataset.defaultText;
+}
+
+async function runLockedAction(key, buttonId, busyText, loadingTitle, taskFn){
+  if(actionLocks[key]){
+    alert('이미 처리 중입니다. 잠시만 기다려주세요.');
+    return false;
+  }
+  const button=document.getElementById(buttonId);
+  actionLocks[key]=true;
+  setButtonBusy(button,true,busyText);
+  showLoading(loadingTitle,'시트에 기록 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.');
+  try{
+    await taskFn();
+    return true;
+  }finally{
+    hideLoading();
+    setButtonBusy(button,false);
+    actionLocks[key]=false;
+  }
 }
 
 async function postToSheet(payload){
@@ -1208,91 +1273,98 @@ function attachPlanDraftListeners(){
 }
 
 async function savePlan(){
-  const leader=document.getElementById('leaderName').value.trim();
-  const team=document.getElementById('teamName').value.trim();
-  const site=document.getElementById('siteName').value;
-  const endTime=document.getElementById('endTime').value;
-  const risks=getRisks();
-  const safety=document.getElementById('safetyNote').value.trim();
-  const tasks=getWorkTaskData();
+  return runLockedAction(
+    'savePlan',
+    'planSaveBtn',
+    '저장 중...',
+    '작업계획 저장 중입니다',
+    async()=>{
+      const leader=document.getElementById('leaderName').value.trim();
+      const team=document.getElementById('teamName').value.trim();
+      const site=document.getElementById('siteName').value;
+      const endTime=document.getElementById('endTime').value;
+      const risks=getRisks();
+      const safety=document.getElementById('safetyNote').value.trim();
+      const tasks=getWorkTaskData();
 
-  if(!leader||!team||!site){
-    alert('팀장 이름, 팀명, 현장을 입력해주세요.');return;
-  }
-  if(tasks.length===0){
-    alert('작업을 1개 이상 추가해주세요.');return;
-  }
+      if(!leader||!team||!site){
+        alert('팀장 이름, 팀명, 현장을 입력해주세요.');return;
+      }
+      if(tasks.length===0){
+        alert('작업을 1개 이상 추가해주세요.');return;
+      }
 
-  for(const task of tasks){
-    if(!task.place||!task.content){
-      alert('작업 '+task.taskNo+'의 작업 위치와 작업 내용을 입력해주세요.');return;
+      for(const task of tasks){
+        if(!task.place||!task.content){
+          alert('작업 '+task.taskNo+'의 작업 위치와 작업 내용을 입력해주세요.');return;
+        }
+        if(task.members.length===0){
+          alert('작업 '+task.taskNo+'에 투입할 팀원을 1명 이상 선택해주세요.');return;
+        }
+      }
+
+      const assigned={};
+      tasks.forEach(t=>t.members.forEach(m=>{
+        assigned[m.userId||m.name]=(assigned[m.userId||m.name]||0)+1;
+      }));
+      const duplicates=Object.entries(assigned).filter(([,cnt])=>cnt>1);
+      if(duplicates.length){
+        const duplicateNames=[...new Set(tasks.flatMap(t=>t.members)
+          .filter(m=>duplicates.some(([key])=>key===(m.userId||m.name)))
+          .map(m=>m.name))];
+        if(!confirm(`다음 인원이 여러 작업에 중복 배정되어 있습니다.\n${duplicateNames.join(', ')}\n\n그래도 저장할까요?`)) return;
+      }
+
+      const groupId=makeId('GROUP');
+
+      try{
+        for(const task of tasks){
+          const planId=makeId('PLAN');
+          await postToSheet({
+            action:'savePlan',
+            planId,
+            groupId,
+            taskNo:task.taskNo,
+            submittedAt:nowString(),
+            workDate:todayString(),
+            leader,team,site,
+            place:task.place,
+            content:task.content,
+            workerCount:task.members.length,
+            workerNames:task.members.map(m=>m.name).join(', '),
+            workerIds:task.members.map(m=>m.userId).filter(Boolean).join(', '),
+            endTime,
+            risks:risks.join(', '),
+            safety,
+            previousPlanId:previousPlanGroup?.tasks?.[0]?.planId||''
+          });
+          task.planId=planId;
+        }
+
+        currentPlan={groupId,leader,team,site,tasks,endTime,risks,safety};
+
+        document.getElementById('morningSummary').innerHTML=
+          `<strong>${escapeHtml(team)} / ${escapeHtml(site)}</strong><br>`+
+          `<div class="plan-summary-box">${buildPlanSummary(tasks)}</div>`+
+          `예상 종료: ${escapeHtml(endTime||'-')}<br>`+
+          `주요 위험요인: ${escapeHtml(risks.length?risks.join(', '):'없음')}<br>`+
+          `안전조치: ${escapeHtml(safety||'-')}`;
+
+        clearPlanDraft(false);
+        populateMorningSummary();
+        renderAfternoonTaskList();
+        renderEveningTaskList();
+        document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
+        document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+tasks.length+'건';
+        updateTbmTimeGuide();
+        showStage('stageTbmHome');
+        alert('금일 작업계획 '+tasks.length+'건 저장 요청이 완료되었습니다. 브라우저 임시저장본은 삭제되었습니다.');
+      }catch(err){
+        console.error(err);
+        alert('저장 중 오류가 발생했습니다: '+err.message);
+      }
     }
-    if(task.members.length===0){
-      alert('작업 '+task.taskNo+'에 투입할 팀원을 1명 이상 선택해주세요.');return;
-    }
-  }
-
-  // 동일 팀원이 여러 작업에 중복 배정되면 확인
-  const assigned={};
-  tasks.forEach(t=>t.members.forEach(m=>{
-    assigned[m.userId||m.name]=(assigned[m.userId||m.name]||0)+1;
-  }));
-  const duplicates=Object.entries(assigned).filter(([,cnt])=>cnt>1);
-  if(duplicates.length){
-    const duplicateNames=[...new Set(tasks.flatMap(t=>t.members)
-      .filter(m=>duplicates.some(([key])=>key===(m.userId||m.name)))
-      .map(m=>m.name))];
-    if(!confirm('다음 인원이 여러 작업에 중복 배정되어 있습니다.\n'+duplicateNames.join(', ')+'\n\n그래도 저장할까요?')) return;
-  }
-
-  const groupId=makeId('GROUP');
-
-  try{
-    for(const task of tasks){
-      const planId=makeId('PLAN');
-      await postToSheet({
-        action:'savePlan',
-        planId,
-        groupId,
-        taskNo:task.taskNo,
-        submittedAt:nowString(),
-        workDate:todayString(),
-        leader,team,site,
-        place:task.place,
-        content:task.content,
-        workerCount:task.members.length,
-        workerNames:task.members.map(m=>m.name).join(', '),
-        workerIds:task.members.map(m=>m.userId).filter(Boolean).join(', '),
-        endTime,
-        risks:risks.join(', '),
-        safety,
-        previousPlanId:previousPlanGroup?.tasks?.[0]?.planId||''
-      });
-      task.planId=planId;
-    }
-
-    currentPlan={groupId,leader,team,site,tasks,endTime,risks,safety};
-
-    document.getElementById('morningSummary').innerHTML=
-      `<strong>${escapeHtml(team)} / ${escapeHtml(site)}</strong><br>`+
-      `<div class="plan-summary-box">${buildPlanSummary(tasks)}</div>`+
-      `예상 종료: ${escapeHtml(endTime||'-')}<br>`+
-      `주요 위험요인: ${escapeHtml(risks.length?risks.join(', '):'없음')}<br>`+
-      `안전조치: ${escapeHtml(safety||'-')}`;
-
-    clearPlanDraft(false);
-    populateMorningSummary();
-    renderAfternoonTaskList();
-    renderEveningTaskList();
-    document.getElementById('tbmHomeTitle').textContent=leader+' · '+team+' · 오늘 TBM';
-    document.getElementById('tbmHomeSub').textContent=site+' / 저장된 작업 '+tasks.length+'건';
-    updateTbmTimeGuide();
-    showStage('stageTbmHome');
-    alert('금일 작업계획 '+tasks.length+'건 저장 요청이 완료되었습니다. 브라우저 임시저장본은 삭제되었습니다.');
-}catch(err){
-    console.error(err);
-    alert('저장 중 오류가 발생했습니다: '+err.message);
-  }
+  );
 }
 
 
@@ -1311,113 +1383,126 @@ function openPanel(id){
 }
 
 async function submitTBM(type){
-  const leader=document.getElementById('leaderName').value.trim();
-  const team=document.getElementById('teamName').value.trim();
-  const site=document.getElementById('siteName').value;
-  if(!leader||!team||!site){alert('팀장 이름, 팀명, 현장을 먼저 입력해주세요.');return;}
-  if(!currentPlan){alert('오늘 저장된 작업계획을 먼저 불러오거나 작성해주세요.');return;}
+  const buttonMap={출근:'tbmMorningSubmitBtn',오후:'tbmAfternoonSubmitBtn',퇴근:'tbmEveningSubmitBtn'};
+  const busyMap={출근:'전파 중...',오후:'전파 중...',퇴근:'전파 중...'};
+  const titleMap={출근:'출근 TBM 저장 중입니다',오후:'오후 TBM 저장 중입니다',퇴근:'퇴근 TBM 저장 중입니다'};
 
-  let status='';
-  let note='';
-  let extra='';
+  return runLockedAction(
+    'tbm_'+type,
+    buttonMap[type],
+    busyMap[type],
+    titleMap[type],
+    async()=>{
+      const leader=document.getElementById('leaderName').value.trim();
+      const team=document.getElementById('teamName').value.trim();
+      const site=document.getElementById('siteName').value;
+      if(!leader||!team||!site){alert('팀장 이름, 팀명, 현장을 먼저 입력해주세요.');return;}
+      if(!currentPlan){alert('오늘 저장된 작업계획을 먼저 불러오거나 작성해주세요.');return;}
 
-  if(type==='출근'){
-    note=document.getElementById('morningNote').value.trim();
-    status='작업계획 공유';
-    extra=currentPlan.tasks.map(t=>`작업${t.taskNo}: ${t.content} (${t.members.map(m=>m.name).join(', ')})`).join(' / ');
-  }else if(type==='오후'){
-    const selected=document.querySelector('input[name="lunchStatus"]:checked');
-    if(!selected){alert('오전 작업상황을 선택해주세요.');return;}
-    status=selected.value;
-    note=document.getElementById('lunchNote').value.trim();
+      let status='';
+      let note='';
+      let extra='';
 
-    if(status!=='정상진행'){
-      const changeEntries=Object.entries(pendingAfternoonChanges);
-      if(changeEntries.length===0){
-        alert('지연/작업변경/위험사항 발생 시 변경 또는 영향받은 작업을 선택해 내용을 반영해주세요.');
-        return;
-      }
+      if(type==='출근'){
+        note=document.getElementById('morningNote').value.trim();
+        status='작업계획 공유';
+        extra=currentPlan.tasks.map(t=>`작업${t.taskNo}: ${t.content} (${t.members.map(m=>m.name).join(', ')})`).join(' / ');
+      }else if(type==='오후'){
+        const selected=document.querySelector('input[name="lunchStatus"]:checked');
+        if(!selected){alert('오전 작업상황을 선택해주세요.');return;}
+        status=selected.value;
+        note=document.getElementById('lunchNote').value.trim();
 
-      for(const [planId,chg] of changeEntries){
-        const task=currentPlan.tasks.find(t=>t.planId===planId);
-        await postToSheet({
-          action:'saveChange',
-          changeId:makeId('CHG'),
-          submittedAt:nowString(),
-          workDate:todayString(),
-          groupId:currentPlan.groupId,
-          planId,
-          leader,team,site,
-          type:status,
-          beforePlace:task?.place||'',
-          beforeContent:task?.content||'',
-          beforeMembers:task?.members?.map(m=>m.name).join(', ')||'',
-          afterPlace:chg.place,
-          afterContent:chg.content,
-          afterMembers:chg.members.map(m=>m.name).join(', '),
-          afterMemberIds:chg.members.map(m=>m.userId).filter(Boolean).join(', '),
-          reason:chg.reason||note
-        });
+        if(status!=='정상진행'){
+          const changeEntries=Object.entries(pendingAfternoonChanges);
+          if(changeEntries.length===0){
+            alert('지연/작업변경/위험사항 발생 시 변경 또는 영향받은 작업을 선택해 내용을 반영해주세요.');
+            return;
+          }
 
-        if(task){
-          task.place=chg.place;
-          task.content=chg.content;
-          task.members=chg.members;
+          for(const [planId,chg] of changeEntries){
+            const task=currentPlan.tasks.find(t=>t.planId===planId);
+            await postToSheet({
+              action:'saveChange',
+              changeId:makeId('CHG'),
+              submittedAt:nowString(),
+              workDate:todayString(),
+              groupId:currentPlan.groupId,
+              planId,
+              leader,team,site,
+              type:status,
+              beforePlace:task?.place||'',
+              beforeContent:task?.content||'',
+              beforeMembers:task?.members?.map(m=>m.name).join(', ')||'',
+              afterPlace:chg.place,
+              afterContent:chg.content,
+              afterMembers:chg.members.map(m=>m.name).join(', '),
+              afterMemberIds:chg.members.map(m=>m.userId).filter(Boolean).join(','),
+              reason:chg.reason||note
+            });
+
+            if(task){
+              task.place=chg.place;
+              task.content=chg.content;
+              task.members=chg.members;
+            }
+          }
+          extra='변경 작업 '+Object.keys(pendingAfternoonChanges).length+'건';
+        }
+
+      }else{
+        const results=getEveningResults();
+        if(results.some(r=>!r.status)){
+          alert('모든 작업의 완료/일부완료/미완료 상태를 선택해주세요.');
+          return;
+        }
+        status='작업별 결과';
+        note=document.getElementById('eveningNote').value.trim();
+        extra=results.map(r=>`작업${r.task.taskNo}:${r.status}`).join(' / ');
+
+        for(const r of results){
+          await postToSheet({
+            action:'saveResult',
+            planId:r.task.planId,
+            workDate:todayString(),
+            leader,team,site,
+            doneWork:r.status==='완료' ? r.task.content : '',
+            carryWork:r.status==='완료' ? '' : (r.carry||r.task.content),
+            reasonCodes:r.status,
+            reasonDetail:r.reason||'',
+            submittedAt:nowString()
+          });
         }
       }
-      extra='변경 작업 '+Object.keys(pendingAfternoonChanges).length+'건';
+
+      try{
+        await postToSheet({
+          action:'saveTbm',
+          tbmId:makeId('TBM'),
+          submittedAt:nowString(),
+          workDate:todayString(),
+          planId:currentPlan.groupId||'',
+          leader,team,site,type,status,note,extra
+        });
+
+        if(type==='오후'){
+          pendingAfternoonChanges={};
+          selectedAfternoonTaskIndex=-1;
+          populateMorningSummary();
+          renderAfternoonTaskList();
+        }
+
+        alert(type+' TBM 저장 요청이 완료되었습니다.');
+        updateTbmTimeGuide();
+        showStage('stageTbmHome');
+      }catch(err){
+        console.error(err);
+        alert('TBM 저장 중 오류가 발생했습니다: '+err.message);
+      }
     }
-
-  }else{
-    const results=getEveningResults();
-    if(results.some(r=>!r.status)){
-      alert('모든 작업의 완료/일부완료/미완료 상태를 선택해주세요.');
-      return;
-    }
-    status='작업별 결과';
-    note=document.getElementById('eveningNote').value.trim();
-    extra=results.map(r=>`작업${r.task.taskNo}:${r.status}`).join(' / ');
-
-    for(const r of results){
-      await postToSheet({
-        action:'saveResult',
-        planId:r.task.planId,
-        workDate:todayString(),
-        leader,team,site,
-        doneWork:r.status==='완료' ? r.task.content : '',
-        carryWork:r.status==='완료' ? '' : (r.carry||r.task.content),
-        reasonCodes:r.status,
-        reasonDetail:r.reason||'',
-        submittedAt:nowString()
-      });
-    }
-  }
-
-  try{
-    await postToSheet({
-      action:'saveTbm',
-      tbmId:makeId('TBM'),
-      submittedAt:nowString(),
-      workDate:todayString(),
-      planId:currentPlan.groupId||'',
-      leader,team,site,type,status,note,extra
-    });
-
-    if(type==='오후'){
-      pendingAfternoonChanges={};
-      selectedAfternoonTaskIndex=-1;
-      populateMorningSummary();
-      renderAfternoonTaskList();
-    }
-
-    alert(type+' TBM 저장 요청이 완료되었습니다.');
-    updateTbmTimeGuide();
-    showStage('stageTbmHome');
-}catch(err){
-    console.error(err);
-    alert('TBM 저장 중 오류가 발생했습니다: '+err.message);
-  }
+  );
 }
+
 
 showStage('stageLogin');
 document.getElementById('teamName').addEventListener('change',handleIdentityChange);
