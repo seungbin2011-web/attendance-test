@@ -197,7 +197,21 @@
       .attendance,.choice-grid{grid-template-columns:1fr}
       .card,.journal-card{padding-left:15px;padding-right:15px}
     }
-  </style>
+  
+.worker-info{
+  margin-top:8px;
+  padding:9px 10px;
+  border-radius:8px;
+  background:#F4F7FA;
+  border:1px solid #DCE5EE;
+  color:#5F6F7F;
+  font-size:12px;
+  line-height:1.5;
+}
+.worker-info.ok{background:#EEF8F2;border-color:#BFE1CB;color:#23613A}
+.worker-info.bad{background:#FFF4F3;border-color:#F2C5C0;color:#9E3C32}
+
+</style>
 </head>
 
 <body>
@@ -217,8 +231,12 @@
     </div>
 
     <div class="field">
-      <div class="label"><span class="num">1</span>근로자 이름</div>
-      <input id="workerName" type="text" autocomplete="name" placeholder="이름 작성">
+      <div class="label"><span class="num">1</span>근로자 선택</div>
+      <input id="workerSearch" type="text" autocomplete="off" placeholder="이름 검색">
+      <select id="workerSelect" style="margin-top:8px">
+        <option value="">정식 인원DB 불러오는 중...</option>
+      </select>
+      <div id="workerInfo" class="worker-info">인원DB 확인 중...</div>
     </div>
 
     <div class="field">
@@ -252,6 +270,7 @@
       <div class="status-head">처리 결과</div>
       <div class="status-body">
         <div class="row"><span class="k">근로자</span><span class="v" id="resultName">-</span></div>
+        <div class="row"><span class="k">소속 / 권한</span><span class="v" id="resultOrg">-</span></div>
         <div class="row"><span class="k">선택 현장</span><span class="v" id="resultSite">-</span></div>
         <div class="row"><span class="k">구분</span><span class="v" id="resultType">-</span></div>
         <div class="row"><span class="k">처리 시간</span><span class="v" id="resultTime">-</span></div>
@@ -263,11 +282,11 @@
 
     <div class="privacy">
       ※ 위치정보는 출근·퇴근 확인을 위해 버튼을 누르는 순간 1회 사용합니다.
-      현재 테스트 버전은 서버에 출퇴근 기록·GPS·서명 데이터를 저장하지 않습니다.
+      근로자 정보는 조직도 정식 인원DB에서 조회합니다.
     </div>
   </section>
 
-  <div class="footer">Attendance Test v0.5 · Google Sheet 연동 TEST</div>
+  <div class="footer">Attendance v0.6 · 정식 인원DB 연동</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -347,19 +366,156 @@
 
 <script>
   const SITES = {
-    "용인 현장": { lat:37.22166297062083, lng:127.21644981308683, radius:450 },
+    "용인 현장": { lat:37.22166297062083, lng:127.21644981308683, radius:200 },
     "용인 하이닉스 현장": { lat:37.1428597051933, lng:127.308726487138, radius:1000 },
-    "용인 사무실": { lat:37.2005165788433, lng:127.335582111781, radius:450 },
-    "이천 사무실": { lat:37.259091043016284, lng:127.48192389640387, radius:450 }
+    "용인 사무실": { lat:37.2005165788433, lng:127.335582111781, radius:200 },
+    "이천 사무실": { lat:37.259091043016284, lng:127.48192389640387, radius:200 }
   };
 
   const TEMP_PASSWORD = "1234";
 
   // Google Apps Script 웹 앱 URL
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_-GNsf0JdlcCleyRdHXHGevR0dq9reojZTwaPMc03DAvFQtWtMpyuc-ert-i4aIab/exec";
+  const ORGANIZATION_API_URL = "https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
 
   let pendingAttendance = null;
   let signatureHasInk = false;
+  let personnel = [];
+  let selectedWorker = null;
+
+
+  function orgJsonp(params){
+    return new Promise((resolve,reject)=>{
+      const cb="att_org_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+      const script=document.createElement("script");
+      const timer=setTimeout(()=>{
+        cleanup();
+        reject(new Error("인원DB 응답 시간 초과"));
+      },15000);
+
+      function cleanup(){
+        clearTimeout(timer);
+        try{delete window[cb]}catch(e){}
+        script.remove();
+      }
+
+      window[cb]=(data)=>{
+        cleanup();
+        resolve(data);
+      };
+
+      const query=new URLSearchParams({...params,callback:cb});
+      script.src=ORGANIZATION_API_URL+"?"+query.toString();
+      script.onerror=()=>{
+        cleanup();
+        reject(new Error("인원DB 연결 실패"));
+      };
+      document.body.appendChild(script);
+    });
+  }
+
+  function cleanText(v){
+    return String(v??"").trim();
+  }
+
+  function isActiveWorker(p){
+    return cleanText(p["사용여부"]).toUpperCase()!=="N";
+  }
+
+  function workerLabel(p){
+    const team=cleanText(p["팀"])||"팀 미지정";
+    const rank=cleanText(p["직급"])||cleanText(p["권한"])||"";
+    return `${cleanText(p["성명"])} · ${team}${rank ? " · "+rank : ""}`;
+  }
+
+  function renderWorkerOptions(list){
+    const select=document.getElementById("workerSelect");
+    const current=select.value;
+
+    select.innerHTML='<option value="">근로자를 선택하세요</option>'+
+      list.map(p=>`<option value="${cleanText(p["사용자ID"])}">${workerLabel(p)}</option>`).join("");
+
+    if(current && list.some(p=>cleanText(p["사용자ID"])===current)){
+      select.value=current;
+    }
+  }
+
+  function updateWorkerInfo(){
+    const select=document.getElementById("workerSelect");
+    const id=select.value;
+    selectedWorker=personnel.find(p=>cleanText(p["사용자ID"])===id)||null;
+
+    const info=document.getElementById("workerInfo");
+    if(!selectedWorker){
+      info.className="worker-info";
+      info.textContent="정식 인원DB에서 근로자를 선택해주세요.";
+      return;
+    }
+
+    const team=cleanText(selectedWorker["팀"])||"팀 미지정";
+    const rank=cleanText(selectedWorker["직급"])||"-";
+    const role=cleanText(selectedWorker["권한"])||"-";
+    const dbSite=cleanText(selectedWorker["TBM현장"]);
+
+    info.className="worker-info ok";
+    info.textContent=`${cleanText(selectedWorker["사용자ID"])} · ${team} · ${rank} · ${role}`;
+
+    // 정식 DB에 출결 현장이 정확히 지정된 경우에만 자동 선택
+    const siteSelect=document.getElementById("site");
+    const siteMap={
+      "용인 현장":"용인 현장",
+      "용인 하이닉스":"용인 하이닉스 현장",
+      "용인 하이닉스 현장":"용인 하이닉스 현장",
+      "용인 사무실":"용인 사무실",
+      "이천 사무실":"이천 사무실"
+    };
+    if(dbSite && dbSite!=="전체" && siteMap[dbSite]){
+      siteSelect.value=siteMap[dbSite];
+    }
+  }
+
+  async function loadPersonnel(){
+    const select=document.getElementById("workerSelect");
+    const info=document.getElementById("workerInfo");
+
+    try{
+      const res=await orgJsonp({action:"personnelOrg"});
+      if(!(res && res.success)){
+        throw new Error(res?.message||"인원DB 조회 실패");
+      }
+
+      personnel=(res.people||[])
+        .filter(p=>cleanText(p["성명"]) && isActiveWorker(p))
+        .sort((a,b)=>cleanText(a["성명"]).localeCompare(cleanText(b["성명"]),"ko"));
+
+      renderWorkerOptions(personnel);
+      info.className="worker-info ok";
+      info.textContent=`정식 인원DB ${personnel.length}명 연결 완료`;
+    }catch(err){
+      console.error("인원DB 오류:",err);
+      personnel=[];
+      select.innerHTML='<option value="">인원DB 연결 확인 필요</option>';
+      info.className="worker-info bad";
+      info.textContent="인원DB를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.";
+    }
+  }
+
+  document.getElementById("workerSearch").addEventListener("input",function(){
+    const q=cleanText(this.value).toLowerCase();
+    const filtered=!q ? personnel : personnel.filter(p=>{
+      const text=[
+        p["성명"],p["팀"],p["직급"],p["권한"],p["직무"],p["사용자ID"]
+      ].map(cleanText).join(" ").toLowerCase();
+      return text.includes(q);
+    });
+    renderWorkerOptions(filtered);
+    selectedWorker=null;
+    document.getElementById("workerInfo").className="worker-info";
+    document.getElementById("workerInfo").textContent=
+      q ? `검색 결과 ${filtered.length}명` : `정식 인원DB ${personnel.length}명 연결 완료`;
+  });
+
+  document.getElementById("workerSelect").addEventListener("change",updateWorkerInfo);
 
   function togglePassword(){
     const input=document.getElementById("password");
@@ -432,16 +588,41 @@
   }
 
   function validateBasic(){
-    const name=document.getElementById("workerName").value.trim();
+    const workerId=document.getElementById("workerSelect").value;
     const siteName=document.getElementById("site").value;
     const password=document.getElementById("password").value;
 
-    if(!name){alert("근로자 이름을 입력해주세요.");document.getElementById("workerName").focus();return null;}
-    if(!siteName){alert("현장을 선택해주세요.");document.getElementById("site").focus();return null;}
-    if(!password){alert("암호를 입력해주세요.");document.getElementById("password").focus();return null;}
-    if(password!==TEMP_PASSWORD){alert("암호가 올바르지 않습니다.");document.getElementById("password").focus();return null;}
+    selectedWorker=personnel.find(p=>cleanText(p["사용자ID"])===workerId)||null;
 
-    return {name,siteName};
+    if(!selectedWorker){
+      alert("정식 인원DB에서 근로자를 선택해주세요.");
+      document.getElementById("workerSelect").focus();
+      return null;
+    }
+    if(!siteName){
+      alert("현장을 선택해주세요.");
+      document.getElementById("site").focus();
+      return null;
+    }
+    if(!password){
+      alert("암호를 입력해주세요.");
+      document.getElementById("password").focus();
+      return null;
+    }
+    if(password!==TEMP_PASSWORD){
+      alert("암호가 올바르지 않습니다.");
+      document.getElementById("password").focus();
+      return null;
+    }
+
+    return {
+      userId:cleanText(selectedWorker["사용자ID"]),
+      name:cleanText(selectedWorker["성명"]),
+      team:cleanText(selectedWorker["팀"]),
+      rank:cleanText(selectedWorker["직급"]),
+      role:cleanText(selectedWorker["권한"]),
+      siteName
+    };
   }
 
   function startAttendance(type){
@@ -449,19 +630,23 @@
     if(!basic)return;
 
     if(type==="퇴근"){
-      pendingAttendance={type,name:basic.name,siteName:basic.siteName};
+      pendingAttendance={type,userId:basic.userId,name:basic.name,team:basic.team,rank:basic.rank,role:basic.role,siteName:basic.siteName};
       openJournal(basic.name,basic.siteName);
       return;
     }
 
-    processAttendance(type,basic.name,basic.siteName,null);
+    processAttendance(type,basic.name,basic.siteName,null,basic);
   }
 
-  function processAttendance(type,name,siteName,journalData){
+  function processAttendance(type,name,siteName,journalData,workerData=null){
     const site=SITES[siteName];
 
     document.getElementById("statusCard").style.display="block";
     setResult("resultName",name);
+    const org=workerData||selectedWorker||{};
+    const orgTeam=cleanText(org.team||org["팀"])||"-";
+    const orgRole=cleanText(org.role||org.rank||org["권한"]||org["직급"])||"-";
+    setResult("resultOrg",orgTeam+" / "+orgRole);
     setResult("resultSite",siteName);
     setResult("resultType",type);
     setResult("resultTime",formatNow());
@@ -501,7 +686,11 @@
 
         const sheetPayload = {
           date: formatDateOnly(),
+          userId: cleanText(org.userId||org["사용자ID"]),
           name: name,
+          team: cleanText(org.team||org["팀"]),
+          rank: cleanText(org.rank||org["직급"]),
+          role: cleanText(org.role||org["권한"]),
           site: siteName,
           type: type,
           time: formatTimeOnly(),
@@ -541,7 +730,11 @@
 
         sendToGoogleSheet({
           date: formatDateOnly(),
+          userId: cleanText(org.userId||org["사용자ID"]),
           name: name,
+          team: cleanText(org.team||org["팀"]),
+          rank: cleanText(org.rank||org["직급"]),
+          role: cleanText(org.role||org["권한"]),
           site: siteName,
           type: type,
           time: formatTimeOnly(),
@@ -627,7 +820,7 @@
     document.body.style.overflow="";
     pendingAttendance=null;
 
-    processAttendance("퇴근",data.name,data.siteName,journalData);
+    processAttendance("퇴근",data.name,data.siteName,journalData,data);
   }
 
   /* 서명 패드 */
@@ -698,6 +891,7 @@
   window.addEventListener("resize",()=>{
     if(document.getElementById("journalOverlay").classList.contains("open"))resizeCanvas();
   });
+  loadPersonnel();
 </script>
 </body>
 </html>
