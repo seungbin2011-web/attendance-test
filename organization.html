@@ -51,11 +51,41 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 @media(max-width:1100px){.tree-teams{grid-template-columns:repeat(3,1fr)}.unassigned-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.tree-teams,.unassigned-grid{grid-template-columns:1fr}.unassigned-fab{right:10px;top:auto;bottom:14px}}
 
+
+/* v1.5 compact layout */
+.page{max-width:1320px}
+.tree-level.top .group{width:min(560px,100%)}
+.tree-level.manager .group{width:min(430px,100%)}
+.tree-teams{
+  grid-template-columns:repeat(5,minmax(170px,220px));
+  justify-content:center;
+  gap:10px;
+}
+.group{min-width:0}
+.group-title{padding:9px 10px}
+.person{margin:6px;padding:8px}
+.name{font-size:13px}
+.meta{font-size:10.5px}
+.team-leader-zone{padding:6px 6px 0}
+.team-member-zone{padding:0 6px 6px}
+.zone-label{margin:4px 2px 3px}
+.filters{max-width:1000px;margin-left:auto;margin-right:auto}
+.summary{max-width:1000px;margin-left:auto;margin-right:auto}
+.notice{max-width:1000px;margin-left:auto;margin-right:auto}
+@media(max-width:1180px){
+  .tree-teams{grid-template-columns:repeat(3,minmax(180px,230px))}
+}
+@media(max-width:760px){
+  .tree-level.top .group,.tree-level.manager .group{width:100%}
+  .tree-teams{grid-template-columns:1fr}
+  .page{max-width:none}
+}
+
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.4</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.5</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" onclick="location.href='index.html'">메인으로</button>
@@ -111,7 +141,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v1.4</div>
+  <div class="footer">© 2026 Yongin Site Organization · v1.5</div>
 </div>
 
 <script>
