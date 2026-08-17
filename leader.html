@@ -299,7 +299,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.16</div>
+<div class="footer">© 2026 TBM Leader · v0.17</div>
 </main>
 
 <script>
@@ -1423,15 +1423,21 @@ showStage('stageLogin');
 document.getElementById('teamName').addEventListener('change',handleIdentityChange);
 document.getElementById('siteName').addEventListener('change',handleIdentityChange);
 document.querySelectorAll('input[name="lunchStatus"]').forEach(el=>el.addEventListener('change',handleAfternoonStatusChange));
+
+restoringDraft=true;
 addWorkTask();
+restoringDraft=false;
+
 attachPlanDraftListeners();
 restoreLastIdentity();
-restorePlanDraft().then(()=>{
-  const leader=document.getElementById('leaderName').value.trim();
-  const team=document.getElementById('teamName').value.trim();
-  const site=document.getElementById('siteName').value;
-  if(leader&&team&&site) checkTodayState(true);
-});
+restorePlanDraft();
+
+// 새로고침 시에는 서버 조회/상태확인을 자동 실행하지 않습니다.
+// 사용자가 '오늘 상태 확인' 버튼을 눌렀을 때만 조회합니다.
+const startupMsg=document.getElementById('todayStateMsg');
+if(startupMsg){
+  startupMsg.innerHTML='<strong>준비 완료.</strong> 오늘 상태 확인 버튼을 눌러주세요.';
+}
 </script>
 </body>
 </html>
