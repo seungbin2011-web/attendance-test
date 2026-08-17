@@ -267,7 +267,7 @@
     </div>
   </section>
 
-  <div class="footer">Attendance Test v0.4 · 무사고 일지 TEST</div>
+  <div class="footer">Attendance Test v0.5 · Google Sheet 연동 TEST</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -355,6 +355,9 @@
 
   const TEMP_PASSWORD = "1234";
 
+  // Google Apps Script 웹 앱 URL
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3dzyNWZEWMgNwdF7A8NqxGCz44sqXcyvVlEIDYNjE9YNLRhu21fmCPGqPz1EeapQ7/exec";
+
   let pendingAttendance = null;
   let signatureHasInk = false;
 
@@ -374,6 +377,41 @@
     const mm=String(d.getMinutes()).padStart(2,"0");
     const ss=String(d.getSeconds()).padStart(2,"0");
     return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+  }
+
+  function formatDateOnly(){
+    const d=new Date();
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,"0");
+    const day=String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function formatTimeOnly(){
+    const d=new Date();
+    const hh=String(d.getHours()).padStart(2,"0");
+    const mm=String(d.getMinutes()).padStart(2,"0");
+    const ss=String(d.getSeconds()).padStart(2,"0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  async function sendToGoogleSheet(payload){
+    try{
+      await fetch(GOOGLE_SCRIPT_URL,{
+        method:"POST",
+        mode:"no-cors",
+        headers:{
+          "Content-Type":"text/plain;charset=utf-8"
+        },
+        body:JSON.stringify(payload)
+      });
+
+      console.log("Google Sheet 전송 요청 완료:",payload);
+      return true;
+    }catch(err){
+      console.error("Google Sheet 전송 오류:",err);
+      return false;
+    }
   }
 
   function toRad(v){return v*Math.PI/180}
@@ -449,6 +487,7 @@
         setResult("resultAccuracy","± "+Math.round(accuracy)+" m");
 
         const journalFlag = journalData && journalData.hasIssue;
+        const locationStatus = distance<=site.radius ? "현장 내" : "현장 외";
 
         if(distance<=site.radius){
           if(type==="퇴근" && journalFlag){
@@ -459,6 +498,24 @@
         }else{
           setResult("resultStatus","현장 외 · 확인 필요","bad");
         }
+
+        const sheetPayload = {
+          date: formatDateOnly(),
+          name: name,
+          site: siteName,
+          type: type,
+          time: formatTimeOnly(),
+          distance: Math.round(distance),
+          accuracy: Math.round(accuracy),
+          locationStatus: locationStatus,
+          accident: journalData ? journalData.accident : "-",
+          nearMiss: journalData ? journalData.nearMiss : "-",
+          equipment: journalData ? journalData.equipment : "-",
+          note: journalData ? journalData.note : "-",
+          signature: journalData && journalData.signed ? "완료" : "-"
+        };
+
+        sendToGoogleSheet(sheetPayload);
 
         console.log({
           worker:name,
@@ -481,6 +538,22 @@
         setResult("resultDistance","-");
         setResult("resultAccuracy","-");
         setResult("resultStatus",message,"bad");
+
+        sendToGoogleSheet({
+          date: formatDateOnly(),
+          name: name,
+          site: siteName,
+          type: type,
+          time: formatTimeOnly(),
+          distance: "",
+          accuracy: "",
+          locationStatus: "위치 확인 실패",
+          accident: journalData ? journalData.accident : "-",
+          nearMiss: journalData ? journalData.nearMiss : "-",
+          equipment: journalData ? journalData.equipment : "-",
+          note: journalData ? journalData.note : "-",
+          signature: journalData && journalData.signed ? "완료" : "-"
+        });
       },
       {enableHighAccuracy:true,timeout:15000,maximumAge:0}
     );
