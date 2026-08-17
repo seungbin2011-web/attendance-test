@@ -42,6 +42,22 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .member-role{font-size:11px;color:var(--muted);font-weight:400;margin-left:auto}
 .member-empty{grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:12px;background:#fff;border-radius:10px;border:1px dashed var(--line)}
 @media(max-width:440px){.member-list{grid-template-columns:1fr}}
+.task-list{display:flex;flex-direction:column;gap:14px;margin:14px 0}
+.task-card{border:1px solid #CAD8E8;border-radius:14px;background:#F8FBFF;padding:14px}
+.task-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.task-title{font-size:15px;font-weight:900;color:var(--navy)}
+.task-remove{border:1px solid #E0A7A7;background:#fff;color:#A12B2B;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
+.task-card .field{margin-bottom:12px}
+.task-card .field:last-child{margin-bottom:0}
+.task-members{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.task-member{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px;font-size:13px;font-weight:700}
+.task-member input{width:17px;height:17px;min-height:auto;margin:0}
+.task-member .member-role{margin-left:auto}
+.task-member-empty{grid-column:1/-1;padding:14px;text-align:center;color:var(--muted);font-size:12px;background:#fff;border-radius:10px;border:1px dashed var(--line)}
+.add-task-btn{width:100%;border:1px dashed #2F7DF6;background:#EEF5FF;color:#155FC8;border-radius:12px;padding:13px;font-size:14px;font-weight:900;cursor:pointer;margin:4px 0 14px}
+.plan-summary-box{background:#F6FAFF;border:1px solid #D5E3F3;border-radius:12px;padding:12px;margin-top:10px;font-size:13px;line-height:1.65}
+@media(max-width:440px){.task-members{grid-template-columns:1fr}}
+
 
 @media(max-width:430px){.grid2,.risk-grid,.status-grid,.result-grid{grid-template-columns:1fr}.read-row{grid-template-columns:90px 1fr}}
 </style>
@@ -112,30 +128,23 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </section>
 
 <section class="card">
-<div class="section-title"><strong>금일 작업계획서</strong><span class="badge">금일 갱신</span></div>
-<div class="desc">전일 이월 작업을 반영하고 오늘 신규 작업을 추가합니다.</div>
+<div class="section-title"><strong>금일 작업계획서</strong><span class="badge">작업별 인원배정</span></div>
+<div class="desc">같은 팀이 한 현장에서 여러 작업을 할 경우 작업을 추가하고 각 작업마다 팀원을 따로 선택합니다.</div>
 
 <div class="carry-box">
   <div class="carry-title">전일 이월 작업</div>
   <div class="carry-text" id="carryPreview">전일 이월 작업을 반영하면 이곳에 표시됩니다.</div>
 </div>
 
-<div class="field"><label class="label">작업 위치</label><input id="workPlace" placeholder="예: 3층 MDF실 / A구역"></div>
-<div class="field"><label class="label">오늘 작업 내용</label><textarea id="workContent" placeholder="전일 이월 + 오늘 신규 작업 내용을 작성하세요."></textarea></div>
 <div class="field">
-<label class="label">작업 팀원 선택</label>
-<div class="member-box">
-  <div class="member-toolbar">
-    <span class="member-count" id="memberCount">선택 0명</span>
-    <button class="member-refresh" type="button" onclick="loadTeamMembers()">팀원 새로고침</button>
-  </div>
-  <div class="member-list" id="memberList">
-    <div class="member-empty">팀명과 현장을 입력하면 인력현황 시트에서 팀원을 불러옵니다.</div>
-  </div>
+  <label class="label">예상 종료시간</label>
+  <input id="endTime" type="time">
 </div>
-</div>
-<div class="field"><label class="label">예상 종료시간</label><input id="endTime" type="time"></div>
-<div class="field"><label class="label">주요 위험요인</label>
+
+<div id="taskList" class="task-list"></div>
+<button class="add-task-btn" type="button" onclick="addWorkTask()">＋ 작업 추가</button>
+
+<div class="field"><label class="label">공통 주요 위험요인</label>
 <div class="risk-grid">
 <label class="risk"><input type="checkbox" value="고소작업">고소작업</label>
 <label class="risk"><input type="checkbox" value="전기">전기</label>
@@ -144,9 +153,11 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <label class="risk"><input type="checkbox" value="장비사용">장비사용</label>
 <label class="risk"><input type="checkbox" value="기타">기타</label>
 </div></div>
-<div class="field"><label class="label">안전조치 / 전달사항</label><textarea id="safetyNote" placeholder="팀원에게 전달할 안전조치와 작업 유의사항을 작성하세요."></textarea></div>
+
+<div class="field"><label class="label">안전조치 / 전달사항</label><textarea id="safetyNote" placeholder="오늘 작업 전체에 공통으로 전달할 안전조치와 유의사항을 작성하세요."></textarea></div>
+
 <button class="btn submit" onclick="savePlan()">금일 작업계획 저장</button>
-<div class="notice">Google Sheet 연동 테스트 버전입니다. 작업계획과 TBM이 시트에 저장되고, 이전 작업계획을 불러올 수 있습니다.</div>
+<div class="notice">각 작업은 작업계획 시트에 한 행씩 저장되며 같은 작업그룹ID로 묶입니다.</div>
 </section>
 
 <section class="card">
@@ -188,14 +199,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
 </div>
 </section>
-<div class="footer">TBM Leader v0.7 · 인력현황 연동 TEST</div>
+<div class="footer">TBM Leader v0.9 · 다중작업/팀원배정 TEST</div>
 </main>
 
 <script>
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyo4ntQKyTQgLZeK1HO2pjYPgOGnmgrgKX5OAAz-nUoOP6zssEj9enUoFh4Jy6UKp5fqg/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZnMD_2Eet5i8vCnGFCBIN2ns-hmH1_0fQ3nkPEtMdI4xo54mCd8-VFHuccSp2Mttjuw/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -313,67 +324,155 @@ function applyCarryOver(){
   const carry=document.getElementById('carryWork').value.trim();
   if(!carry){alert('이월 작업 내용을 먼저 입력해주세요.');return;}
   document.getElementById('carryPreview').textContent=carry;
-  const work=document.getElementById('workContent');
-  if(!work.value.trim()) work.value=carry;
-  else if(!work.value.includes(carry)) work.value=carry+'\n'+work.value;
-  document.getElementById('workContent').scrollIntoView({behavior:'smooth',block:'center'});
+
+  if(workTasks.length===0) addWorkTask();
+  const firstId=workTasks[0].id;
+  const work=document.getElementById('taskContent_'+firstId);
+  if(work){
+    if(!work.value.trim()) work.value=carry;
+    else if(!work.value.includes(carry)) work.value=carry+'\n'+work.value;
+    work.scrollIntoView({behavior:'smooth',block:'center'});
+  }
 }
 
 
 let availableTeamMembers=[];
+let workTasks=[];
+let taskSeq=0;
 
 async function loadTeamMembers(){
   const team=document.getElementById('teamName').value.trim();
   const site=document.getElementById('siteName').value;
-  const list=document.getElementById('memberList');
 
   if(!team||!site){
     availableTeamMembers=[];
-    list.innerHTML='<div class="member-empty">팀명과 현장을 먼저 입력해주세요.</div>';
-    updateMemberCount();
+    renderAllTaskMembers();
     return;
   }
 
-  list.innerHTML='<div class="member-empty">인력현황 시트에서 팀원을 불러오는 중...</div>';
   try{
     const res=await jsonp({action:'teamMembers',team,site});
     if(!res||!res.success) throw new Error(res?.message||'팀원 조회 실패');
     availableTeamMembers=res.members||[];
-    renderTeamMembers();
+    renderAllTaskMembers();
   }catch(err){
     console.error(err);
-    list.innerHTML='<div class="member-empty">팀원 불러오기 실패: '+escapeHtml(err.message)+'</div>';
-    updateMemberCount();
+    availableTeamMembers=[];
+    renderAllTaskMembers('팀원 불러오기 실패: '+err.message);
   }
 }
 
-function renderTeamMembers(){
-  const list=document.getElementById('memberList');
-  if(!availableTeamMembers.length){
-    list.innerHTML='<div class="member-empty">인력현황 시트에 등록된 팀원이 없습니다.</div>';
-    updateMemberCount();
+function addWorkTask(prefill={}){
+  taskSeq+=1;
+  const task={id:taskSeq};
+  workTasks.push(task);
+
+  const wrap=document.getElementById('taskList');
+  const card=document.createElement('div');
+  card.className='task-card';
+  card.id='taskCard_'+task.id;
+  card.innerHTML=`
+    <div class="task-head">
+      <div class="task-title">작업 ${workTasks.length}</div>
+      <button type="button" class="task-remove" onclick="removeWorkTask(${task.id})">작업 삭제</button>
+    </div>
+    <div class="field">
+      <label class="label">작업 위치</label>
+      <input id="taskPlace_${task.id}" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(prefill.place||'')}">
+    </div>
+    <div class="field">
+      <label class="label">작업 내용</label>
+      <textarea id="taskContent_${task.id}" placeholder="예: 배선 작업 / 관로 작업">${escapeHtml(prefill.content||'')}</textarea>
+    </div>
+    <div class="field">
+      <label class="label">투입 팀원 <span id="taskCount_${task.id}" style="font-size:12px;color:var(--muted)">선택 0명</span></label>
+      <div class="task-members" id="taskMembers_${task.id}"></div>
+    </div>`;
+  wrap.appendChild(card);
+  renderTaskMembers(task.id);
+  renumberTaskCards();
+}
+
+function removeWorkTask(id){
+  if(workTasks.length<=1){
+    alert('작업은 최소 1개가 필요합니다.');
     return;
   }
+  workTasks=workTasks.filter(t=>t.id!==id);
+  document.getElementById('taskCard_'+id)?.remove();
+  renumberTaskCards();
+}
+
+function renumberTaskCards(){
+  workTasks.forEach((task,index)=>{
+    const title=document.querySelector('#taskCard_'+task.id+' .task-title');
+    if(title) title.textContent='작업 '+(index+1);
+  });
+}
+
+function renderAllTaskMembers(errorMessage=''){
+  workTasks.forEach(t=>renderTaskMembers(t.id,errorMessage));
+}
+
+function renderTaskMembers(taskId,errorMessage=''){
+  const list=document.getElementById('taskMembers_'+taskId);
+  if(!list) return;
+
+  if(errorMessage){
+    list.innerHTML='<div class="task-member-empty">'+escapeHtml(errorMessage)+'</div>';
+    updateTaskMemberCount(taskId);
+    return;
+  }
+
+  if(!availableTeamMembers.length){
+    list.innerHTML='<div class="task-member-empty">팀명과 현장에 해당하는 인원이 없습니다.</div>';
+    updateTaskMemberCount(taskId);
+    return;
+  }
+
   list.innerHTML=availableTeamMembers.map(m=>`
-    <label class="member-item">
-      <input type="checkbox" class="team-member-check" value="${escapeHtml(m.name)}" data-id="${escapeHtml(m.userId||'')}" onchange="updateMemberCount()">
+    <label class="task-member">
+      <input type="checkbox"
+        class="task-member-check"
+        data-task="${taskId}"
+        data-id="${escapeHtml(m.userId||'')}"
+        value="${escapeHtml(m.name)}"
+        onchange="updateTaskMemberCount(${taskId})">
       <span>${escapeHtml(m.name)}</span>
       <span class="member-role">${escapeHtml(m.role||'팀원')}</span>
     </label>
   `).join('');
-  updateMemberCount();
+  updateTaskMemberCount(taskId);
 }
 
-function getSelectedMembers(){
-  return [...document.querySelectorAll('.team-member-check:checked')].map(el=>({
+function getTaskMembers(taskId){
+  return [...document.querySelectorAll('.task-member-check[data-task="'+taskId+'"]:checked')].map(el=>({
     userId:el.dataset.id||'',
     name:el.value
   }));
 }
 
-function updateMemberCount(){
-  const members=getSelectedMembers();
-  document.getElementById('memberCount').textContent='선택 '+members.length+'명';
+function updateTaskMemberCount(taskId){
+  const target=document.getElementById('taskCount_'+taskId);
+  if(target) target.textContent='선택 '+getTaskMembers(taskId).length+'명';
+}
+
+function getWorkTaskData(){
+  return workTasks.map((task,index)=>({
+    taskNo:index+1,
+    place:(document.getElementById('taskPlace_'+task.id)?.value||'').trim(),
+    content:(document.getElementById('taskContent_'+task.id)?.value||'').trim(),
+    members:getTaskMembers(task.id)
+  }));
+}
+
+function buildPlanSummary(tasks){
+  return tasks.map(t=>{
+    const names=t.members.map(m=>m.name).join(', ')||'-';
+    return `<div style="margin-bottom:10px"><strong>작업 ${t.taskNo}</strong> · ${escapeHtml(t.place)}<br>`+
+      `${escapeHtml(t.content).replace(/\n/g,'<br>')}<br>`+
+      `<span style="color:var(--muted)">투입 ${t.members.length}명: ${escapeHtml(names)}</span></div>`;
+  }).join('');
 }
 
 function getRisks(){
@@ -409,47 +508,78 @@ async function savePlan(){
   const leader=document.getElementById('leaderName').value.trim();
   const team=document.getElementById('teamName').value.trim();
   const site=document.getElementById('siteName').value;
-  const place=document.getElementById('workPlace').value.trim();
-  const content=document.getElementById('workContent').value.trim();
-  const members=getSelectedMembers();
-  const count=members.length;
   const endTime=document.getElementById('endTime').value;
   const risks=getRisks();
   const safety=document.getElementById('safetyNote').value.trim();
+  const tasks=getWorkTaskData();
 
-  if(!leader||!team||!site||!place||!content){
-    alert('팀장 이름, 팀명, 현장, 작업 위치, 작업 내용을 입력해주세요.');return;
+  if(!leader||!team||!site){
+    alert('팀장 이름, 팀명, 현장을 입력해주세요.');return;
   }
-  if(members.length===0){alert('금일 작업에 투입할 팀원을 1명 이상 선택해주세요.');return;}
+  if(tasks.length===0){
+    alert('작업을 1개 이상 추가해주세요.');return;
+  }
 
-  const planId=makeId('PLAN');
+  for(const task of tasks){
+    if(!task.place||!task.content){
+      alert('작업 '+task.taskNo+'의 작업 위치와 작업 내용을 입력해주세요.');return;
+    }
+    if(task.members.length===0){
+      alert('작업 '+task.taskNo+'에 투입할 팀원을 1명 이상 선택해주세요.');return;
+    }
+  }
+
+  // 동일 팀원이 여러 작업에 중복 배정되면 확인
+  const assigned={};
+  tasks.forEach(t=>t.members.forEach(m=>{
+    assigned[m.userId||m.name]=(assigned[m.userId||m.name]||0)+1;
+  }));
+  const duplicates=Object.entries(assigned).filter(([,cnt])=>cnt>1);
+  if(duplicates.length){
+    const duplicateNames=[...new Set(tasks.flatMap(t=>t.members)
+      .filter(m=>duplicates.some(([key])=>key===(m.userId||m.name)))
+      .map(m=>m.name))];
+    if(!confirm('다음 인원이 여러 작업에 중복 배정되어 있습니다.\n'+duplicateNames.join(', ')+'\n\n그래도 저장할까요?')) return;
+  }
+
+  const groupId=makeId('GROUP');
+
   try{
     await savePreviousResultIfNeeded();
-    await postToSheet({
-      action:'savePlan',
-      planId,
-      submittedAt:nowString(),
-      workDate:todayString(),
-      leader,team,site,place,content,
-      workerCount:count,
-      workerNames:members.map(m=>m.name).join(', '),
-      workerIds:members.map(m=>m.userId).filter(Boolean).join(', '),
-      endTime,
-      risks:risks.join(', '),
-      safety,
-      previousPlanId:previousPlan?.planId||''
-    });
 
-    currentPlan={planId,leader,team,site,place,content,count,members,endTime,risks,safety};
+    for(const task of tasks){
+      const planId=makeId('PLAN');
+      await postToSheet({
+        action:'savePlan',
+        planId,
+        groupId,
+        taskNo:task.taskNo,
+        submittedAt:nowString(),
+        workDate:todayString(),
+        leader,team,site,
+        place:task.place,
+        content:task.content,
+        workerCount:task.members.length,
+        workerNames:task.members.map(m=>m.name).join(', '),
+        workerIds:task.members.map(m=>m.userId).filter(Boolean).join(', '),
+        endTime,
+        risks:risks.join(', '),
+        safety,
+        previousPlanId:previousPlan?.planId||''
+      });
+      task.planId=planId;
+    }
+
+    currentPlan={groupId,leader,team,site,tasks,endTime,risks,safety};
+
     document.getElementById('morningSummary').innerHTML=
       `<strong>${escapeHtml(team)} / ${escapeHtml(site)}</strong><br>`+
-      `작업 위치: ${escapeHtml(place)}<br>`+
-      `작업 내용: ${escapeHtml(content).replace(/\n/g,'<br>')}<br>`+
-      `작업 인원: ${escapeHtml(count||'-')}명<br>`+
-      `작업 팀원: ${escapeHtml(members.map(m=>m.name).join(', ')||'-')}<br>`+
+      `<div class="plan-summary-box">${buildPlanSummary(tasks)}</div>`+
+      `예상 종료: ${escapeHtml(endTime||'-')}<br>`+
       `주요 위험요인: ${escapeHtml(risks.length?risks.join(', '):'없음')}<br>`+
       `안전조치: ${escapeHtml(safety||'-')}`;
-    alert('금일 작업계획 저장 요청이 완료되었습니다.');
+
+    alert('금일 작업계획 '+tasks.length+'건 저장 요청이 완료되었습니다.');
   }catch(err){
     console.error(err);
     alert('저장 중 오류가 발생했습니다: '+err.message);
@@ -471,10 +601,11 @@ async function submitTBM(type){
   let status='';
   let note='';
   let extra='';
+
   if(type==='출근'){
     note=document.getElementById('morningNote').value.trim();
     status='작업계획 공유';
-    extra=currentPlan?.content||'';
+    extra=currentPlan?.tasks?.map(t=>`작업${t.taskNo}: ${t.content} (${t.members.map(m=>m.name).join(', ')})`).join(' / ')||'';
   }else if(type==='오후'){
     const selected=document.querySelector('input[name="lunchStatus"]:checked');
     if(!selected){alert('오전 작업상황을 선택해주세요.');return;}
@@ -494,22 +625,26 @@ async function submitTBM(type){
       tbmId:makeId('TBM'),
       submittedAt:nowString(),
       workDate:todayString(),
-      planId:currentPlan?.planId||'',
+      planId:currentPlan?.groupId||'',
       leader,team,site,type,status,note,extra
     });
 
-    if(type==='퇴근' && currentPlan?.planId){
-      await postToSheet({
-        action:'saveResult',
-        planId:currentPlan.planId,
-        workDate:todayString(),
-        leader,team,site,
-        doneWork:status==='완료' ? currentPlan.content : (note || currentPlan.content),
-        carryWork:status==='완료' ? '' : extra,
-        reasonCodes:status==='완료' ? '없음' : status,
-        reasonDetail:note || '',
-        submittedAt:nowString()
-      });
+    // 현재 퇴근 TBM 상태는 작업그룹 전체에 적용.
+    // 각 작업은 작업결과 시트에 별도 행으로 기록해 추후 작업별 완료상태 UI로 확장 가능.
+    if(type==='퇴근' && currentPlan?.tasks?.length){
+      for(const task of currentPlan.tasks){
+        await postToSheet({
+          action:'saveResult',
+          planId:task.planId,
+          workDate:todayString(),
+          leader,team,site,
+          doneWork:status==='완료' ? task.content : (note || task.content),
+          carryWork:status==='완료' ? '' : extra,
+          reasonCodes:status==='완료' ? '없음' : status,
+          reasonDetail:`작업 ${task.taskNo} / ${task.place}`+(note ? ' / '+note : ''),
+          submittedAt:nowString()
+        });
+      }
     }
 
     alert(type+' TBM 저장 요청이 완료되었습니다.');
@@ -518,8 +653,10 @@ async function submitTBM(type){
     alert('TBM 저장 중 오류가 발생했습니다: '+err.message);
   }
 }
+
 document.getElementById('teamName').addEventListener('change',loadTeamMembers);
 document.getElementById('siteName').addEventListener('change',loadTeamMembers);
+addWorkTask();
 </script>
 </body>
 </html>
