@@ -174,7 +174,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .task-inline-member{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid #DDE5EE;border-radius:9px;background:#fff;font-size:12px;font-weight:700}
 .task-inline-member input{width:16px;height:16px;min-height:auto;margin:0}
 .task-save-btn{width:100%;border:0;border-radius:10px;min-height:44px;background:#2E7CF6;color:#fff;font-size:13px;font-weight:900;cursor:pointer;margin-top:8px}
-.task-save-btn[disabled],.all-clear-btn[disabled]{opacity:.58;cursor:not-allowed;pointer-events:none}
+.task-save-btn[disabled],.all-clear-btn[disabled],.task-status-btn[disabled]{opacity:.58;cursor:not-allowed;pointer-events:none}
 @media(max-width:440px){
   .task-status-buttons,.task-status-buttons.three{grid-template-columns:1fr 1fr}
   .task-inline-members{grid-template-columns:1fr}
@@ -183,7 +183,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.21</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.22</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -265,7 +265,6 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <button type="button" class="draft-clear" onclick="clearPlanDraft(true)">임시저장 삭제</button>
 </div>
 <button class="btn submit" id="planSaveBtn" type="button" onclick="savePlan()">금일 작업계획 저장</button>
-<div class="notice">각 작업은 작업계획 시트에 한 행씩 저장되며 같은 작업그룹ID로 묶입니다.</div>
 </section></div>
 
 
@@ -319,7 +318,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.21</div>
+<div class="footer">© 2026 TBM Leader · v0.22</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -333,7 +332,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySwd9oppficpY7wfzrpwxkJ4yhvtne9JA4s1fvGSI44_pir_UpHhXK3dXbKoyRFYXTMg/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyt93A2L0atWpgdtnqgw69-GDUIfsiU1fYSiVm44mONTFCo62vW1lzqY8KVATgk0JtpRQ/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -785,6 +784,7 @@ function renderAfternoonTaskCards(){
           ${['정상진행','작업변경','지연','위험'].map(s=>`
             <button type="button"
               class="task-status-btn ${taskStatusClass(s)} ${selected===s?'selected':''}"
+              ${saved?'disabled':''}
               onclick="chooseAfternoonTaskStatus(${i},'${s}')">${s==='정상진행'?'정상':s}</button>
           `).join('')}
         </div>
@@ -1014,6 +1014,7 @@ function renderEveningTaskCards(){
           ${['완료','일부완료','미완료'].map(s=>`
             <button type="button"
               class="task-status-btn ${taskStatusClass(s)} ${selected===s?'selected':''}"
+              ${saved?'disabled':''}
               onclick="chooseEveningTaskStatus(${i},'${s}')">${s}</button>
           `).join('')}
         </div>
