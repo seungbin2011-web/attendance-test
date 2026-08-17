@@ -286,7 +286,7 @@
       <select id="site">
         <option value="">현장을 선택하세요</option>
         <option value="용인 현장">용인 현장</option>
-        <option value="이천 현장">이천 현장</option>
+        <option value="용인 하이닉스 현장">용인 하이닉스 현장</option>
         <option value="용인 사무실">용인 사무실</option>
         <option value="이천 사무실">이천 사무실</option>
       </select>
@@ -365,7 +365,7 @@
     </div>
   </section>
 
-  <div class="footer">Attendance Test v2</div>
+  <div class="footer">Attendance Test v0.3 · GPS TEST</div>
 </main>
 
 
@@ -382,26 +382,27 @@
   const SITES = {
 
     "용인 현장": {
-      lat: 37.000000,
-      lng: 127.000000,
+      lat: 37.22166297062083,
+      lng: 127.21644981308683,
       radius: 200
     },
 
-    "이천 현장": {
-      lat: 37.000000,
-      lng: 127.000000,
-      radius: 200
+    // 대형 현장 테스트용: 허용 반경을 넓게 설정
+    "용인 하이닉스 현장": {
+      lat: 37.1428597051933,
+      lng: 127.308726487138,
+      radius: 1000
     },
 
     "용인 사무실": {
-      lat: 37.000000,
-      lng: 127.000000,
+      lat: 37.2005165788433,
+      lng: 127.335582111781,
       radius: 200
     },
 
     "이천 사무실": {
-      lat: 37.000000,
-      lng: 127.000000,
+      lat: 37.259091043016284,
+      lng: 127.48192389640387,
       radius: 200
     }
 
