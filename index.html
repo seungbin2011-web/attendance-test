@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#173A63">
   <title>현장 출퇴근 확인</title>
 
@@ -11,8 +11,9 @@
       --navy:#173A63;
       --navy-dark:#102C4D;
       --blue:#2E7CF6;
-      --green:#26A269;
+      --green:#229A62;
       --red:#D94B4B;
+      --orange:#C67A00;
       --bg:#F3F6FA;
       --card:#FFFFFF;
       --line:#DDE5EE;
@@ -20,8 +21,7 @@
       --muted:#718096;
     }
 
-    *{box-sizing:border-box;}
-
+    *{box-sizing:border-box}
     body{
       margin:0;
       min-height:100vh;
@@ -36,32 +36,11 @@
       padding:18px 20px;
       box-shadow:0 3px 12px rgba(16,44,77,.18);
     }
+    .topbar-inner{max-width:520px;margin:0 auto}
+    .brand{margin:0;font-size:21px;font-weight:800;letter-spacing:-.5px}
+    .brand-sub{margin-top:5px;font-size:12px;color:rgba(255,255,255,.72)}
 
-    .topbar-inner{
-      max-width:520px;
-      margin:0 auto;
-    }
-
-    .brand{
-      margin:0;
-      font-size:21px;
-      font-weight:800;
-      letter-spacing:-.5px;
-    }
-
-    .brand-sub{
-      margin-top:5px;
-      font-size:12px;
-      color:rgba(255,255,255,.72);
-    }
-
-    .wrap{
-      width:100%;
-      max-width:520px;
-      margin:0 auto;
-      padding:22px 16px 40px;
-    }
-
+    .wrap{width:100%;max-width:520px;margin:0 auto;padding:22px 16px 40px}
     .card{
       background:var(--card);
       border:1px solid rgba(221,229,238,.9);
@@ -70,185 +49,158 @@
       padding:22px 18px;
     }
 
-    .title{
-      font-size:21px;
-      font-weight:800;
-      margin:0 0 7px;
-    }
-
-    .desc{
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.55;
-      margin-bottom:24px;
-    }
-
-    .field{
-      margin-bottom:19px;
-    }
-
+    .title{font-size:21px;font-weight:800;margin:0 0 7px}
+    .desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:24px}
+    .field{margin-bottom:19px}
     .label{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      margin-bottom:8px;
-      font-size:14px;
-      font-weight:700;
+      display:flex;align-items:center;gap:8px;margin-bottom:8px;
+      font-size:14px;font-weight:700
     }
-
     .num{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:23px;
-      height:23px;
-      border-radius:50%;
-      background:#E8F0FC;
-      color:var(--navy);
-      font-size:12px;
-      font-weight:800;
+      display:inline-flex;align-items:center;justify-content:center;
+      width:23px;height:23px;border-radius:50%;
+      background:#E8F0FC;color:var(--navy);font-size:12px;font-weight:800
     }
 
-    input, select{
-      width:100%;
-      min-height:50px;
-      padding:0 14px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      background:#fff;
-      color:var(--text);
-      font-size:16px;
-      outline:none;
-      transition:.18s;
+    input,select,textarea{
+      width:100%;border:1px solid var(--line);border-radius:12px;
+      background:#fff;color:var(--text);font-size:16px;outline:none;transition:.18s
     }
-
-    input:focus, select:focus{
-      border-color:var(--blue);
-      box-shadow:0 0 0 3px rgba(46,124,246,.12);
+    input,select{min-height:50px;padding:0 14px}
+    textarea{min-height:110px;padding:13px 14px;resize:vertical;line-height:1.5}
+    input:focus,select:focus,textarea:focus{
+      border-color:var(--blue);box-shadow:0 0 0 3px rgba(46,124,246,.12)
     }
+    input::placeholder,textarea::placeholder{color:#A0AABA}
 
-    input::placeholder{
-      color:#A0AABA;
-    }
-
-    .password-wrap{
-      position:relative;
-    }
-
-    .password-wrap input{
-      padding-right:72px;
-    }
-
+    .password-wrap{position:relative}
+    .password-wrap input{padding-right:72px}
     .show-btn{
-      position:absolute;
-      right:7px;
-      top:7px;
-      height:36px;
-      padding:0 10px;
-      border:0;
-      border-radius:8px;
-      background:#EEF3F8;
-      color:#526172;
-      font-size:12px;
-      font-weight:700;
-      cursor:pointer;
+      position:absolute;right:7px;top:7px;height:36px;padding:0 10px;border:0;
+      border-radius:8px;background:#EEF3F8;color:#526172;font-size:12px;
+      font-weight:700;cursor:pointer
     }
 
-    .attendance{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-      margin-top:3px;
-    }
-
+    .attendance{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:3px}
     .action-btn{
-      min-height:64px;
-      border:0;
-      border-radius:14px;
-      font-size:19px;
-      font-weight:800;
-      cursor:pointer;
-      color:#fff;
-      transition:.15s;
-      box-shadow:0 5px 14px rgba(0,0,0,.08);
+      min-height:64px;border:0;border-radius:14px;font-size:19px;font-weight:800;
+      cursor:pointer;color:#fff;transition:.15s;box-shadow:0 5px 14px rgba(0,0,0,.08)
     }
-
-    .action-btn:active{
-      transform:translateY(1px) scale(.995);
-    }
-
-    .checkin{background:var(--blue);}
-    .checkout{background:var(--navy-dark);}
+    .action-btn:active{transform:translateY(1px) scale(.995)}
+    .checkin{background:var(--blue)}
+    .checkout{background:var(--navy-dark)}
 
     .status-card{
-      display:none;
-      margin-top:20px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      overflow:hidden;
-      background:#FAFCFE;
+      display:none;margin-top:20px;border:1px solid var(--line);
+      border-radius:14px;overflow:hidden;background:#FAFCFE
     }
-
     .status-head{
-      padding:12px 14px;
-      font-size:14px;
-      font-weight:800;
-      background:#F0F5FA;
-      border-bottom:1px solid var(--line);
+      padding:12px 14px;font-size:14px;font-weight:800;
+      background:#F0F5FA;border-bottom:1px solid var(--line)
     }
-
-    .status-body{
-      padding:4px 14px;
-    }
-
+    .status-body{padding:4px 14px}
     .row{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:15px;
-      padding:11px 0;
-      border-bottom:1px solid #E8EDF3;
-      font-size:13px;
+      display:flex;justify-content:space-between;align-items:flex-start;gap:15px;
+      padding:11px 0;border-bottom:1px solid #E8EDF3;font-size:13px
     }
-
-    .row:last-child{border-bottom:0;}
-    .row .k{color:var(--muted);}
-    .row .v{
-      font-weight:700;
-      text-align:right;
-      word-break:keep-all;
-    }
-
-    .good{color:var(--green);}
-    .bad{color:var(--red);}
-    .waiting{color:#A56800;}
+    .row:last-child{border-bottom:0}
+    .row .k{color:var(--muted)}
+    .row .v{font-weight:700;text-align:right;word-break:keep-all}
+    .good{color:var(--green)}
+    .bad{color:var(--red)}
+    .waiting{color:var(--orange)}
 
     .privacy{
-      margin-top:18px;
-      padding:12px 13px;
-      border-radius:11px;
-      background:#F7F9FC;
-      color:#667587;
-      font-size:11.5px;
-      line-height:1.6;
+      margin-top:18px;padding:12px 13px;border-radius:11px;background:#F7F9FC;
+      color:#667587;font-size:11.5px;line-height:1.6
+    }
+    .footer{text-align:center;color:#97A3B2;font-size:11px;margin-top:16px}
+
+    /* 무사고 일지 화면 */
+    .overlay{
+      display:none;position:fixed;inset:0;background:#F3F6FA;z-index:999;
+      overflow-y:auto;-webkit-overflow-scrolling:touch
+    }
+    .overlay.open{display:block}
+    .journal-top{
+      position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;
+      padding:16px 18px;box-shadow:0 2px 10px rgba(0,0,0,.15)
+    }
+    .journal-top-inner{
+      max-width:520px;margin:0 auto;display:flex;align-items:center;gap:12px
+    }
+    .back-btn{
+      border:0;background:rgba(255,255,255,.14);color:#fff;width:38px;height:38px;
+      border-radius:10px;font-size:21px;cursor:pointer
+    }
+    .journal-head-title{font-size:19px;font-weight:800}
+    .journal-head-sub{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:2px}
+
+    .journal-wrap{max-width:520px;margin:0 auto;padding:18px 16px 40px}
+    .summary-box{
+      background:#EEF5FF;border:1px solid #D3E4FF;border-radius:13px;
+      padding:13px 14px;margin-bottom:16px;font-size:13px;line-height:1.65
+    }
+    .summary-box strong{color:var(--navy)}
+
+    .journal-card{
+      background:#fff;border:1px solid var(--line);border-radius:16px;
+      padding:18px 16px;box-shadow:0 8px 24px rgba(16,44,77,.06)
+    }
+    .journal-section{padding:4px 0 18px;margin-bottom:18px;border-bottom:1px solid #E8EDF3}
+    .journal-section:last-child{border-bottom:0;margin-bottom:0}
+    .question-title{font-size:14px;font-weight:800;margin-bottom:10px;line-height:1.45}
+    .required{color:var(--red);margin-left:3px}
+
+    .choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .choice{
+      display:flex;align-items:center;justify-content:center;min-height:46px;
+      border:1px solid var(--line);border-radius:11px;background:#fff;
+      cursor:pointer;font-size:14px;font-weight:700;user-select:none
+    }
+    .choice input{display:none}
+    .choice:has(input:checked){
+      border-color:var(--blue);background:#EDF5FF;color:#195FB8;
+      box-shadow:0 0 0 2px rgba(46,124,246,.08)
     }
 
-    .footer{
-      text-align:center;
-      color:#97A3B2;
-      font-size:11px;
-      margin-top:16px;
+    .hint{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:7px}
+
+    .sign-wrap{
+      border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden
+    }
+    #signatureCanvas{
+      display:block;width:100%;height:170px;background:#fff;touch-action:none
+    }
+    .sign-tools{
+      display:flex;justify-content:space-between;align-items:center;
+      border-top:1px solid var(--line);background:#F8FAFC;padding:9px 10px
+    }
+    .sign-note{font-size:11px;color:var(--muted)}
+    .clear-sign{
+      border:1px solid var(--line);background:#fff;border-radius:8px;
+      padding:7px 10px;font-size:12px;font-weight:700;color:#526172;cursor:pointer
     }
 
-    @media (max-width:380px){
-      .attendance{grid-template-columns:1fr;}
-      .card{padding:19px 15px;}
+    .agree{
+      display:flex;gap:10px;align-items:flex-start;padding:12px;
+      background:#F7F9FC;border-radius:11px;font-size:12px;line-height:1.55
+    }
+    .agree input{width:18px;height:18px;min-height:auto;margin-top:1px;flex:0 0 auto}
+
+    .submit-journal{
+      width:100%;min-height:58px;margin-top:16px;border:0;border-radius:14px;
+      background:var(--green);color:#fff;font-size:17px;font-weight:800;cursor:pointer
+    }
+
+    @media(max-width:380px){
+      .attendance,.choice-grid{grid-template-columns:1fr}
+      .card,.journal-card{padding-left:15px;padding-right:15px}
     }
   </style>
 </head>
 
 <body>
-
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">현장 출퇴근 확인</div>
@@ -258,7 +210,6 @@
 
 <main class="wrap">
   <section class="card">
-
     <h1 class="title">출퇴근 등록</h1>
     <div class="desc">
       아래 정보를 입력한 뒤 출근 또는 퇴근 버튼을 눌러주세요.
@@ -266,23 +217,12 @@
     </div>
 
     <div class="field">
-      <div class="label">
-        <span class="num">1</span>
-        근로자 이름
-      </div>
-      <input
-        id="workerName"
-        type="text"
-        autocomplete="name"
-        placeholder="이름 작성"
-      >
+      <div class="label"><span class="num">1</span>근로자 이름</div>
+      <input id="workerName" type="text" autocomplete="name" placeholder="이름 작성">
     </div>
 
     <div class="field">
-      <div class="label">
-        <span class="num">2</span>
-        현장 선택
-      </div>
+      <div class="label"><span class="num">2</span>현장 선택</div>
       <select id="site">
         <option value="">현장을 선택하세요</option>
         <option value="용인 현장">용인 현장</option>
@@ -293,236 +233,196 @@
     </div>
 
     <div class="field">
-      <div class="label">
-        <span class="num">3</span>
-        암호
-      </div>
+      <div class="label"><span class="num">3</span>암호</div>
       <div class="password-wrap">
-        <input
-          id="password"
-          type="password"
-          inputmode="numeric"
-          placeholder="암호 입력 (임시)"
-        >
+        <input id="password" type="password" inputmode="numeric" placeholder="암호 입력 (임시)">
         <button class="show-btn" type="button" onclick="togglePassword()">보기</button>
       </div>
     </div>
 
     <div class="field">
-      <div class="label">
-        <span class="num">4</span>
-        출근 / 퇴근
-      </div>
-
+      <div class="label"><span class="num">4</span>출근 / 퇴근</div>
       <div class="attendance">
-        <button class="action-btn checkin" type="button" onclick="submitAttendance('출근')">
-          출근
-        </button>
-        <button class="action-btn checkout" type="button" onclick="submitAttendance('퇴근')">
-          퇴근
-        </button>
+        <button class="action-btn checkin" type="button" onclick="startAttendance('출근')">출근</button>
+        <button class="action-btn checkout" type="button" onclick="startAttendance('퇴근')">퇴근</button>
       </div>
     </div>
 
     <div id="statusCard" class="status-card">
       <div class="status-head">처리 결과</div>
-
       <div class="status-body">
-        <div class="row">
-          <span class="k">근로자</span>
-          <span class="v" id="resultName">-</span>
-        </div>
-        <div class="row">
-          <span class="k">선택 현장</span>
-          <span class="v" id="resultSite">-</span>
-        </div>
-        <div class="row">
-          <span class="k">구분</span>
-          <span class="v" id="resultType">-</span>
-        </div>
-        <div class="row">
-          <span class="k">처리 시간</span>
-          <span class="v" id="resultTime">-</span>
-        </div>
-        <div class="row">
-          <span class="k">현장과 거리</span>
-          <span class="v" id="resultDistance">-</span>
-        </div>
-        <div class="row">
-          <span class="k">GPS 정확도</span>
-          <span class="v" id="resultAccuracy">-</span>
-        </div>
-        <div class="row">
-          <span class="k">판정</span>
-          <span class="v" id="resultStatus">-</span>
-        </div>
+        <div class="row"><span class="k">근로자</span><span class="v" id="resultName">-</span></div>
+        <div class="row"><span class="k">선택 현장</span><span class="v" id="resultSite">-</span></div>
+        <div class="row"><span class="k">구분</span><span class="v" id="resultType">-</span></div>
+        <div class="row"><span class="k">처리 시간</span><span class="v" id="resultTime">-</span></div>
+        <div class="row"><span class="k">현장과 거리</span><span class="v" id="resultDistance">-</span></div>
+        <div class="row"><span class="k">GPS 정확도</span><span class="v" id="resultAccuracy">-</span></div>
+        <div class="row"><span class="k">판정</span><span class="v" id="resultStatus">-</span></div>
       </div>
     </div>
 
     <div class="privacy">
-      ※ 위치정보는 출근·퇴근 버튼을 누르는 순간 현장 여부를 확인하기 위해 1회 사용합니다.
-      이 테스트 버전은 서버에 출퇴근 기록이나 GPS 좌표를 저장하지 않습니다.
+      ※ 위치정보는 출근·퇴근 확인을 위해 버튼을 누르는 순간 1회 사용합니다.
+      현재 테스트 버전은 서버에 출퇴근 기록·GPS·서명 데이터를 저장하지 않습니다.
     </div>
   </section>
 
-  <div class="footer">Attendance Test v0.3 · GPS TEST</div>
+  <div class="footer">Attendance Test v0.4 · 무사고 일지 TEST</div>
 </main>
 
+<!-- 퇴근 시 무사고 일지 -->
+<section id="journalOverlay" class="overlay">
+  <div class="journal-top">
+    <div class="journal-top-inner">
+      <button class="back-btn" type="button" onclick="closeJournal()">‹</button>
+      <div>
+        <div class="journal-head-title">무사고 일지</div>
+        <div class="journal-head-sub">작성 · 서명 · 제출 완료 후 퇴근 처리</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="journal-wrap">
+    <div class="summary-box">
+      <strong id="journalWorker">-</strong> · <span id="journalSite">-</span><br>
+      퇴근 전 금일 작업 내용을 확인하고 무사고 일지를 제출해주세요.
+    </div>
+
+    <div class="journal-card">
+
+      <div class="journal-section">
+        <div class="question-title">1. 금일 작업 중 사고 또는 부상이 있었습니까?<span class="required">*</span></div>
+        <div class="choice-grid">
+          <label class="choice"><input type="radio" name="accident" value="없음">없음</label>
+          <label class="choice"><input type="radio" name="accident" value="있음">있음</label>
+        </div>
+      </div>
+
+      <div class="journal-section">
+        <div class="question-title">2. 아차사고 또는 위험한 상황이 있었습니까?<span class="required">*</span></div>
+        <div class="choice-grid">
+          <label class="choice"><input type="radio" name="nearMiss" value="없음">없음</label>
+          <label class="choice"><input type="radio" name="nearMiss" value="있음">있음</label>
+        </div>
+      </div>
+
+      <div class="journal-section">
+        <div class="question-title">3. 장비·시설·공구의 이상 또는 파손이 있었습니까?<span class="required">*</span></div>
+        <div class="choice-grid">
+          <label class="choice"><input type="radio" name="equipment" value="없음">없음</label>
+          <label class="choice"><input type="radio" name="equipment" value="있음">있음</label>
+        </div>
+      </div>
+
+      <div class="journal-section">
+        <div class="question-title">4. 특이사항 / 전달사항</div>
+        <textarea id="journalNote" placeholder="오늘 작업 중 특이사항, 위험요인, 전달할 내용을 간단히 작성해주세요. 없으면 '없음'이라고 작성해도 됩니다."></textarea>
+        <div class="hint">※ 사고·위험상황·장비 이상에서 ‘있음’을 선택한 경우 내용을 적어주세요.</div>
+      </div>
+
+      <div class="journal-section">
+        <div class="question-title">5. 근로자 서명<span class="required">*</span></div>
+        <div class="sign-wrap">
+          <canvas id="signatureCanvas"></canvas>
+          <div class="sign-tools">
+            <span class="sign-note">손가락 또는 마우스로 서명</span>
+            <button class="clear-sign" type="button" onclick="clearSignature()">지우기</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="journal-section">
+        <label class="agree">
+          <input id="journalAgree" type="checkbox">
+          <span>위 내용이 사실임을 확인하며, 본 무사고 일지를 제출합니다.</span>
+        </label>
+      </div>
+
+      <button class="submit-journal" type="button" onclick="submitJournal()">
+        무사고 일지 제출 및 퇴근 처리
+      </button>
+    </div>
+  </div>
+</section>
 
 <script>
-
-  /*
-   =====================================================
-   ★ 현장 좌표 설정 부분
-   아래 숫자는 테스트용입니다.
-   실제 사용 전에 각 현장의 위도/경도로 변경하세요.
-   =====================================================
-  */
-
   const SITES = {
-
-    "용인 현장": {
-      lat: 37.22166297062083,
-      lng: 127.21644981308683,
-      radius: 200
-    },
-
-    // 대형 현장 테스트용: 허용 반경을 넓게 설정
-    "용인 하이닉스 현장": {
-      lat: 37.1428597051933,
-      lng: 127.308726487138,
-      radius: 1000
-    },
-
-    "용인 사무실": {
-      lat: 37.2005165788433,
-      lng: 127.335582111781,
-      radius: 200
-    },
-
-    "이천 사무실": {
-      lat: 37.259091043016284,
-      lng: 127.48192389640387,
-      radius: 200
-    }
-
+    "용인 현장": { lat:37.22166297062083, lng:127.21644981308683, radius:200 },
+    "용인 하이닉스 현장": { lat:37.1428597051933, lng:127.308726487138, radius:1000 },
+    "용인 사무실": { lat:37.2005165788433, lng:127.335582111781, radius:200 },
+    "이천 사무실": { lat:37.259091043016284, lng:127.48192389640387, radius:200 }
   };
-
-
-  /*
-   =====================================================
-   ★ 임시 암호
-   테스트 단계용입니다.
-   실제 운영할 때는 HTML 안에 암호를 넣는 방식은 사용하지 않습니다.
-   =====================================================
-  */
 
   const TEMP_PASSWORD = "1234";
 
+  let pendingAttendance = null;
+  let signatureHasInk = false;
 
   function togglePassword(){
-
-    const input = document.getElementById("password");
-    const btn = document.querySelector(".show-btn");
-
-    if(input.type === "password"){
-      input.type = "text";
-      btn.textContent = "숨김";
-    }else{
-      input.type = "password";
-      btn.textContent = "보기";
-    }
-
+    const input=document.getElementById("password");
+    const btn=document.querySelector(".show-btn");
+    if(input.type==="password"){input.type="text";btn.textContent="숨김";}
+    else{input.type="password";btn.textContent="보기";}
   }
-
 
   function formatNow(){
-
-    const d = new Date();
-
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-
-    const hh = String(d.getHours()).padStart(2,"0");
-    const mm = String(d.getMinutes()).padStart(2,"0");
-    const ss = String(d.getSeconds()).padStart(2,"0");
-
+    const d=new Date();
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,"0");
+    const day=String(d.getDate()).padStart(2,"0");
+    const hh=String(d.getHours()).padStart(2,"0");
+    const mm=String(d.getMinutes()).padStart(2,"0");
+    const ss=String(d.getSeconds()).padStart(2,"0");
     return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
-
   }
 
-
-  function toRad(v){
-    return v * Math.PI / 180;
-  }
-
+  function toRad(v){return v*Math.PI/180}
 
   function getDistanceMeters(lat1,lng1,lat2,lng2){
-
-    const R = 6371000;
-
-    const dLat = toRad(lat2-lat1);
-    const dLng = toRad(lng2-lng1);
-
-    const a =
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng/2) *
-      Math.sin(dLng/2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-
-    return R*c;
-
+    const R=6371000;
+    const dLat=toRad(lat2-lat1);
+    const dLng=toRad(lng2-lng1);
+    const a=Math.sin(dLat/2)**2+
+      Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+    return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
   }
-
 
   function setResult(id,text,className=""){
-
-    const el = document.getElementById(id);
-
-    el.textContent = text;
-    el.className = "v" + (className ? " " + className : "");
-
+    const el=document.getElementById(id);
+    el.textContent=text;
+    el.className="v"+(className?" "+className:"");
   }
 
+  function validateBasic(){
+    const name=document.getElementById("workerName").value.trim();
+    const siteName=document.getElementById("site").value;
+    const password=document.getElementById("password").value;
 
-  function submitAttendance(type){
+    if(!name){alert("근로자 이름을 입력해주세요.");document.getElementById("workerName").focus();return null;}
+    if(!siteName){alert("현장을 선택해주세요.");document.getElementById("site").focus();return null;}
+    if(!password){alert("암호를 입력해주세요.");document.getElementById("password").focus();return null;}
+    if(password!==TEMP_PASSWORD){alert("암호가 올바르지 않습니다.");document.getElementById("password").focus();return null;}
 
-    const name = document.getElementById("workerName").value.trim();
-    const siteName = document.getElementById("site").value;
-    const password = document.getElementById("password").value;
+    return {name,siteName};
+  }
 
-    if(!name){
-      alert("근로자 이름을 입력해주세요.");
-      document.getElementById("workerName").focus();
+  function startAttendance(type){
+    const basic=validateBasic();
+    if(!basic)return;
+
+    if(type==="퇴근"){
+      pendingAttendance={type,name:basic.name,siteName:basic.siteName};
+      openJournal(basic.name,basic.siteName);
       return;
     }
 
-    if(!siteName){
-      alert("현장을 선택해주세요.");
-      document.getElementById("site").focus();
-      return;
-    }
+    processAttendance(type,basic.name,basic.siteName,null);
+  }
 
-    if(!password){
-      alert("암호를 입력해주세요.");
-      document.getElementById("password").focus();
-      return;
-    }
+  function processAttendance(type,name,siteName,journalData){
+    const site=SITES[siteName];
 
-    if(password !== TEMP_PASSWORD){
-      alert("암호가 올바르지 않습니다.");
-      document.getElementById("password").focus();
-      return;
-    }
-
-    const site = SITES[siteName];
-
-    document.getElementById("statusCard").style.display = "block";
-
+    document.getElementById("statusCard").style.display="block";
     setResult("resultName",name);
     setResult("resultSite",siteName);
     setResult("resultType",type);
@@ -531,111 +431,200 @@
     setResult("resultAccuracy","-");
     setResult("resultStatus","위치를 확인하고 있습니다.","waiting");
 
-    document.getElementById("statusCard").scrollIntoView({
-      behavior:"smooth",
-      block:"nearest"
-    });
+    document.getElementById("statusCard").scrollIntoView({behavior:"smooth",block:"nearest"});
 
     if(!navigator.geolocation){
-
-      setResult(
-        "resultStatus",
-        "이 브라우저는 위치 확인 기능을 지원하지 않습니다.",
-        "bad"
-      );
-
+      setResult("resultStatus","이 브라우저는 위치 확인 기능을 지원하지 않습니다.","bad");
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-
       function(position){
+        const currentLat=position.coords.latitude;
+        const currentLng=position.coords.longitude;
+        const accuracy=position.coords.accuracy;
+        const distance=getDistanceMeters(currentLat,currentLng,site.lat,site.lng);
 
-        const currentLat = position.coords.latitude;
-        const currentLng = position.coords.longitude;
-        const accuracy = position.coords.accuracy;
+        setResult("resultDistance",Math.round(distance)+" m");
+        setResult("resultAccuracy","± "+Math.round(accuracy)+" m");
 
-        const distance = getDistanceMeters(
-          currentLat,
-          currentLng,
-          site.lat,
-          site.lng
-        );
+        const journalFlag = journalData && journalData.hasIssue;
 
-        setResult(
-          "resultDistance",
-          Math.round(distance) + " m"
-        );
-
-        setResult(
-          "resultAccuracy",
-          "± " + Math.round(accuracy) + " m"
-        );
-
-        if(distance <= site.radius){
-
-          setResult(
-            "resultStatus",
-            "현장 내 · " + type + " 확인",
-            "good"
-          );
-
+        if(distance<=site.radius){
+          if(type==="퇴근" && journalFlag){
+            setResult("resultStatus","퇴근 처리 · 일지 이상사항 보고됨","waiting");
+          }else{
+            setResult("resultStatus","현장 내 · "+type+" 확인","good");
+          }
         }else{
-
-          setResult(
-            "resultStatus",
-            "현장 외 · 확인 필요",
-            "bad"
-          );
-
+          setResult("resultStatus","현장 외 · 확인 필요","bad");
         }
 
         console.log({
           worker:name,
           site:siteName,
-          type:type,
+          type,
           time:formatNow(),
           latitude:currentLat,
           longitude:currentLng,
-          accuracy:accuracy,
-          distance:distance
+          accuracy,
+          distance,
+          journal:journalData
         });
-
       },
-
       function(error){
-
-        let message = "현재 위치를 확인할 수 없습니다.";
-
-        if(error.code === error.PERMISSION_DENIED){
-          message = "위치 권한이 거부되었습니다.";
-        }
-
-        if(error.code === error.POSITION_UNAVAILABLE){
-          message = "현재 위치 정보를 가져올 수 없습니다.";
-        }
-
-        if(error.code === error.TIMEOUT){
-          message = "위치 확인 시간이 초과되었습니다.";
-        }
+        let message="현재 위치를 확인할 수 없습니다.";
+        if(error.code===error.PERMISSION_DENIED)message="위치 권한이 거부되었습니다.";
+        if(error.code===error.POSITION_UNAVAILABLE)message="현재 위치 정보를 가져올 수 없습니다.";
+        if(error.code===error.TIMEOUT)message="위치 확인 시간이 초과되었습니다.";
 
         setResult("resultDistance","-");
         setResult("resultAccuracy","-");
         setResult("resultStatus",message,"bad");
-
       },
-
-      {
-        enableHighAccuracy:true,
-        timeout:15000,
-        maximumAge:0
-      }
-
+      {enableHighAccuracy:true,timeout:15000,maximumAge:0}
     );
-
   }
 
-</script>
+  function openJournal(name,siteName){
+    document.getElementById("journalWorker").textContent=name;
+    document.getElementById("journalSite").textContent=siteName;
+    document.getElementById("journalOverlay").classList.add("open");
+    document.body.style.overflow="hidden";
 
+    // 새 작성 상태
+    document.querySelectorAll('#journalOverlay input[type="radio"]').forEach(el=>el.checked=false);
+    document.getElementById("journalNote").value="";
+    document.getElementById("journalAgree").checked=false;
+    clearSignature();
+    setTimeout(resizeCanvas,60);
+  }
+
+  function closeJournal(){
+    document.getElementById("journalOverlay").classList.remove("open");
+    document.body.style.overflow="";
+    pendingAttendance=null;
+  }
+
+  function selectedValue(name){
+    const el=document.querySelector(`input[name="${name}"]:checked`);
+    return el?el.value:null;
+  }
+
+  function submitJournal(){
+    if(!pendingAttendance)return;
+
+    const accident=selectedValue("accident");
+    const nearMiss=selectedValue("nearMiss");
+    const equipment=selectedValue("equipment");
+    const note=document.getElementById("journalNote").value.trim();
+    const agree=document.getElementById("journalAgree").checked;
+
+    if(!accident){alert("사고 또는 부상 여부를 선택해주세요.");return;}
+    if(!nearMiss){alert("아차사고 또는 위험상황 여부를 선택해주세요.");return;}
+    if(!equipment){alert("장비·시설·공구 이상 여부를 선택해주세요.");return;}
+
+    const hasIssue=[accident,nearMiss,equipment].includes("있음");
+    if(hasIssue && !note){
+      alert("‘있음’ 항목이 있으므로 특이사항을 작성해주세요.");
+      document.getElementById("journalNote").focus();
+      return;
+    }
+
+    if(!signatureHasInk){alert("근로자 서명을 해주세요.");return;}
+    if(!agree){alert("내용 확인 체크 후 제출해주세요.");return;}
+
+    const canvas=document.getElementById("signatureCanvas");
+    const signatureData=canvas.toDataURL("image/png");
+
+    const journalData={
+      accident,
+      nearMiss,
+      equipment,
+      note:note || "없음",
+      signed:true,
+      signatureData,
+      submittedAt:formatNow(),
+      hasIssue
+    };
+
+    const data={...pendingAttendance};
+
+    document.getElementById("journalOverlay").classList.remove("open");
+    document.body.style.overflow="";
+    pendingAttendance=null;
+
+    processAttendance("퇴근",data.name,data.siteName,journalData);
+  }
+
+  /* 서명 패드 */
+  const canvas=document.getElementById("signatureCanvas");
+  const ctx=canvas.getContext("2d");
+  let drawing=false;
+
+  function resizeCanvas(){
+    const ratio=Math.max(window.devicePixelRatio||1,1);
+    const rect=canvas.getBoundingClientRect();
+    canvas.width=Math.round(rect.width*ratio);
+    canvas.height=Math.round(rect.height*ratio);
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.lineWidth=2.2;
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.strokeStyle="#17202A";
+  }
+
+  function pointFromEvent(e){
+    const rect=canvas.getBoundingClientRect();
+    const p=e.touches?e.touches[0]:e;
+    return {x:p.clientX-rect.left,y:p.clientY-rect.top};
+  }
+
+  function startDraw(e){
+    e.preventDefault();
+    drawing=true;
+    const p=pointFromEvent(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+  }
+
+  function draw(e){
+    if(!drawing)return;
+    e.preventDefault();
+    const p=pointFromEvent(e);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    signatureHasInk=true;
+  }
+
+  function endDraw(e){
+    if(!drawing)return;
+    if(e)e.preventDefault();
+    drawing=false;
+    ctx.closePath();
+  }
+
+  function clearSignature(){
+    const ratio=Math.max(window.devicePixelRatio||1,1);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.lineWidth=2.2;
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.strokeStyle="#17202A";
+    signatureHasInk=false;
+  }
+
+  canvas.addEventListener("mousedown",startDraw);
+  canvas.addEventListener("mousemove",draw);
+  window.addEventListener("mouseup",endDraw);
+  canvas.addEventListener("touchstart",startDraw,{passive:false});
+  canvas.addEventListener("touchmove",draw,{passive:false});
+  canvas.addEventListener("touchend",endDraw,{passive:false});
+  window.addEventListener("resize",()=>{
+    if(document.getElementById("journalOverlay").classList.contains("open"))resizeCanvas();
+  });
+</script>
 </body>
 </html>
