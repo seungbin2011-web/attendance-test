@@ -183,7 +183,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.20</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.21</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -289,9 +289,9 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
     </div></div><section class="card" id="tbmSection">
 <div class="section-title"><strong>TBM 작성</strong><span class="badge">팀원 열람용</span></div>
 <div class="tbm-menu">
-<button class="tbm-btn morning" onclick="openPanel('morningPanel')">출근</button>
-<button class="tbm-btn lunch" onclick="openPanel('lunchPanel')">오후</button>
-<button class="tbm-btn evening" onclick="openPanel('eveningPanel')">퇴근</button>
+<button class="tbm-btn morning" type="button" onclick="openTbmFromHome('morningPanel')">출근</button>
+<button class="tbm-btn lunch" type="button" onclick="openTbmFromHome('lunchPanel')">오후</button>
+<button class="tbm-btn evening" type="button" onclick="openTbmFromHome('eveningPanel')">퇴근</button>
 </div>
 
 <div id="morningPanel" class="panel">
@@ -311,7 +311,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 
 <div id="eveningPanel" class="panel">
   <div class="section-title"><strong>퇴근 TBM</strong><span class="badge">작업별 저장</span></div>
-  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div><div class="state-box" style="margin-top:-6px;margin-bottom:12px">오후 작업변경 사항을 DB에서 다시 확인한 뒤 최신 작업내용으로 표시합니다.</div>
+  <div class="desc">모든 작업이 완료되었다면 한 번에 저장하고, 일부완료/미완료 작업만 개별 작성합니다.</div><div class="state-box" style="margin-top:-6px;margin-bottom:12px">퇴근 화면을 열 때마다 DB를 다시 조회하여 오후 작업변경 사항을 최신 내용으로 표시합니다.</div>
   <div class="task-tbm-tools">
     <button class="all-clear-btn" id="eveningAllCompleteBtn" type="button" onclick="saveAllEveningComplete()">전체 작업 완료</button>
   </div>
@@ -319,7 +319,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.20</div>
+<div class="footer">© 2026 TBM Leader · v0.21</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -737,6 +737,25 @@ async function loadCurrentPlanIntoEditor(){
 }
 
 
+
+function allAfternoonTasksSaved(){
+  const tasks=currentPlan?.tasks||[];
+  return tasks.length>0 && tasks.every(t=>!!getSavedTaskState(t.planId,'오후'));
+}
+
+function finishAfternoonIfComplete(){
+  if(!allAfternoonTasksSaved()) return false;
+
+  updateTbmTimeGuide();
+  showStage('stageTbmHome');
+
+  setTimeout(()=>{
+    alert('오후 TBM 작업별 저장이 모두 완료되었습니다.');
+  },80);
+
+  return true;
+}
+
 function renderAfternoonTaskCards(){
   const wrap=document.getElementById('afternoonTaskStatusList');
   if(!wrap) return;
@@ -845,6 +864,7 @@ async function saveAfternoonNormal(index){
     markSavedState(t.planId,'오후','정상진행');
     await syncCurrentPlanFromDb();
     renderAfternoonTaskCards();
+    finishAfternoonIfComplete();
   });
 }
 
@@ -954,6 +974,8 @@ async function saveAllAfternoonNormal(){
 
     await syncCurrentPlanFromDb();
     renderAfternoonTaskCards();
+    updateTbmTimeGuide();
+    showStage('stageTbmHome');
     alert('전체 작업을 이상무로 저장했습니다.');
   }catch(err){
     console.error(err);
