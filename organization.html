@@ -52,7 +52,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 @media(max-width:760px){.tree-teams,.unassigned-grid{grid-template-columns:1fr}.unassigned-fab{right:10px;top:auto;bottom:14px}}
 
 
-/* v1.7 compact layout */
+/* v1.8 compact layout */
 .page{max-width:1320px}
 .tree-level.top .group{width:min(560px,100%)}
 .tree-level.manager .group{width:min(430px,100%)}
@@ -82,7 +82,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 }
 
 
-/* v1.7 upper cards compact */
+/* v1.8 upper cards compact */
 .tree-level.top .group{width:min(360px,100%)}
 .tree-level.manager .group{width:min(280px,100%)}
 .tree-level.top .person,
@@ -95,11 +95,49 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 .tree-level.top .group-title span:last-child,.tree-level.manager .group-title span:last-child{font-size:11px}
 .tree-connector{height:18px;margin:-2px auto 0}
 
+
+/* v1.8 top card width fix */
+.tree-level.top .group{
+  width:280px !important;
+  max-width:280px !important;
+  flex:0 0 280px !important;
+}
+.tree-level.manager .group{
+  width:230px !important;
+  max-width:230px !important;
+  flex:0 0 230px !important;
+}
+.tree-level.top .person,
+.tree-level.manager .person{
+  padding:5px 6px !important;
+  margin:4px !important;
+}
+.tree-level.top .group-title,
+.tree-level.manager .group-title{
+  padding:6px 8px !important;
+}
+.tree-level.top .name,
+.tree-level.manager .name{
+  font-size:11.5px !important;
+}
+.tree-level.top .meta,
+.tree-level.manager .meta{
+  font-size:9.5px !important;
+}
+@media(max-width:760px){
+  .tree-level.top .group,
+  .tree-level.manager .group{
+    width:100% !important;
+    max-width:100% !important;
+    flex:1 1 auto !important;
+  }
+}
+
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.7</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.8</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" onclick="location.href='index.html'">메인으로</button>
@@ -155,7 +193,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v1.7</div>
+  <div class="footer">© 2026 Yongin Site Organization · v1.8</div>
 </div>
 
 <script>
