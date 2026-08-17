@@ -294,8 +294,7 @@ function applyCarryOver(){
   document.getElementById('carryPreview').textContent=carry;
   const work=document.getElementById('workContent');
   if(!work.value.trim()) work.value=carry;
-  else if(!work.value.includes(carry)) work.value=carry+'
-'+work.value;
+  else if(!work.value.includes(carry)) work.value=carry+'\n'+work.value;
   document.getElementById('workContent').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
