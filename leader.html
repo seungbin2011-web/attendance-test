@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#173A63">
+<title>팀장 TBM 관리</title>
+<style>
+:root{--navy:#173A63;--navy-dark:#102C4D;--blue:#2E7CF6;--green:#229A62;--orange:#C67A00;--line:#DDE5EE;--text:#182230;--muted:#718096}
+*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic",Arial,sans-serif;background:#F3F6FA;color:var(--text)}
+.topbar{background:var(--navy);color:#fff;padding:18px 20px}.topbar-inner,.wrap{max-width:620px;margin:auto}.brand{font-size:21px;font-weight:800}.brand-sub{font-size:12px;color:#d7e1ec;margin-top:4px}
+.wrap{padding:22px 16px 42px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px 18px;margin-bottom:16px;box-shadow:0 10px 28px rgba(16,44,77,.07)}
+.title{font-size:20px;font-weight:800;margin-bottom:6px}.desc{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:16px}.label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}
+input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px;font-size:15px;outline:none;background:#fff}input,select{height:48px;padding:0 12px}textarea{min-height:92px;padding:12px;resize:vertical}
+.risk-grid,.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.risk,.status-option{border:1px solid var(--line);border-radius:10px;padding:11px;font-size:13px;font-weight:700;background:#fff}
+.risk{display:flex;gap:8px;align-items:center}.risk input{width:17px;height:17px}.status-option{text-align:center}.status-option input{display:none}.status-option:has(input:checked){border-color:var(--blue);background:#EDF5FF;color:#195FB8}
+.btn{width:100%;border:0;border-radius:13px;min-height:52px;color:#fff;font-size:15px;font-weight:800;cursor:pointer}.save{background:var(--blue)}.submit{background:var(--green)}
+.tbm-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.tbm-btn{border:0;border-radius:13px;padding:16px 8px;color:#fff;font-weight:800}.morning{background:var(--blue)}.lunch{background:var(--orange)}.evening{background:var(--navy-dark)}
+.panel{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.panel.open{display:block}
+.summary{background:#F7FAFD;border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:14px;font-size:13px;line-height:1.6}
+.notice{margin-top:14px;padding:12px;background:#FFF8EB;border:1px solid #F0D9A8;border-radius:11px;font-size:12px;color:#78551B;line-height:1.55}
+.footer{text-align:center;color:#98A3B2;font-size:11px}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.badge{font-size:11px;background:#EEF4FB;color:var(--navy);padding:5px 9px;border-radius:999px;font-weight:800}
+@media(max-width:430px){.grid2,.risk-grid,.status-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner"><div class="brand">팀장 TBM 관리</div><div class="brand-sub">작업계획 · 출근 TBM · 점심 TBM · 퇴근 TBM</div></div></header>
+<main class="wrap">
+
+<section class="card">
+<div class="title">오늘 작업 기본정보</div>
+<div class="desc">팀장과 현장 정보를 먼저 입력합니다.</div>
+<div class="grid2">
+<div class="field"><label class="label">팀장 이름</label><input id="leaderName" placeholder="팀장 이름"></div>
+<div class="field"><label class="label">팀명</label><input id="teamName" placeholder="예: 공사1팀"></div>
+</div>
+<div class="field"><label class="label">현장</label>
+<select id="siteName"><option value="">현장을 선택하세요</option><option>용인 현장</option><option>용인 하이닉스 현장</option><option>용인 사무실</option><option>이천 사무실</option></select>
+</div>
+</section>
+
+<section class="card">
+<div class="section-title"><strong>작업계획서</strong><span class="badge">팀장 작성</span></div>
+<div class="field"><label class="label">작업 위치</label><input id="workPlace" placeholder="예: 3층 MDF실 / A구역"></div>
+<div class="field"><label class="label">작업 내용</label><textarea id="workContent" placeholder="오늘 예정된 작업 내용을 작성하세요."></textarea></div>
+<div class="grid2">
+<div class="field"><label class="label">작업 인원</label><input id="workerCount" type="number" min="1" placeholder="예: 6"></div>
+<div class="field"><label class="label">예상 종료시간</label><input id="endTime" type="time"></div>
+</div>
+<div class="field"><label class="label">주요 위험요인</label>
+<div class="risk-grid">
+<label class="risk"><input type="checkbox" value="고소작업">고소작업</label>
+<label class="risk"><input type="checkbox" value="전기">전기</label>
+<label class="risk"><input type="checkbox" value="중량물">중량물</label>
+<label class="risk"><input type="checkbox" value="화기">화기</label>
+<label class="risk"><input type="checkbox" value="장비사용">장비사용</label>
+<label class="risk"><input type="checkbox" value="기타">기타</label>
+</div></div>
+<div class="field"><label class="label">안전조치 / 전달사항</label><textarea id="safetyNote" placeholder="안전조치 또는 팀원에게 전달할 내용을 작성하세요."></textarea></div>
+<button class="btn save" onclick="savePlan()">작업계획 임시 저장</button>
+<div class="notice">현재 v0.1은 화면 동작 확인용입니다. Google Sheet 저장은 다음 단계에서 연결합니다.</div>
+</section>
+
+<section class="card">
+<div class="section-title"><strong>TBM 작성</strong><span class="badge">팀원 열람용</span></div>
+<div class="tbm-menu">
+<button class="tbm-btn morning" onclick="openPanel('morningPanel')">출근 TBM</button>
+<button class="tbm-btn lunch" onclick="openPanel('lunchPanel')">점심 TBM</button>
+<button class="tbm-btn evening" onclick="openPanel('eveningPanel')">퇴근 TBM</button>
+</div>
+
+<div id="morningPanel" class="panel">
+<div class="summary" id="morningSummary">작업계획을 먼저 작성하면 이곳에 오늘 작업 내용이 자동으로 표시됩니다.</div>
+<div class="field"><label class="label">출근 TBM 추가 전달사항</label><textarea id="morningNote"></textarea></div>
+<button class="btn submit" onclick="submitTBM('출근')">출근 TBM 전파</button>
+</div>
+
+<div id="lunchPanel" class="panel">
+<div class="field"><label class="label">오전 작업상황</label>
+<div class="status-grid">
+<label class="status-option"><input type="radio" name="lunchStatus" value="정상진행">정상진행</label>
+<label class="status-option"><input type="radio" name="lunchStatus" value="지연">지연</label>
+<label class="status-option"><input type="radio" name="lunchStatus" value="작업변경">작업변경</label>
+<label class="status-option"><input type="radio" name="lunchStatus" value="위험사항 발생">위험사항 발생</label>
+</div></div>
+<div class="field"><label class="label">오후 작업내용 / 변경사항</label><textarea id="lunchNote"></textarea></div>
+<button class="btn submit" onclick="submitTBM('점심')">점심 TBM 전파</button>
+</div>
+
+<div id="eveningPanel" class="panel">
+<div class="field"><label class="label">금일 작업결과</label>
+<div class="status-grid">
+<label class="status-option"><input type="radio" name="eveningStatus" value="완료">완료</label>
+<label class="status-option"><input type="radio" name="eveningStatus" value="일부완료">일부완료</label>
+<label class="status-option"><input type="radio" name="eveningStatus" value="미완료">미완료</label>
+<label class="status-option"><input type="radio" name="eveningStatus" value="확인 필요">확인 필요</label>
+</div></div>
+<div class="field"><label class="label">미완료 / 이월 작업</label><textarea id="carryOver"></textarea></div>
+<div class="field"><label class="label">퇴근 전달사항</label><textarea id="eveningNote"></textarea></div>
+<button class="btn submit" onclick="submitTBM('퇴근')">퇴근 TBM 전파</button>
+</div>
+</section>
+<div class="footer">TBM Leader Test v0.1</div>
+</main>
+
+<script>
+let currentPlan=null;
+function getRisks(){return [...document.querySelectorAll('.risk input:checked')].map(e=>e.value)}
+function savePlan(){
+ const leader=document.getElementById('leaderName').value.trim();
+ const team=document.getElementById('teamName').value.trim();
+ const site=document.getElementById('siteName').value;
+ const place=document.getElementById('workPlace').value.trim();
+ const content=document.getElementById('workContent').value.trim();
+ const count=document.getElementById('workerCount').value;
+ const risks=getRisks();
+ const safety=document.getElementById('safetyNote').value.trim();
+ if(!leader||!team||!site||!place||!content){alert('팀장 이름, 팀명, 현장, 작업 위치, 작업 내용을 입력해주세요.');return}
+ currentPlan={leader,team,site,place,content,count,risks,safety};
+ document.getElementById('morningSummary').innerHTML=
+ `<strong>${team} / ${site}</strong><br>작업 위치: ${place}<br>작업 내용: ${content}<br>작업 인원: ${count||'-'}명<br>주요 위험요인: ${risks.length?risks.join(', '):'없음'}<br>안전조치: ${safety||'-'}`;
+ alert('작업계획이 화면에 임시 저장되었습니다.');
+}
+function openPanel(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('open'));document.getElementById(id).classList.add('open')}
+function submitTBM(type){
+ if(type==='출근'&&!currentPlan){alert('출근 TBM 전 작업계획서를 먼저 작성해주세요.');return}
+ if(type==='점심'&&!document.querySelector('input[name="lunchStatus"]:checked')){alert('오전 작업상황을 선택해주세요.');return}
+ if(type==='퇴근'&&!document.querySelector('input[name="eveningStatus"]:checked')){alert('금일 작업결과를 선택해주세요.');return}
+ alert(type+' TBM이 전파된 것으로 테스트 처리되었습니다.');
+}
+</script>
+</body>
+</html>
