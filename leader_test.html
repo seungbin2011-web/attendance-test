@@ -198,7 +198,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.31 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.32 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -358,7 +358,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.31 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.32 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -999,6 +999,8 @@ async function loadCurrentPlanIntoEditor(){
     workTasks=[];
     taskSeq=0;
     currentPlan.tasks.forEach(t=>addWorkTask({
+      planId:t.planId||'',
+      taskNo:t.taskNo||'',
       place:t.place,
       content:t.content,
       members:t.members
@@ -1575,7 +1577,7 @@ async function loadTeamMembers(){
 
 function addWorkTask(prefill={}){
   taskSeq+=1;
-  const task={id:taskSeq,pendingMembers:prefill.members||[]};
+  const task={id:taskSeq,planId:prefill.planId||'',originalTaskNo:prefill.taskNo||'',pendingMembers:prefill.members||[]};
   workTasks.push(task);
 
   const wrap=document.getElementById('taskList');
@@ -1702,6 +1704,7 @@ function updateTaskMemberCount(taskId){
 
 function getWorkTaskData(){
   return workTasks.map((task,index)=>({
+    planId:task.planId||'',
     taskNo:index+1,
     place:(document.getElementById('taskPlace_'+task.id)?.value||'').trim(),
     content:(document.getElementById('taskContent_'+task.id)?.value||'').trim(),
@@ -2123,11 +2126,11 @@ async function savePlan(){
         if(!confirm(`다음 인원이 여러 작업에 중복 배정되어 있습니다.\n${duplicateNames.join(', ')}\n\n그래도 저장할까요?`)) return;
       }
 
-      const groupId=makeId('GROUP');
+      const groupId=currentPlan?.groupId||makeId('GROUP');
 
       try{
         for(const task of tasks){
-          const planId=makeId('PLAN');
+          const planId=task.planId||makeId('PLAN');
           await postToSheet({
             action:'savePlan',
             planId,
@@ -2149,6 +2152,12 @@ async function savePlan(){
           });
           task.planId=planId;
         }
+
+        await postToSheet({
+          action:'syncPlanGroup',
+          groupId,
+          activePlanIds:JSON.stringify(tasks.map(t=>t.planId).filter(Boolean))
+        });
 
         currentPlan={groupId,leader,team,site,tasks,endTime,risks,safety};
 
