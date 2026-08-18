@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>관리자 정합성 정리</title>
+<style>
+:root{--navy:#173A63;--blue:#245B8E;--bg:#F3F6F9;--line:#DDE5EC;--text:#17222D;--muted:#6E7B88;--green:#24734A;--orange:#A85E00;--red:#B13A3A}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,"Noto Sans KR",sans-serif;color:var(--text)}
+.wrap{max-width:1120px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+h1{font-size:20px;margin:0;color:var(--navy)}.sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.55}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 12px;font-weight:800;cursor:pointer}.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.danger{background:#fff3f3;color:var(--red);border-color:#efcaca}.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.bar input,.bar select{border:1px solid var(--line);border-radius:9px;padding:9px;background:#fff}
+.notice{background:#FFF7E8;border:1px solid #F1D7A5;border-radius:12px;padding:11px 13px;font-size:11px;line-height:1.6;color:#80551A;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:12px}.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat b{display:block;font-size:23px;color:var(--navy)}.stat span{font-size:10.5px;color:var(--muted)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}.ctitle{font-weight:900;color:var(--navy);font-size:15px}
+.chead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.badge{font-size:10px;font-weight:900;padding:4px 7px;border-radius:999px}
+.badge.red{background:#FDE8E8;color:var(--red)}.badge.orange{background:#FFF1DF;color:var(--orange)}.badge.green{background:#E7F6EC;color:var(--green)}.badge.gray{background:#EEF2F5;color:#64717D}
+.item{border-top:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:start}.item:first-child{border-top:0}
+.item strong{font-size:12.5px}.meta{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.5}.empty{font-size:11px;color:var(--muted);padding:12px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dangerbox{border:1px solid #efcaca;background:#fff8f8;border-radius:12px;padding:12px}
+.log{font-size:10.5px;color:var(--muted);white-space:pre-line;line-height:1.55}.footer{text-align:center;color:#87939f;font-size:10px;padding:10px}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.cols{grid-template-columns:1fr}.top{align-items:flex-start}.item{grid-template-columns:24px 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>관리자 정합성 정리 <small style="font-size:10px;color:#8090a0">TEST v0.1</small></h1>
+      <div class="sub" id="who">권한 확인 중</div></div>
+    <div><button class="btn" onclick="location.href='admin_test.html'">관리자 홈</button></div>
+  </div>
+
+  <div class="notice">
+    이 화면은 <b>YI-0003 관리자 전용</b>입니다. 데이터를 삭제하지 않고 이상 상태를 먼저 찾습니다.
+    TBM 정리는 선택한 미완료 작업에 <b>관리자 퇴근 완료 기록을 추가</b>하고 정리이력을 남깁니다.
+    출결 원본은 별도 DB이므로 이 화면에서 자동 수정하지 않습니다.
+  </div>
+
+  <div class="bar">
+    <input type="date" id="workDate">
+    <button class="btn primary" id="scanBtn" onclick="scan()">정합성 확인</button>
+    <button class="btn" onclick="selectAllOpen()">미완료 작업 전체선택</button>
+  </div>
+
+  <div class="grid">
+    <div class="stat"><b id="sOpen">-</b><span>미완료 작업</span></div>
+    <div class="stat"><b id="sWorking">-</b><span>근무 중</span></div>
+    <div class="stat"><b id="sAssignedAbsent">-</b><span>배정됐으나 미출근</span></div>
+    <div class="stat"><b id="sUnassigned">-</b><span>근무 중 · 미배정</span></div>
+    <div class="stat"><b id="sAllOutOpen">-</b><span>전원 퇴근 · 작업 미완료</span></div>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <div class="chead"><div><div class="ctitle">미완료 작업</div><div class="sub">선택 후 관리자 종료처리 가능</div></div><span class="badge orange" id="openCount">0건</span></div>
+      <div id="openPlans"></div>
+    </div>
+    <div class="card">
+      <div class="chead"><div><div class="ctitle">출결/배정 불일치</div><div class="sub">출결은 자동 보정하지 않고 확인만 합니다.</div></div><span class="badge red" id="issueCount">0건</span></div>
+      <div id="issues"></div>
+    </div>
+  </div>
+
+  <div class="card dangerbox">
+    <div class="chead"><div><div class="ctitle">선택 작업 정리</div><div class="sub">삭제가 아니라 TBM 퇴근 완료 기록 + 관리자정리이력을 추가합니다.</div></div></div>
+    <div class="bar" style="margin:0">
+      <select id="reason">
+        <option>릴리즈 전 테스트 정리</option>
+        <option>테스트 작업 종료</option>
+        <option>작업 마감 누락 보정</option>
+      </select>
+      <button class="btn danger" id="closeBtn" onclick="closeSelected()">선택 작업 종료처리</button>
+    </div>
+    <div class="log" id="log">아직 실행한 정리 작업이 없습니다.</div>
+  </div>
+
+  <div class="footer">© 현장 관리 테스트 · 관리자 전용 정합성 도구</div>
+</div>
+<script>
+const ORG_API='https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
+const TBM_API='https://script.google.com/macros/s/AKfycbyPtHjGZXnke0iRRG11jQWFZ-ysxe9vq5YKPr89F80ZN3GxANCNjV2BgzSeql5WK2chwQ/exec';
+let auth=null, people=[], attendance={}, assignments={}, plans=[];
+
+function c(v){return String(v??'').trim()}
+function e(v){return c(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function readAuth(){try{return JSON.parse(sessionStorage.getItem('attendanceAuthUser')||'null')}catch(_){return null}}
+function jsonp(url,params){return new Promise((resolve,reject)=>{const cb='cln_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');const t=setTimeout(()=>{clean();reject(new Error('DB 응답 시간 초과'))},25000);function clean(){clearTimeout(t);try{delete window[cb]}catch(_){}s.remove()}window[cb]=d=>{clean();resolve(d)};s.src=url+'?'+new URLSearchParams({...params,callback:cb,_t:Date.now()});s.onerror=()=>{clean();reject(new Error('DB 연결 실패'))};document.body.appendChild(s)})}
+async function postTbm(payload){await fetch(TBM_API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})}
+function status(uid){const m=attendance[uid]||{};return {in:!!m['출근'],out:!!m['퇴근'],inTime:c(m['출근']?.time),outTime:c(m['퇴근']?.time)}}
+
+function buildPlans(){
+  const map={};
+  Object.entries(assignments||{}).forEach(([uid,arr])=>(arr||[]).forEach(a=>{
+    const k=c(a.planId)||[a.leader,a.taskNo,a.place].join('|');
+    if(!map[k])map[k]={...a,workers:[],workerIds:[]};
+    if(uid&&!map[k].workerIds.includes(uid)){map[k].workerIds.push(uid);map[k].workers.push(a.name||uid)}
+    if(a.completed)map[k].completed=true;
+  }));
+  plans=Object.values(map);
+}
+function classify(){
+  buildPlans();
+  const open=plans.filter(p=>!p.completed);
+  const working=people.filter(p=>{const s=status(c(p['사용자ID']));return s.in&&!s.out});
+  const assignedAbsent=[];
+  Object.entries(assignments||{}).forEach(([uid,arr])=>{
+    if((arr||[]).some(a=>!a.completed) && !status(uid).in){
+      const p=people.find(x=>c(x['사용자ID'])===uid);
+      assignedAbsent.push({uid,name:p?.['성명']||uid,team:p?.['팀']||'',kind:'배정됐으나 미출근'});
+    }
+  });
+  const unassigned=working.filter(p=>{
+    const uid=c(p['사용자ID']);
+    return !(assignments[uid]||[]).some(a=>!a.completed);
+  }).map(p=>({uid:c(p['사용자ID']),name:c(p['성명']),team:c(p['팀']),kind:'근무 중 · 미배정'}));
+  const allOutOpen=open.filter(p=>p.workerIds.length&&p.workerIds.every(uid=>status(uid).out));
+  return {open,working,assignedAbsent,unassigned,allOutOpen};
+}
+function render(){
+  const x=classify();
+  sOpen.textContent=x.open.length;sWorking.textContent=x.working.length;sAssignedAbsent.textContent=x.assignedAbsent.length;sUnassigned.textContent=x.unassigned.length;sAllOutOpen.textContent=x.allOutOpen.length;
+  openCount.textContent=x.open.length+'건';issueCount.textContent=(x.assignedAbsent.length+x.unassigned.length+x.allOutOpen.length)+'건';
+
+  openPlans.innerHTML=x.open.map(p=>{
+    const allOut=x.allOutOpen.some(z=>c(z.planId)===c(p.planId));
+    return `<div class="item"><input class="planChk" type="checkbox" value="${e(p.planId)}">
+      <div><strong>${e(p.team||'-')} · ${e(p.leader||'-')} · 작업 ${e(p.taskNo||'-')}</strong>
+      <div class="meta">${e(p.place||'-')} · ${e(p.content||'-')}<br>투입: ${e(p.workers.join(', ')||'-')}</div></div>
+      ${allOut?'<span class="badge red">전원 퇴근</span>':'<span class="badge orange">미완료</span>'}</div>`;
+  }).join('')||'<div class="empty">미완료 작업이 없습니다.</div>';
+
+  const issues=[
+    ...x.assignedAbsent,
+    ...x.unassigned,
+    ...x.allOutOpen.map(p=>({uid:p.planId,name:`${p.team||'-'} 작업 ${p.taskNo||'-'}`,team:p.leader||'',kind:'전원 퇴근 · 작업 미완료'}))
+  ];
+  issuesEl=issues;
+  document.getElementById('issues').innerHTML=issues.map(i=>`<div class="item"><span></span><div><strong>${e(i.name)}</strong><div class="meta">${e(i.team||'-')} · ${e(i.uid||'-')}</div></div><span class="badge ${i.kind.includes('미배정')?'orange':'red'}">${e(i.kind)}</span></div>`).join('')||'<div class="empty">확인할 불일치가 없습니다.</div>';
+}
+async function scan(){
+  const btn=scanBtn;btn.disabled=true;btn.textContent='확인 중...';
+  try{
+    const date=workDate.value||today();
+    const org=await jsonp(ORG_API,{action:'personnelOrg'});
+    if(!org?.success)throw new Error(org?.message||'인원DB 조회 실패');
+    people=(org.people||[]).filter(p=>c(p['사용여부']).toUpperCase()!=='N');
+    const ids=people.map(p=>c(p['사용자ID'])).filter(Boolean);
+    const [att,tbm]=await Promise.all([
+      jsonp(ORG_API,{action:'teamAttendance',date,userIds:ids.join(',')}),
+      jsonp(TBM_API,{action:'todayAssignments',date,team:'',includeCompleted:'Y'})
+    ]);
+    if(!att?.success)throw new Error(att?.message||'출결 조회 실패');
+    if(!tbm?.success)throw new Error(tbm?.message||'TBM 조회 실패');
+    attendance=att.attendance||att.map||att.data||{};
+    assignments=tbm.assignments||{};
+    render();
+    log.textContent=`${date} 정합성 확인 완료 · ${new Date().toLocaleTimeString('ko-KR')}`;
+  }catch(err){alert(err.message);log.textContent='오류: '+err.message}
+  finally{btn.disabled=false;btn.textContent='정합성 확인'}
+}
+function selectAllOpen(){document.querySelectorAll('.planChk').forEach(x=>x.checked=true)}
+async function closeSelected(){
+  const ids=[...document.querySelectorAll('.planChk:checked')].map(x=>x.value);
+  if(!ids.length){alert('종료할 미완료 작업을 선택해주세요.');return}
+  const reason=document.getElementById('reason').value;
+  if(!confirm(`${ids.length}개 작업을 관리자 종료처리할까요?\n\n삭제하지 않고 퇴근 완료 기록과 정리이력을 추가합니다.`))return;
+  closeBtn.disabled=true;closeBtn.textContent='정리 중...';
+  try{
+    await postTbm({action:'adminClosePlans',workDate:workDate.value||today(),planIds:ids,reason,adminUserId:auth.userId,adminName:auth.name});
+    log.textContent=`${ids.length}개 작업 종료처리 요청 완료.\nDB 반영을 확인하기 위해 다시 조회합니다.`;
+    await new Promise(r=>setTimeout(r,1200));
+    await scan();
+  }catch(err){alert(err.message);log.textContent='정리 실패: '+err.message}
+  finally{closeBtn.disabled=false;closeBtn.textContent='선택 작업 종료처리'}
+}
+(function init(){
+  auth=readAuth();
+  if(!auth||(c(auth.userId)!=='YI-0003'&&c(auth.name)!=='박보강')){alert('관리자 정리 권한이 없습니다.');location.replace('admin_test.html');return}
+  who.textContent=`${auth.name} · ${auth.userId} · 관리자 전용`;
+  workDate.value=today();
+  scan();
+})();
+</script>
+</body>
+</html>
