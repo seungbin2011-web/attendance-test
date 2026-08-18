@@ -183,7 +183,7 @@ body{
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.9</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.10</span></div>
     <div style="display:flex;gap:6px">
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="goHome()">홈으로</button>
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
@@ -262,7 +262,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.9</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.10</div>
 </main>
 
 <script>
@@ -436,13 +436,14 @@ async function loadMyTodayTasks(){
           작업내용: ${esc(t.content||"-")}<br>
           팀장: ${esc(t.leader||"-")} · 현장: ${esc(t.site||"-")}<br>
           예상종료: ${esc(t.endTime||"-")}
-          ${t.changed?'<br><span class="changed-badge">※ 작업 변경사항 반영됨</span>':""}
+          ${t.changed?'<br><span class="changed-badge">※ 작업 변경 이력 있음</span>':""}
+          ${t.afternoonStatus?`<br>오후 TBM: <strong>${esc(t.afternoonStatus)}</strong>`:""}
+          ${t.eveningStatus?`<br>퇴근 TBM: <strong>${esc(t.eveningStatus)}</strong>`:""}
         </div>
         <div class="tbm-directive">
           <strong>안전/TBM 지시</strong><br>
           위험요인: ${esc(t.risks||"없음")}<br>
           안전조치: ${esc(t.safety||"-")}
-          ${latestTbm?`<br>최근 전달: ${esc(latestTbm.note||latestTbm.extra||"-")}`:""}
         </div>`;
 
       if(t.completed){

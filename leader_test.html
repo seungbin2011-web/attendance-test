@@ -205,7 +205,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.33 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.34 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -365,7 +365,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.33 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.34 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -968,14 +968,16 @@ async function openTbmFromHome(panelId){
   if(panelId==='lunchPanel'){
     await syncCurrentPlanFromDb();
     await refreshTbmSavedStates();
+    await loadTeamMembers();
     renderAfternoonTaskCards();
   }
 
   if(panelId==='eveningPanel'){
-    showLoading('최신 작업정보 확인 중입니다','오후 변경사항을 포함한 최신 작업내용을 DB에서 확인하고 있습니다.');
+    showLoading('최신 작업정보 확인 중입니다','오후 변경사항과 출근상태를 포함한 최신 내용을 DB에서 확인하고 있습니다.');
     try{
       await syncCurrentPlanFromDb();
       await refreshTbmSavedStates();
+      await loadTeamMembers();
       renderEveningTaskCards();
     }finally{
       hideLoading();
@@ -1001,7 +1003,7 @@ async function loadCurrentPlanIntoEditor(){
       cb.checked=(currentPlan.risks||[]).includes(cb.value);
     });
 
-    if(!availableTeamMembers.length) await loadTeamMembers();
+    await loadTeamMembers();
 
     document.getElementById('taskList').innerHTML='';
     workTasks=[];
@@ -1245,9 +1247,17 @@ async function saveAllAfternoonNormal(){
   if(btn) btn.disabled=true;
 
   try{
-    showLoading('전체 이상무 DB 저장 중입니다','오늘 작업 전체를 정상진행으로 저장하고 있습니다.');
+    const unsaved=currentPlan.tasks.filter(t=>!getSavedTaskState(t.planId,'오후'));
+    const kept=currentPlan.tasks.filter(t=>!!getSavedTaskState(t.planId,'오후'));
 
-    for(const t of currentPlan.tasks){
+    if(!unsaved.length){
+      alert('이미 모든 작업의 오후 TBM 상태가 저장되어 있습니다.');
+      return;
+    }
+
+    showLoading('전체 이상무 DB 저장 중입니다','개별 저장된 작업은 유지하고, 미저장 작업만 정상진행으로 저장합니다.');
+
+    for(const t of unsaved){
       await postToSheet({
         action:'saveTbm',
         tbmId:makeTbmRecordId('오후',t.planId),
@@ -1267,7 +1277,9 @@ async function saveAllAfternoonNormal(){
     renderAfternoonTaskCards();
     updateTbmTimeGuide();
     showStage('stageTbmHome');
-    alert('전체 작업을 이상무로 저장했습니다.');
+
+    const keptMsg=kept.length ? ` 기존 개별 저장 ${kept.length}건은 유지했습니다.` : '';
+    alert(`미저장 작업 ${unsaved.length}건을 이상무로 저장했습니다.${keptMsg}`);
   }catch(err){
     console.error(err);
     alert('DB 저장 중 오류가 발생했습니다: '+err.message);
@@ -1444,10 +1456,18 @@ async function saveAllEveningComplete(){
   if(btn) btn.disabled=true;
 
   try{
-    showLoading('전체 작업 완료 DB 저장 중입니다','오늘 작업 전체를 완료로 저장하고 있습니다.');
+    const unsaved=currentPlan.tasks.filter(t=>!getSavedTaskState(t.planId,'퇴근'));
+    const kept=currentPlan.tasks.filter(t=>!!getSavedTaskState(t.planId,'퇴근'));
+
+    if(!unsaved.length){
+      alert('이미 모든 작업의 퇴근 TBM 상태가 저장되어 있습니다.');
+      return;
+    }
+
+    showLoading('전체 작업 완료 DB 저장 중입니다','개별 저장된 작업은 유지하고, 미저장 작업만 완료로 저장합니다.');
     const commonNote=(document.getElementById('eveningNote')?.value||'').trim();
 
-    for(const t of currentPlan.tasks){
+    for(const t of unsaved){
       await postToSheet({
         action:'saveResult',
         planId:t.planId,
@@ -1477,8 +1497,13 @@ async function saveAllEveningComplete(){
     }
 
     renderEveningTaskCards();
-    showStage('stageTbmHome');
-    alert('전체 작업 확인이 완료되었습니다. TBM 홈에서 추가 작업을 진행할 수 있습니다.');
+
+    const keptMsg=kept.length ? ` 기존 개별 저장 ${kept.length}건은 유지했습니다.` : '';
+    alert(`미저장 작업 ${unsaved.length}건을 완료로 저장했습니다.${keptMsg}`);
+
+    if(allEveningTasksSaved()){
+      showStage('stageTbmHome');
+    }
   }catch(err){
     console.error(err);
     alert('DB 저장 중 오류가 발생했습니다: '+err.message);
