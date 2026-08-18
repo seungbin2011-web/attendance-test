@@ -212,7 +212,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.37 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.38 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -372,7 +372,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.37 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.38 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -1065,7 +1065,10 @@ function renderAfternoonTaskCards(){
   wrap.innerHTML=tasks.map((t,i)=>{
     const saved=getSavedTaskState(t.planId,'오후');
     const selected=selectedTaskStatuses.afternoon[t.planId]||saved?.status||'';
-    const savedText=saved ? `✓ ${escapeHtml(saved.status)} · 저장완료` : '미저장';
+    const pending=!saved && !!selected;
+    const savedText=saved
+      ? `✓ ${escapeHtml(saved.status)} · 저장완료`
+      : (pending ? `● ${escapeHtml(selected)} 선택 · DB 미저장` : '미저장');
     const names=t.members.map(m=>`${m.name}${m.role?'('+m.role+')':''}`).join(', ')||'-';
 
     return `
@@ -1335,7 +1338,7 @@ function renderEveningTaskCards(){
             <div class="task-tbm-name">작업 ${t.taskNo||i+1} · ${escapeHtml(t.place||'-')}</div>
             <div class="task-tbm-meta">${escapeHtml(t.content||'-')}<br>투입 ${t.members.length}명 · ${escapeHtml(t.members.map(m=>m.name).join(', ')||'-')}</div>
           </div>
-          <div class="task-save-state">${savedText}</div>
+          <div class="task-save-state${pending?' pending':''}">${savedText}</div>
         </div>
         <div class="task-status-buttons three">
           ${['완료','일부완료','미완료'].map(s=>`
