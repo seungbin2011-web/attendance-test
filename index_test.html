@@ -341,7 +341,10 @@
         <div class="login-user-name" id="loginUserName">-</div>
         <div class="login-user-meta" id="loginUserMeta">-</div>
       </div>
-      <button type="button" class="logout-btn" onclick="logoutAttendance()">로그아웃</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" class="logout-btn" id="attendanceHomeBtn" onclick="goAttendanceHome()">홈으로</button>
+        <button type="button" class="logout-btn" onclick="logoutAttendance()">로그아웃</button>
+      </div>
     </div>
 
     <h1 class="title">출퇴근 등록</h1>
@@ -410,7 +413,7 @@
     </div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.13</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.15</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -605,6 +608,11 @@
     document.getElementById("loginUserMeta").textContent=
       [user.userId,user.team,user.rank||user.role,attendanceGradeLabel(user.attendanceGrade)].filter(Boolean).join(" · ");
 
+    const homeBtn=document.getElementById("attendanceHomeBtn");
+    if(homeBtn){
+      homeBtn.textContent=isTeamLeader(user) ? "TBM 홈" : "팀원 홈";
+    }
+
     const siteMap={
       "용인 현장":"용인 현장",
       "용인 하이닉스":"용인 하이닉스 현장",
@@ -619,6 +627,19 @@
     }
     renderAttendancePolicy();
     refreshAttendanceButtons();
+  }
+
+  function goAttendanceHome(){
+    if(!authUser){
+      location.replace("index_test.html");
+      return;
+    }
+
+    if(isTeamLeader(authUser)){
+      location.replace("leader_test.html");
+    }else{
+      location.replace("member_test.html");
+    }
   }
 
   function logoutAttendance(){
