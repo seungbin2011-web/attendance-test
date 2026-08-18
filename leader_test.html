@@ -205,10 +205,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .photo-remove{position:absolute;right:4px;top:4px;width:23px;height:23px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:13px;font-weight:900;cursor:pointer}
 .photo-count{font-size:11px;color:var(--muted);margin-top:6px}
 
+
+.task-save-state.pending{color:#B26A00;background:#FFF6DF;border:1px solid #F0D59C;border-radius:999px;padding:4px 8px}
+.task-tbm-card.pending{border-color:#E8C57A;background:#FFFDF7}
+.task-save-btn:disabled{opacity:.6;cursor:not-allowed}
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.36 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.37 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -368,7 +372,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.36 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.37 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -1071,7 +1075,7 @@ function renderAfternoonTaskCards(){
             <div class="task-tbm-name">작업 ${t.taskNo||i+1} · ${escapeHtml(t.place||'-')}</div>
             <div class="task-tbm-meta">${escapeHtml(t.content||'-')}<br>투입 ${t.members.length}명 · ${escapeHtml(names)}</div>
           </div>
-          <div class="task-save-state">${savedText}</div>
+          <div class="task-save-state${pending?' pending':''}">${savedText}</div>
         </div>
         <div class="task-status-buttons">
           ${['정상진행','작업변경','지연','위험'].map(s=>`
@@ -1247,9 +1251,23 @@ async function saveAfternoonTask(index){
 async function saveAllAfternoonNormal(){
   if(!currentPlan?.tasks?.length) return;
   const btn=document.getElementById('afternoonAllClearBtn');
-  if(btn) btn.disabled=true;
+  setButtonBusy(btn,true,'전체 이상무 처리 중...');
 
   try{
+    const pending=currentPlan.tasks.filter(t=>
+      !getSavedTaskState(t.planId,'오후') &&
+      !!selectedTaskStatuses.afternoon[t.planId]
+    );
+
+    if(pending.length){
+      alert(
+        'DB에 저장되지 않은 개별 선택 작업이 있습니다.\n\n'+
+        pending.map(t=>`• 작업 ${t.taskNo} · ${t.place} → ${selectedTaskStatuses.afternoon[t.planId]}`).join('\n')+
+        '\n\n먼저 해당 작업을 DB 저장한 뒤 전체 이상무를 눌러주세요.'
+      );
+      return;
+    }
+
     const unsaved=currentPlan.tasks.filter(t=>!getSavedTaskState(t.planId,'오후'));
     const kept=currentPlan.tasks.filter(t=>!!getSavedTaskState(t.planId,'오후'));
 
@@ -1288,7 +1306,7 @@ async function saveAllAfternoonNormal(){
     alert('DB 저장 중 오류가 발생했습니다: '+err.message);
   }finally{
     hideLoading();
-    if(btn) btn.disabled=false;
+    setButtonBusy(btn,false);
   }
 }
 
@@ -1305,10 +1323,13 @@ function renderEveningTaskCards(){
   wrap.innerHTML=tasks.map((t,i)=>{
     const saved=getSavedTaskState(t.planId,'퇴근');
     const selected=selectedTaskStatuses.evening[t.planId]||saved?.status||'';
-    const savedText=saved ? `✓ ${escapeHtml(saved.status)} · 저장완료` : '미저장';
+    const pending=!saved && !!selected;
+    const savedText=saved
+      ? `✓ ${escapeHtml(saved.status)} · 저장완료`
+      : (pending ? `● ${escapeHtml(selected)} 선택 · DB 미저장` : '미저장');
 
     return `
-      <div class="task-tbm-card${saved?' saved':''}" id="eveningCard_${i}">
+      <div class="task-tbm-card${saved?' saved':''}${pending?' pending':''}" id="eveningCard_${i}">
         <div class="task-tbm-head">
           <div>
             <div class="task-tbm-name">작업 ${t.taskNo||i+1} · ${escapeHtml(t.place||'-')}</div>
@@ -1411,10 +1432,10 @@ async function saveEveningTask(index){
   if(!reason){alert('사유를 입력해주세요.');return;}
 
   const btn=document.getElementById('eveSaveBtn_'+index);
-  if(btn) btn.disabled=true;
+  setButtonBusy(btn,true,'DB 저장 중...');
 
   try{
-    showLoading('퇴근 TBM DB 저장 중입니다','해당 작업 결과를 DB에 저장하고 있습니다.');
+    showLoading('퇴근 TBM DB 저장 중입니다',`작업 ${t.taskNo} · ${status} 상태를 DB에 저장하고 있습니다.`);
     const commonNote=(document.getElementById('eveningNote')?.value||'').trim();
 
     await postToSheet({
@@ -1449,16 +1470,30 @@ async function saveEveningTask(index){
     alert('DB 저장 중 오류가 발생했습니다: '+err.message);
   }finally{
     hideLoading();
-    if(btn) btn.disabled=false;
+    setButtonBusy(btn,false);
   }
 }
 
 async function saveAllEveningComplete(){
   if(!currentPlan?.tasks?.length) return;
   const btn=document.getElementById('eveningAllCompleteBtn');
-  if(btn) btn.disabled=true;
+  setButtonBusy(btn,true,'전체 완료 처리 중...');
 
   try{
+    const pending=currentPlan.tasks.filter(t=>
+      !getSavedTaskState(t.planId,'퇴근') &&
+      !!selectedTaskStatuses.evening[t.planId]
+    );
+
+    if(pending.length){
+      alert(
+        'DB에 저장되지 않은 개별 선택 작업이 있습니다.\n\n'+
+        pending.map(t=>`• 작업 ${t.taskNo} · ${t.place} → ${selectedTaskStatuses.evening[t.planId]}`).join('\n')+
+        '\n\n먼저 해당 작업을 DB 저장한 뒤 전체 작업 완료를 눌러주세요.'
+      );
+      return;
+    }
+
     const unsaved=currentPlan.tasks.filter(t=>!getSavedTaskState(t.planId,'퇴근'));
     const kept=currentPlan.tasks.filter(t=>!!getSavedTaskState(t.planId,'퇴근'));
 
@@ -1512,7 +1547,7 @@ async function saveAllEveningComplete(){
     alert('DB 저장 중 오류가 발생했습니다: '+err.message);
   }finally{
     hideLoading();
-    if(btn) btn.disabled=false;
+    setButtonBusy(btn,false);
   }
 }
 
