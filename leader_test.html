@@ -194,7 +194,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.25 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.26 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -351,7 +351,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.25 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.26 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -2150,9 +2150,19 @@ if(startupMsg){
 }
 
 
-setTimeout(()=>{
+setTimeout(async ()=>{
   if(applyTBMAuthUser()){
     try{saveLastIdentity();}catch(e){}
+
+    // 로그인 정보가 적용된 뒤 정식 인원DB에서 팀원을 다시 조회한다.
+    // 초기화 순서상 로그인 전에 loadTeamMembers()가 먼저 실행되면
+    // "팀장 로그인 정보가 없습니다."가 남을 수 있어 여기서 반드시 재조회한다.
+    try{
+      await loadTeamMembers();
+      renderAllTaskMembers();
+    }catch(err){
+      console.error("로그인 후 팀원 재조회 실패",err);
+    }
   }
 },0);
 </script>
