@@ -161,7 +161,7 @@ body{
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.3</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.4</span></div>
     <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
   </div>
 </header>
@@ -172,6 +172,7 @@ body{
       <div class="hello">로그인 사용자</div>
       <div class="name" id="myName">-</div>
       <div class="meta" id="myMeta">-</div>
+      <div class="status" id="myPolicy" style="margin-top:10px">출결 정책 확인 중</div>
 
       <div class="actions">
         <button class="btn primary" onclick="goAttendance()">출결 등록</button>
@@ -226,7 +227,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.3</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.4</div>
 </main>
 
 <script>
@@ -282,6 +283,13 @@ function personCard(p,kind){
   </div>`;
 }
 
+function attendanceGradeLabel(grade){
+  const g=clean(grade||"A").toUpperCase();
+  if(g==="B") return "B · 이동근무";
+  if(g==="C") return "C · 자유근무";
+  return "A · 일반근무";
+}
+
 function todayDate(){
   const d=new Date();
   const y=d.getFullYear();
@@ -327,7 +335,13 @@ function renderAttendanceStatus(){
     outEl.className="";
   }
 
-  if(state["퇴근"]){
+  const grade=clean(authUser?.attendanceGrade||"A").toUpperCase();
+  if(grade==="C"){
+    const activities=(state.activities||[]);
+    notice.textContent=activities.length
+      ? `오늘 활동 기록 ${activities.length}건이 있습니다.`
+      : "자유근무 대상입니다. 필요한 출결/이동 기록을 남겨주세요.";
+  }else if(state["퇴근"]){
     notice.textContent="오늘 출근·퇴근 처리 요청이 모두 완료되었습니다.";
   }else if(state["출근"]){
     notice.textContent="오늘 출근 처리 요청이 완료되었습니다. 퇴근 시 다시 출결 등록을 눌러주세요.";
@@ -395,8 +409,11 @@ function logout(){
 
   document.getElementById("myName").textContent=authUser.name||"-";
   document.getElementById("myMeta").textContent=
-    [authUser.userId,authUser.team,authUser.rank||authUser.role,authUser.site]
+    [authUser.userId,authUser.team,authUser.rank||authUser.role,authUser.defaultSite||authUser.site]
       .filter(Boolean).join(" · ");
+
+  document.getElementById("myPolicy").textContent=
+    `출결등급 ${attendanceGradeLabel(authUser.attendanceGrade)}`;
 
   renderAttendanceStatus();
   reloadTeam();
