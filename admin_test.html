@@ -8,12 +8,76 @@
 <style>
 :root{--navy:#173A63;--blue:#2E7CF6;--green:#229A62;--orange:#C67A00;--red:#C94A4A;--line:#DCE5EF;--bg:#F3F6FA;--text:#182230;--muted:#718096}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic",Arial,sans-serif}.top{background:var(--navy);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 16px 14px}.topin{max-width:980px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}.brand{font-size:21px;font-weight:900}.ver{font-size:10px;border:1px solid #8ea9c6;border-radius:999px;padding:3px 7px;margin-left:6px}.topbtns{display:flex;gap:6px}.topbtn{border:0;border-radius:9px;background:#fff;color:var(--navy);font-weight:800;padding:9px 11px;cursor:pointer}.wrap{max-width:980px;margin:auto;padding:18px 14px 40px}.userbar,.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(16,44,77,.05)}.userbar{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.uname{font-weight:900;font-size:16px}.umeta{font-size:11px;color:var(--muted);margin-top:4px}.refresh{border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 11px;font-size:12px;font-weight:800;color:var(--navy);cursor:pointer}.refresh:disabled{opacity:.55}.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px}.stat{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px;min-height:82px}.stat strong{display:block;font-size:23px;color:var(--navy)}.stat span{font-size:11px;color:var(--muted)}.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.nav button{border:1px solid #CAD8E8;background:#fff;color:var(--navy);font-weight:900;border-radius:11px;padding:13px 8px;cursor:pointer}.nav button.active{background:var(--navy);color:#fff;border-color:var(--navy)}.section{display:none}.section.active{display:block}.card{padding:16px;margin-bottom:12px}.chead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.ctitle{font-size:16px;font-weight:900;color:var(--navy)}.sub{font-size:11px;color:var(--muted);line-height:1.55}.teamgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.team{border:1px solid var(--line);border-radius:12px;padding:12px;background:#FBFDFF}.teamname{display:flex;justify-content:space-between;font-weight:900;color:var(--navy);margin-bottom:8px}.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.mini div{background:#F1F5FA;border-radius:8px;padding:7px;text-align:center}.mini b{display:block;font-size:15px}.mini span{font-size:9px;color:var(--muted)}.toolbar{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:10px}input,select{width:100%;height:42px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font-size:13px;background:#fff}.list{display:flex;flex-direction:column;gap:7px}.row{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 11px;display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr auto;gap:8px;align-items:center}.row .name{font-weight:900}.badge{display:inline-block;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900}.in{background:#E6F6EC;color:#24734A}.out{background:#F1F3F6;color:#77808B}.done{background:#EAF2FF;color:#245DA8}.work{background:#FFF2DF;color:#A85E00}.muted{font-size:11px;color:var(--muted)}.task{border:1px solid var(--line);border-radius:11px;padding:11px;background:#FBFDFF}.task + .task{margin-top:7px}.task strong{color:var(--navy)}.danger{border-color:#F0C4C4;background:#FFF9F9}.empty{padding:20px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:10px}.loading{position:fixed;inset:0;background:rgba(10,25,42,.28);display:none;align-items:center;justify-content:center;z-index:999}.loading.on{display:flex}.loadbox{background:#fff;border-radius:15px;padding:20px 24px;font-weight:900;color:var(--navy);box-shadow:0 18px 44px rgba(0,0,0,.15)}.footer{text-align:center;color:#98A3B2;font-size:10px;margin-top:18px}@media(max-width:760px){.stats{grid-template-columns:repeat(3,1fr)}.teamgrid{grid-template-columns:1fr 1fr}.nav{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr 1fr}.row>*:nth-child(n+3){font-size:11px}.toolbar{grid-template-columns:1fr}}@media(max-width:460px){.teamgrid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.brand{font-size:18px}.topbtn{padding:8px 9px;font-size:11px}}
+
+.hero{
+  background:linear-gradient(135deg,#173A63,#245B8E);
+  color:#fff;border-radius:16px;padding:16px 17px;margin-bottom:14px;
+  box-shadow:0 10px 28px rgba(23,58,99,.16)
+}
+.hero-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.hero-title{font-size:18px;font-weight:900}
+.hero-sub{font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;line-height:1.5}
+.hero-time{font-size:11px;color:rgba(255,255,255,.8);text-align:right}
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.quick-btn{
+  min-height:58px;border:1px solid rgba(255,255,255,.22);border-radius:11px;
+  background:rgba(255,255,255,.09);color:#fff;font-weight:900;cursor:pointer;padding:8px
+}
+.quick-btn span{display:block;font-size:10px;font-weight:500;color:rgba(255,255,255,.7);margin-top:3px}
+.stat.alert strong{color:var(--red)}
+.stat.warn strong{color:var(--orange)}
+.stat.good strong{color:var(--green)}
+.team-leader{font-size:10px;color:var(--muted);margin-top:-4px;margin-bottom:8px}
+.team-status{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap}
+.pill{display:inline-block;padding:4px 7px;border-radius:999px;font-size:9.5px;font-weight:900}
+.pill.green{background:#E7F6EC;color:#24734A}
+.pill.orange{background:#FFF1DF;color:#A85E00}
+.pill.blue{background:#EAF2FF;color:#245DA8}
+.pill.gray{background:#F0F2F5;color:#687481}
+.task-details{border:1px solid var(--line);border-radius:11px;background:#FBFDFF;margin-bottom:8px;overflow:hidden}
+.task-details summary{cursor:pointer;list-style:none;padding:11px 12px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.task-details summary::-webkit-details-marker{display:none}
+.task-details[open] summary{border-bottom:1px solid var(--line);background:#F7FAFD}
+.task-summary-main{font-weight:900;color:var(--navy);font-size:13px}
+.task-detail-body{padding:11px 12px}
+.task-detail-row{font-size:11.5px;color:var(--muted);line-height:1.65}
+.task-detail-row strong{color:var(--text)}
+.quick-panel{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px
+}
+.quick-panel button{
+  border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:10px;
+  padding:11px 8px;font-weight:900;cursor:pointer
+}
+.quick-panel button small{display:block;color:var(--muted);font-size:9.5px;font-weight:500;margin-top:3px}
+.section-note{
+  margin-top:8px;padding:9px 10px;border-radius:9px;background:#F6F9FC;
+  border:1px solid var(--line);font-size:10.5px;color:var(--muted);line-height:1.55
+}
+@media(max-width:760px){.quick-grid{grid-template-columns:1fr 1fr}.quick-panel{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){.quick-panel{grid-template-columns:1fr}.hero-top{display:block}.hero-time{text-align:left;margin-top:8px}}
+
 </style>
 </head>
 <body>
-<header class="top"><div class="topin"><div><span class="brand">관리자 현황</span><span class="ver">TEST v0.3</span></div><div class="topbtns"><button class="topbtn" onclick="location.href='organization.html?from=admin'">조직도</button><button class="topbtn" onclick="logout()">로그아웃</button></div></div></header>
+<header class="top"><div class="topin"><div><span class="brand">관리자 현황</span><span class="ver">TEST v0.4</span></div><div class="topbtns"><button class="topbtn" onclick="location.href='organization.html?from=admin'">조직도</button><button class="topbtn" onclick="logout()">로그아웃</button></div></div></header>
 <main class="wrap">
-  <div class="userbar"><div><div class="uname" id="adminName">-</div><div class="umeta" id="adminMeta">관리자 확인 중</div></div><button class="refresh" id="refreshBtn" onclick="refreshAll()">새로고침</button></div>
+  <div class="hero">
+  <div class="hero-top">
+    <div>
+      <div class="hero-title">오늘 현장 요약</div>
+      <div class="hero-sub">출결 · 작업배정 · TBM 완료 상태를 한 화면에서 확인합니다.</div>
+    </div>
+    <div class="hero-time" id="heroClock">-</div>
+  </div>
+  <div class="quick-grid">
+    <button class="quick-btn" onclick="quickAttendance('미출근')">미출근 <b id="qNotIn">-</b><span>바로 보기</span></button>
+    <button class="quick-btn" onclick="quickAttendance('미퇴근')">미퇴근 <b id="qNotOut">-</b><span>바로 보기</span></button>
+    <button class="quick-btn" onclick="quickTbm('진행중')">진행 작업 <b id="qWork">-</b><span>TBM 보기</span></button>
+    <button class="quick-btn" onclick="quickTbm('완료')">완료 작업 <b id="qDone">-</b><span>TBM 보기</span></button>
+  </div>
+</div>
+<div class="userbar"><div><div class="uname" id="adminName">-</div><div class="umeta" id="adminMeta">관리자 확인 중</div></div><button class="refresh" id="refreshBtn" onclick="refreshAll()">새로고침</button></div>
   <div class="stats">
     <div class="stat"><strong id="sTotal">-</strong><span>사용 인원</span></div>
     <div class="stat"><strong id="sIn">-</strong><span>오늘 출근</span></div>
@@ -30,6 +94,15 @@
   </div>
 
   <section class="section active" id="overview">
+    <div class="card">
+      <div class="chead"><div><div class="ctitle">빠른 관리</div><div class="sub">조회 중심의 데모 기능입니다. 데이터 수정은 아직 실행하지 않습니다.</div></div></div>
+      <div class="quick-panel">
+        <button onclick="quickAttendance('미출근')">미출근 인원<small>오늘 아직 출근 기록 없음</small></button>
+        <button onclick="quickAttendance('미퇴근')">미퇴근 인원<small>출근 후 퇴근 기록 없음</small></button>
+        <button onclick="quickTbm('진행중')">진행 작업<small>퇴근 완료 전 작업</small></button>
+      </div>
+      <div class="section-note">※ 현장별 일괄 퇴근, 개별 출결 보정, 인원정보 수정은 다음 단계에서 확인창과 변경이력을 포함해 연결할 예정입니다.</div>
+    </div>
     <div class="card"><div class="chead"><div><div class="ctitle">팀별 현황</div><div class="sub">오늘 출결과 작업 배정 기준입니다.</div></div><span class="muted" id="todayLabel"></span></div><div class="teamgrid" id="teamGrid"></div></div>
   </section>
 
@@ -38,14 +111,22 @@
   </section>
 
   <section class="section" id="tbm">
-    <div class="card"><div class="chead"><div><div class="ctitle">오늘 작업 / TBM 현황</div><div class="sub">현재 유효한 오늘 작업배정을 팀/팀장별로 표시합니다.</div></div><span class="badge work" id="taskCount">0건</span></div><div id="taskList"></div></div>
+    <div class="card">
+      <div class="chead"><div><div class="ctitle">오늘 작업 / TBM 현황</div><div class="sub">진행중 작업과 퇴근 완료 작업을 함께 확인합니다.</div></div><span class="badge work" id="taskCount">0건</span></div>
+      <div class="toolbar">
+        <input id="tbmSearch" placeholder="팀 / 팀장 / 작업위치 검색" oninput="renderTasks()">
+        <select id="tbmTeam" onchange="renderTasks()"><option value="">전체 팀</option></select>
+        <select id="tbmState" onchange="renderTasks()"><option value="">전체 상태</option><option value="진행중">진행중</option><option value="완료">퇴근 완료</option></select>
+      </div>
+      <div id="taskList"></div>
+    </div>
   </section>
 
   <section class="section" id="people">
     <div class="card"><div class="chead"><div><div class="ctitle">인원 관리</div><div class="sub">v0.1은 조회 중심입니다. 수정 기능은 다음 단계에서 연결합니다.</div></div></div><div class="toolbar"><input id="pSearch" placeholder="이름 / ID / 직무 검색" oninput="renderPeople()"><select id="pTeam" onchange="renderPeople()"><option value="">전체 팀</option></select><select id="pRole" onchange="renderPeople()"><option value="">전체 권한</option></select></div><div class="list" id="peopleList"></div></div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 관리자 · Admin TEST v0.3</div>
+  <div class="footer">© 2026 용인 현장 관리자 · Admin TEST v0.4</div>
 </main>
 <div class="loading" id="loading"><div class="loadbox" id="loadingText">DB 확인 중...</div></div>
 <script>
@@ -70,17 +151,78 @@ function readAuth(){try{const u=JSON.parse(sessionStorage.getItem('attendanceAut
 function isAdmin(u){const vals=[u?.rank,u?.role,u?.job].map(c);return vals.some(v=>['PL','PM','소장','관리자','현장소장'].includes(v))}
 function jsonp(url,params){return new Promise((resolve,reject)=>{const cb='adm_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');const timer=setTimeout(()=>{clean();reject(new Error('DB 응답 시간 초과'))},25000);function clean(){clearTimeout(timer);try{delete window[cb]}catch(_){}s.remove()}window[cb]=d=>{clean();resolve(d)};s.src=url+'?'+new URLSearchParams({...params,callback:cb,_t:Date.now()});s.onerror=()=>{clean();reject(new Error('DB 연결 실패'))};document.body.appendChild(s)})}
 function showLoad(t='DB 확인 중...'){document.getElementById('loadingText').textContent=t;document.getElementById('loading').classList.add('on')}function hideLoad(){document.getElementById('loading').classList.remove('on')}
+function navToSec(id){
+  const btn=document.querySelector(`.nav button[data-sec="${id}"]`);
+  if(btn) showSec(id,btn);
+}
+function quickAttendance(state){
+  navToSec('attendance');
+  const el=document.getElementById('attState');
+  if(el){el.value=state;renderAttendance();}
+}
+function quickTbm(state){
+  navToSec('tbm');
+  const el=document.getElementById('tbmState');
+  if(el){el.value=state;renderTasks();}
+}
+function updateClock(){
+  const d=new Date();
+  const el=document.getElementById('heroClock');
+  if(el){
+    el.textContent=new Intl.DateTimeFormat('ko-KR',{
+      timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',hour12:false
+    }).format(d);
+  }
+}
 function showSec(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
 function logout(){sessionStorage.removeItem('attendanceAuthUser');sessionStorage.removeItem('tbmAuthUser');location.replace('index_test.html')}
 function statusOf(uid){const m=attendanceMap[uid]||{};return {in:!!m['출근'],out:!!m['퇴근'],inTime:fmtTime(m['출근']?.time||''),outTime:fmtTime(m['퇴근']?.time||'')}}
-function fillFilters(){const teams=[...new Set(activePeople.map(p=>c(p['팀'])).filter(Boolean))].sort();['attTeam','pTeam'].forEach(id=>{const el=document.getElementById(id),v=el.value;el.innerHTML='<option value="">전체 팀</option>'+teams.map(x=>`<option>${e(x)}</option>`).join('');el.value=v});const roles=[...new Set(activePeople.map(p=>c(p['권한'])).filter(Boolean))].sort();const r=document.getElementById('pRole'),rv=r.value;r.innerHTML='<option value="">전체 권한</option>'+roles.map(x=>`<option>${e(x)}</option>`).join('');r.value=rv}
-function renderStats(){let ins=0,outs=0;activePeople.forEach(p=>{const s=statusOf(c(p['사용자ID']));if(s.in)ins++;if(s.out)outs++});const workIds=new Set(Object.keys(assignments).filter(uid=>(assignments[uid]||[]).length));document.getElementById('sTotal').textContent=activePeople.length;document.getElementById('sIn').textContent=ins;document.getElementById('sNotIn').textContent=Math.max(0,activePeople.length-ins);document.getElementById('sOut').textContent=outs;document.getElementById('sNotOut').textContent=Math.max(0,ins-outs);document.getElementById('sWork').textContent=workIds.size}
-function renderTeams(){const teams={};activePeople.forEach(p=>{const t=c(p['팀'])||'미지정';(teams[t]??=[]).push(p)});const box=document.getElementById('teamGrid');box.innerHTML=Object.entries(teams).sort().map(([team,ps])=>{let ins=0,outs=0,work=0;ps.forEach(p=>{const uid=c(p['사용자ID']),s=statusOf(uid);if(s.in)ins++;if(s.out)outs++;if((assignments[uid]||[]).length)work++});return `<div class="team"><div class="teamname"><span>${e(team)}</span><span>${ps.length}명</span></div><div class="mini"><div><b>${ins}</b><span>출근</span></div><div><b>${Math.max(0,ins-outs)}</b><span>미퇴근</span></div><div><b>${work}</b><span>작업배정</span></div></div></div>`}).join('')||'<div class="empty">팀 정보가 없습니다.</div>'}
+function fillFilters(){const teams=[...new Set(activePeople.map(p=>c(p['팀'])).filter(Boolean))].sort();['attTeam','pTeam','tbmTeam'].forEach(id=>{const el=document.getElementById(id);if(!el)return;const v=el.value;el.innerHTML='<option value="">전체 팀</option>'+teams.map(x=>`<option>${e(x)}</option>`).join('');el.value=v});const roles=[...new Set(activePeople.map(p=>c(p['권한'])).filter(Boolean))].sort();const r=document.getElementById('pRole'),rv=r.value;r.innerHTML='<option value="">전체 권한</option>'+roles.map(x=>`<option>${e(x)}</option>`).join('');r.value=rv}
+function renderStats(){let ins=0,outs=0;activePeople.forEach(p=>{const s=statusOf(c(p['사용자ID']));if(s.in)ins++;if(s.out)outs++});const workIds=new Set(Object.keys(assignments).filter(uid=>(assignments[uid]||[]).length));const all=allTasks(),donePlans=new Set(all.filter(a=>a.completed).map(a=>a.planId)),activePlans=new Set(all.filter(a=>!a.completed).map(a=>a.planId));const notIn=Math.max(0,activePeople.length-ins),notOut=Math.max(0,ins-outs);document.getElementById('sTotal').textContent=activePeople.length;document.getElementById('sIn').textContent=ins;document.getElementById('sNotIn').textContent=notIn;document.getElementById('sOut').textContent=outs;document.getElementById('sNotOut').textContent=notOut;document.getElementById('sWork').textContent=workIds.size;document.getElementById('qNotIn').textContent=notIn+'명';document.getElementById('qNotOut').textContent=notOut+'명';document.getElementById('qWork').textContent=activePlans.size+'건';document.getElementById('qDone').textContent=donePlans.size+'건'}
+function renderTeams(){const teams={};activePeople.forEach(p=>{const t=c(p['팀'])||'미지정';(teams[t]??=[]).push(p)});const all=allTasks();const box=document.getElementById('teamGrid');box.innerHTML=Object.entries(teams).sort().map(([team,ps])=>{let ins=0,outs=0,work=0;ps.forEach(p=>{const uid=c(p['사용자ID']),s=statusOf(uid);if(s.in)ins++;if(s.out)outs++;if((assignments[uid]||[]).length)work++});const leaders=ps.filter(p=>c(p['권한'])==='팀장'||c(p['직급'])==='팀장').map(p=>c(p['성명']));const teamPlans=[...new Map(all.filter(a=>c(a.team)===team).map(a=>[a.planId,a])).values()];const done=teamPlans.filter(x=>x.completed).length,active=teamPlans.length-done;return `<div class="team"><div class="teamname"><span>${e(team)}</span><span>${ps.length}명</span></div><div class="team-leader">팀장: ${e(leaders.join(', ')||'미지정')}</div><div class="mini"><div><b>${ins}</b><span>출근</span></div><div><b>${Math.max(0,ins-outs)}</b><span>미퇴근</span></div><div><b>${work}</b><span>작업배정</span></div></div><div class="team-status">${active?`<span class="pill orange">진행 ${active}</span>`:''}${done?`<span class="pill green">완료 ${done}</span>`:''}${!teamPlans.length?'<span class="pill gray">작업 없음</span>':''}</div></div>`}).join('')||'<div class="empty">팀 정보가 없습니다.</div>'}
 function renderAttendance(){const q=c(document.getElementById('attSearch').value).toLowerCase(),team=c(document.getElementById('attTeam').value),state=c(document.getElementById('attState').value);const rows=activePeople.filter(p=>{if(team&&c(p['팀'])!==team)return false;const hay=(c(p['성명'])+' '+c(p['사용자ID'])).toLowerCase();if(q&&!hay.includes(q))return false;const s=statusOf(c(p['사용자ID']));if(state==='출근'&&!s.in)return false;if(state==='미출근'&&s.in)return false;if(state==='퇴근'&&!s.out)return false;if(state==='미퇴근'&&(!s.in||s.out))return false;return true});document.getElementById('attList').innerHTML=rows.map(p=>{const s=statusOf(c(p['사용자ID']));return `<div class="row"><div><div class="name">${e(p['성명'])}</div><div class="muted">${e(p['사용자ID'])}</div></div><div>${e(p['팀']||'-')}</div><div><span class="badge ${s.in?'in':'out'}">${s.in?'출근 '+e(s.inTime):'미출근'}</span></div><div><span class="badge ${s.out?'done':'out'}">${s.out?'퇴근 '+e(s.outTime):(s.in?'미퇴근':'-')}</span></div><div class="muted">${e(p['출결등급']||'-')}</div></div>`}).join('')||'<div class="empty">조건에 맞는 인원이 없습니다.</div>'}
 function allTasks(){const out=[];Object.values(assignments).forEach(arr=>(arr||[]).forEach(a=>out.push(a)));const uniq=[],seen=new Set();out.forEach(a=>{const k=[a.planId,a.userId].join('|');if(!seen.has(k)){seen.add(k);uniq.push(a)}});return uniq}
-function renderTasks(){const taskMap={};allTasks().forEach(a=>{const k=a.planId||[a.leader,a.taskNo,a.place].join('|');if(!taskMap[k])taskMap[k]={...a,workers:[]};taskMap[k].workers.push(a.name||a.userId)});const tasks=Object.values(taskMap);document.getElementById('taskCount').textContent=tasks.length+'건';document.getElementById('taskList').innerHTML=tasks.sort((a,b)=>Number(a.completed)-Number(b.completed)||(a.team||'').localeCompare(b.team||'')).map(t=>`<div class="task ${t.completed?'danger':''}"><strong>${e(t.team||'-')} · ${e(t.leader||'-')} · 작업 ${e(t.taskNo)}</strong> ${t.completed?'<span class="badge done">퇴근 완료</span>':'<span class="badge work">진행중</span>'}<div class="muted" style="margin-top:5px">${e(t.place||'-')} · ${e(t.content||'-')}</div><div class="muted" style="margin-top:4px">투입: ${e([...new Set(t.workers)].join(', ')||'-')}</div></div>`).join('')||'<div class="empty">오늘 작업배정이 없습니다.</div>'}
+function renderTasks(){
+  const q=c(document.getElementById('tbmSearch')?.value).toLowerCase();
+  const team=c(document.getElementById('tbmTeam')?.value);
+  const state=c(document.getElementById('tbmState')?.value);
+
+  const taskMap={};
+  allTasks().forEach(a=>{
+    const k=a.planId||[a.leader,a.taskNo,a.place].join('|');
+    if(!taskMap[k])taskMap[k]={...a,workers:[]};
+    taskMap[k].workers.push(a.name||a.userId);
+  });
+
+  let tasks=Object.values(taskMap);
+  tasks=tasks.filter(t=>{
+    if(team&&c(t.team)!==team)return false;
+    if(state==='완료'&&!t.completed)return false;
+    if(state==='진행중'&&t.completed)return false;
+    const hay=[t.team,t.leader,t.place,t.content].map(c).join(' ').toLowerCase();
+    return !q||hay.includes(q);
+  });
+
+  document.getElementById('taskCount').textContent=tasks.length+'건';
+  document.getElementById('taskList').innerHTML=tasks
+    .sort((a,b)=>Number(a.completed)-Number(b.completed)||(a.team||'').localeCompare(b.team||''))
+    .map(t=>`
+      <details class="task-details">
+        <summary>
+          <div class="task-summary-main">${e(t.team||'-')} · ${e(t.leader||'-')} · 작업 ${e(t.taskNo)}</div>
+          ${t.completed?'<span class="pill green">퇴근 완료</span>':'<span class="pill orange">진행중</span>'}
+        </summary>
+        <div class="task-detail-body">
+          <div class="task-detail-row"><strong>작업 위치</strong> · ${e(t.place||'-')}</div>
+          <div class="task-detail-row"><strong>작업 내용</strong> · ${e(t.content||'-')}</div>
+          <div class="task-detail-row"><strong>투입 인원</strong> · ${e([...new Set(t.workers)].join(', ')||'-')}</div>
+          <div class="task-detail-row"><strong>현장</strong> · ${e(t.site||'-')}</div>
+        </div>
+      </details>`).join('')||'<div class="empty">조건에 맞는 오늘 작업이 없습니다.</div>';
+}
 function renderPeople(){const q=c(document.getElementById('pSearch').value).toLowerCase(),team=c(document.getElementById('pTeam').value),role=c(document.getElementById('pRole').value);const rows=activePeople.filter(p=>{if(team&&c(p['팀'])!==team)return false;if(role&&c(p['권한'])!==role)return false;const hay=[p['성명'],p['사용자ID'],p['직무'],p['직급']].map(c).join(' ').toLowerCase();return !q||hay.includes(q)});document.getElementById('peopleList').innerHTML=rows.map(p=>`<div class="row"><div><div class="name">${e(p['성명'])}</div><div class="muted">${e(p['사용자ID'])}</div></div><div>${e(p['팀']||'-')}</div><div>${e(p['직급']||'-')}</div><div>${e(p['권한']||'-')}</div><div class="muted">${e(p['TBM현장']||p['현장원본']||'-')}</div></div>`).join('')||'<div class="empty">조건에 맞는 인원이 없습니다.</div>'}
-async function refreshAll(){if(refreshing)return;refreshing=true;const btn=document.getElementById('refreshBtn');btn.disabled=true;btn.textContent='새로고침 중...';showLoad('인원/출결/TBM DB 확인 중...');try{const pRes=await jsonp(ORG_API,{action:'personnelOrg'});if(!pRes?.success)throw new Error(pRes?.message||'인원DB 조회 실패');people=pRes.people||[];activePeople=people.filter(p=>c(p['사용여부']).toUpperCase()!=='N');const ids=activePeople.map(p=>c(p['사용자ID'])).filter(Boolean);const [aRes,tRes]=await Promise.all([jsonp(ORG_API,{action:'teamAttendance',date:today(),userIds:ids.join(',')}),jsonp(TBM_API,{action:'todayAssignments',date:today(),team:'',includeCompleted:'Y'})]);attendanceMap={};(aRes?.records||[]).forEach(r=>{const uid=c(r.userId);if(!attendanceMap[uid])attendanceMap[uid]={};attendanceMap[uid][c(r.type)]=r});assignments=tRes?.assignments||{};fillFilters();renderStats();renderTeams();renderAttendance();renderTasks();renderPeople();document.getElementById('todayLabel').textContent=today()}catch(err){console.error(err);alert('관리자 현황을 불러오지 못했습니다.\n'+err.message)}finally{hideLoad();refreshing=false;btn.disabled=false;btn.textContent='새로고침'}}
-(function init(){authUser=readAuth();if(!authUser){alert('로그인이 필요합니다.');location.replace('index_test.html');return}if(!isAdmin(authUser)){alert('관리자 권한이 없습니다.');const lead=['팀장'].includes(c(authUser.rank))||['팀장'].includes(c(authUser.role));location.replace(lead?'leader_test.html':'member_test.html');return}document.getElementById('adminName').textContent=authUser.name+' 관리자';document.getElementById('adminMeta').textContent=[authUser.userId,authUser.team,authUser.rank||authUser.role].filter(Boolean).join(' · ');refreshAll()})();
+async function refreshAll(){if(refreshing)return;refreshing=true;const btn=document.getElementById('refreshBtn');btn.disabled=true;btn.textContent='새로고침 중...';showLoad('인원/출결/TBM DB 확인 중...');try{const pRes=await jsonp(ORG_API,{action:'personnelOrg'});if(!pRes?.success)throw new Error(pRes?.message||'인원DB 조회 실패');people=pRes.people||[];activePeople=people.filter(p=>c(p['사용여부']).toUpperCase()!=='N');const ids=activePeople.map(p=>c(p['사용자ID'])).filter(Boolean);const [aRes,tRes]=await Promise.all([jsonp(ORG_API,{action:'teamAttendance',date:today(),userIds:ids.join(',')}),jsonp(TBM_API,{action:'todayAssignments',date:today(),team:'',includeCompleted:'Y'})]);attendanceMap={};(aRes?.records||[]).forEach(r=>{const uid=c(r.userId);if(!attendanceMap[uid])attendanceMap[uid]={};attendanceMap[uid][c(r.type)]=r});assignments=tRes?.assignments||{};fillFilters();renderStats();renderTeams();renderAttendance();renderTasks();renderPeople();updateClock();document.getElementById('todayLabel').textContent=today()}catch(err){console.error(err);alert('관리자 현황을 불러오지 못했습니다.\n'+err.message)}finally{hideLoad();refreshing=false;btn.disabled=false;btn.textContent='새로고침'}}
+(function init(){authUser=readAuth();if(!authUser){alert('로그인이 필요합니다.');location.replace('index_test.html');return}if(!isAdmin(authUser)){alert('관리자 권한이 없습니다.');const lead=['팀장'].includes(c(authUser.rank))||['팀장'].includes(c(authUser.role));location.replace(lead?'leader_test.html':'member_test.html');return}document.getElementById('adminName').textContent=authUser.name+' 관리자';document.getElementById('adminMeta').textContent=[authUser.userId,authUser.team,authUser.rank||authUser.role].filter(Boolean).join(' · ');updateClock();refreshAll()})();
 </script>
 </body></html>
