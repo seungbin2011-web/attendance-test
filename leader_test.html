@@ -52,6 +52,13 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 @media(max-width:440px){.member-list{grid-template-columns:1fr}}
 .task-list{display:flex;flex-direction:column;gap:14px;margin:14px 0}
 .task-card{border:1px solid #CAD8E8;border-radius:14px;background:#F8FBFF;padding:14px}
+.task-card.completed{background:#F4F7F5;border-color:#C9DED0}
+.task-card.completed .task-edit-body{display:none}
+.task-card.completed.open .task-edit-body{display:block}
+.task-complete-badge{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;background:#E7F6EC;color:#24734A;font-size:10px;font-weight:900}
+.task-complete-toggle{border:1px solid #BFD8C8;background:#fff;color:#24734A;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:900;cursor:pointer}
+.task-card.completed input:disabled,.task-card.completed textarea:disabled,.task-card.completed select:disabled{background:#F3F5F4;color:#64716A}
+
 .task-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
 .task-title{font-size:15px;font-weight:900;color:var(--navy)}
 .task-remove{border:1px solid #E0A7A7;background:#fff;color:#A12B2B;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer}
@@ -198,7 +205,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.32 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.33 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -358,7 +365,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.32 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.33 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -976,8 +983,9 @@ async function openTbmFromHome(panelId){
   }
 }
 
-function showPlanEditor(){
-  loadCurrentPlanIntoEditor();
+async function showPlanEditor(){
+  await refreshTbmSavedStates();
+  await loadCurrentPlanIntoEditor();
   document.getElementById('previousSection').classList.add('view-hidden');
   document.getElementById('planSection').classList.remove('view-hidden');
   showStage('stagePlan');
@@ -998,13 +1006,18 @@ async function loadCurrentPlanIntoEditor(){
     document.getElementById('taskList').innerHTML='';
     workTasks=[];
     taskSeq=0;
-    currentPlan.tasks.forEach(t=>addWorkTask({
-      planId:t.planId||'',
-      taskNo:t.taskNo||'',
-      place:t.place,
-      content:t.content,
-      members:t.members
-    }));
+    currentPlan.tasks.forEach(t=>{
+      const eve=getSavedTaskState(t.planId,'퇴근');
+      addWorkTask({
+        planId:t.planId||'',
+        taskNo:t.taskNo||'',
+        place:t.place,
+        content:t.content,
+        members:t.members,
+        completed:eve?.status==='완료',
+        completionStatus:eve?.status||''
+      });
+    });
   }finally{
     restoringDraft=false;
   }
@@ -1577,34 +1590,46 @@ async function loadTeamMembers(){
 
 function addWorkTask(prefill={}){
   taskSeq+=1;
-  const task={id:taskSeq,planId:prefill.planId||'',originalTaskNo:prefill.taskNo||'',pendingMembers:prefill.members||[]};
+  const task={id:taskSeq,planId:prefill.planId||'',originalTaskNo:prefill.taskNo||'',pendingMembers:prefill.members||[],completed:!!prefill.completed,completionStatus:prefill.completionStatus||''};
   workTasks.push(task);
 
   const wrap=document.getElementById('taskList');
   const card=document.createElement('div');
-  card.className='task-card';
+  card.className='task-card'+(task.completed?' completed':'');
   card.id='taskCard_'+task.id;
   card.innerHTML=`
     <div class="task-head">
-      <div class="task-title">작업 ${workTasks.length}</div>
-      <button type="button" class="task-remove" onclick="removeWorkTask(${task.id})">작업 삭제</button>
+      <div class="task-title">작업 ${workTasks.length}${task.completed?'<span class="task-complete-badge">퇴근 완료</span>':''}</div>
+      ${task.completed
+        ? `<button type="button" class="task-complete-toggle" onclick="toggleCompletedTask(${task.id})">완료 작업 보기</button>`
+        : `<button type="button" class="task-remove" onclick="removeWorkTask(${task.id})">작업 삭제</button>`}
     </div>
-    <div class="field">
-      <label class="label">작업 위치</label>
-      <input id="taskPlace_${task.id}" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(prefill.place||'')}">
-    </div>
-    <div class="field">
-      <label class="label">작업 내용</label>
-      <textarea id="taskContent_${task.id}" placeholder="예: 배선 작업 / 관로 작업">${escapeHtml(prefill.content||'')}</textarea>
-    </div>
-    <div class="field">
-      <label class="label">투입 팀원 <span id="taskCount_${task.id}" style="font-size:12px;color:var(--muted)">선택 0명</span></label>
-      <div class="task-members" id="taskMembers_${task.id}"></div>
+    <div class="task-edit-body">
+      <div class="field">
+        <label class="label">작업 위치</label>
+        <input id="taskPlace_${task.id}" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(prefill.place||'')}" ${task.completed?'disabled':''}>
+      </div>
+      <div class="field">
+        <label class="label">작업 내용</label>
+        <textarea id="taskContent_${task.id}" placeholder="예: 배선 작업 / 관로 작업" ${task.completed?'disabled':''}>${escapeHtml(prefill.content||'')}</textarea>
+      </div>
+      <div class="field">
+        <label class="label">투입 팀원 <span id="taskCount_${task.id}" style="font-size:12px;color:var(--muted)">선택 0명</span></label>
+        <div class="task-members" id="taskMembers_${task.id}"></div>
+      </div>
     </div>`;
   wrap.appendChild(card);
   renderTaskMembers(task.id);
   renumberTaskCards();
   schedulePlanDraftSave();
+}
+
+function toggleCompletedTask(id){
+  const card=document.getElementById('taskCard_'+id);
+  if(!card) return;
+  card.classList.toggle('open');
+  const btn=card.querySelector('.task-complete-toggle');
+  if(btn) btn.textContent=card.classList.contains('open')?'완료 작업 접기':'완료 작업 보기';
 }
 
 function removeWorkTask(id){
@@ -1664,7 +1689,12 @@ function renderTaskMembers(taskId,errorMessage=''){
   `).join('');
   updateTaskMemberCount(taskId);
   const task=workTasks.find(t=>t.id===taskId);
-  if(task) task.pendingMembers=getTaskMembers(taskId);
+  if(task){
+    task.pendingMembers=getTaskMembers(taskId);
+    if(task.completed){
+      list.querySelectorAll('input,select').forEach(el=>el.disabled=true);
+    }
+  }
 }
 
 function isDraftMemberSelected(taskId,member){

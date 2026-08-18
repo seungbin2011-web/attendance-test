@@ -171,13 +171,19 @@ body{
 .my-task-meta{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:6px}
 .tbm-directive{margin-top:8px;padding:9px 10px;border-radius:9px;background:#FFF8E8;border:1px solid #F0D9A8;font-size:11.5px;line-height:1.55}
 .changed-badge{color:#C65A00;font-weight:900}
+.my-task-completed{border:1px solid #C9DED0;border-radius:11px;background:#F4F8F5;margin-bottom:9px;overflow:hidden}
+.my-task-completed summary{list-style:none;cursor:pointer;padding:12px 13px;font-size:13px;font-weight:900;color:#24734A;display:flex;justify-content:space-between;gap:8px}
+.my-task-completed summary::-webkit-details-marker{display:none}
+.my-task-completed[open] summary{border-bottom:1px solid #D9E7DE}
+.my-task-completed-body{padding:12px}
+.complete-pill{padding:3px 7px;border-radius:999px;background:#E5F4EA;color:#24734A;font-size:10px;font-weight:900;white-space:nowrap}
 
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.8</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.9</span></div>
     <div style="display:flex;gap:6px">
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="goHome()">홈으로</button>
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
@@ -256,7 +262,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.8</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.9</div>
 </main>
 
 <script>
@@ -420,8 +426,8 @@ async function loadMyTodayTasks(){
     }
 
     const latestTbm=tbm[0]||null;
-    wrap.innerHTML=tasks.map(t=>`
-      <div class="my-task">
+    wrap.innerHTML=tasks.map(t=>{
+      const body=`
         <div class="my-task-title">
           작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}
           <span class="my-task-role">${esc(t.role||"작업자")}</span>
@@ -437,9 +443,21 @@ async function loadMyTodayTasks(){
           위험요인: ${esc(t.risks||"없음")}<br>
           안전조치: ${esc(t.safety||"-")}
           ${latestTbm?`<br>최근 전달: ${esc(latestTbm.note||latestTbm.extra||"-")}`:""}
-        </div>
-      </div>
-    `).join("");
+        </div>`;
+
+      if(t.completed){
+        return `
+          <details class="my-task-completed">
+            <summary>
+              <span>✓ 작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}</span>
+              <span class="complete-pill">퇴근 완료</span>
+            </summary>
+            <div class="my-task-completed-body">${body}</div>
+          </details>`;
+      }
+
+      return `<div class="my-task">${body}</div>`;
+    }).join("");
   }catch(err){
     console.error(err);
     wrap.innerHTML='<div class="status">오늘 작업/TBM 지시를 불러오지 못했습니다.<br>'+esc(err.message)+'</div>';
