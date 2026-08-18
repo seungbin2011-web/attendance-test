@@ -198,7 +198,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.30 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.31 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -217,7 +217,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </div>
 <div style="font-size:11px;color:#718096;margin:-4px 0 10px">팀원 정보: 조직도 정식 인원DB 연동</div>
 <div class="compact-action">
-  <button class="btn submit" type="button" onclick="checkTodayState()">오늘 상태 확인</button>
+  <button class="btn submit" id="todayStateBtn" type="button" onclick="checkTodayState()">오늘 상태 확인</button>
   <div class="state-box" id="todayStateMsg">팀장·팀명·현장을 입력하면 오늘 저장된 작업계획이 있는지 확인합니다.</div><div class="stage-note">확인 후 다음 화면으로 자동 전환됩니다. 아래로 스크롤할 필요가 없습니다.</div>
 </div>
 </section></div>
@@ -358,7 +358,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.30 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.31 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -644,12 +644,20 @@ async function checkTodayState(silent=false){
   const team=document.getElementById('teamName').value.trim();
   const site=document.getElementById('siteName').value;
   const msg=document.getElementById('todayStateMsg');
+  const btn=document.getElementById('todayStateBtn');
+
+  if(actionLocks.todayStateCheck){
+    if(!silent) alert('오늘 상태를 확인 중입니다. 잠시만 기다려주세요.');
+    return false;
+  }
 
   if(!leader||!team||!site){
     if(!silent) alert('팀장 이름, 팀명, 현장을 입력해주세요.');
     return false;
   }
 
+  actionLocks.todayStateCheck=true;
+  setButtonBusy(btn,true,'확인 중...');
   saveLastIdentity();
   if(msg) msg.textContent='오늘 작업상태 확인 중...';
 
@@ -710,6 +718,9 @@ async function checkTodayState(silent=false){
     console.error(err);
     if(msg) msg.textContent='오늘 작업상태 확인 실패: '+err.message;
     return false;
+  }finally{
+    actionLocks.todayStateCheck=false;
+    setButtonBusy(btn,false);
   }
 }
 
