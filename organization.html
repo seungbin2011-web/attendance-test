@@ -52,7 +52,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 @media(max-width:760px){.tree-teams,.unassigned-grid{grid-template-columns:1fr}.unassigned-fab{right:10px;top:auto;bottom:14px}}
 
 
-/* v1.9 compact layout */
+/* v2.0 compact layout */
 .page{max-width:1320px}
 .tree-level.top .group{width:min(560px,100%)}
 .tree-level.manager .group{width:min(430px,100%)}
@@ -82,7 +82,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 }
 
 
-/* v1.9 upper cards compact */
+/* v2.0 upper cards compact */
 .tree-level.top .group{width:min(360px,100%)}
 .tree-level.manager .group{width:min(280px,100%)}
 .tree-level.top .person,
@@ -96,7 +96,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 .tree-connector{height:18px;margin:-2px auto 0}
 
 
-/* v1.9 top card width fix */
+/* v2.0 top card width fix */
 .tree-level.top .group{
   width:280px !important;
   max-width:280px !important;
@@ -133,11 +133,14 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
   }
 }
 
+
+.cache-note{font-size:10px;color:#6d7c8c;margin-left:6px;font-weight:500}
+
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v1.9</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v2.0</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" id="orgBackBtn" onclick="goOrgBack()">메인으로</button>
@@ -193,7 +196,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v1.9</div>
+  <div class="footer">© 2026 Yongin Site Organization · v2.0</div>
 </div>
 
 <script>
@@ -252,21 +255,47 @@ function jsonp(params){
   });
 }
 
+const ORG_CACHE_KEY="organization_people_cache_v2";
+const ORG_CACHE_MAX_MS=10*60*1000;
+
+function applyPeople(nextPeople,fromCache){
+  people=(nextPeople||[]).filter(p=>clean(p["성명"]));
+  document.getElementById("loginUser").innerHTML=`조직도 · ${people.length}명${fromCache?'<span class="cache-note">빠른 표시 · DB 확인 중</span>':''}`;
+  buildFilters();
+  render();
+}
+
 async function init(){
-  document.getElementById("loginUser").textContent="인원DB 확인 중";
+  let hadCache=false;
+  try{
+    const raw=localStorage.getItem(ORG_CACHE_KEY);
+    if(raw){
+      const cached=JSON.parse(raw);
+      if(cached&&Array.isArray(cached.people)&&Date.now()-Number(cached.savedAt||0)<ORG_CACHE_MAX_MS){
+        applyPeople(cached.people,true);
+        hadCache=true;
+      }
+    }
+  }catch(e){}
+
+  if(!hadCache) document.getElementById("loginUser").textContent="인원DB 확인 중";
+
   try{
     const res=await jsonp({action:"personnelOrg"});
     if(!(res&&res.success)) throw new Error(res?.message||"인원DB를 불러오지 못했습니다.");
-    people=(res.people||[]).filter(p=>clean(p["성명"]));
-    document.getElementById("loginUser").textContent=`조직도 · ${people.length}명`;
-    buildFilters();
-    render();
+    const fresh=(res.people||[]).filter(p=>clean(p["성명"]));
+    try{localStorage.setItem(ORG_CACHE_KEY,JSON.stringify({savedAt:Date.now(),people:fresh}))}catch(e){}
+    applyPeople(fresh,false);
   }catch(err){
     console.error(err);
-    document.getElementById("loginUser").textContent="조직도 DB 연결 확인";
-    document.getElementById("management").innerHTML=
-      `<div class="group management-box"><div class="empty">${esc(err.message)}</div></div>`;
-    document.getElementById("teams").innerHTML="";
+    if(!hadCache){
+      document.getElementById("loginUser").textContent="조직도 DB 연결 확인";
+      document.getElementById("management").innerHTML=
+        `<div class="group management-box"><div class="empty">${esc(err.message)}</div></div>`;
+      document.getElementById("teams").innerHTML="";
+    }else{
+      document.getElementById("loginUser").innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 중</span>`;
+    }
   }
 }
 
