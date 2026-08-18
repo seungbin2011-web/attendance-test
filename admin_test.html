@@ -78,7 +78,7 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="topin"><div><span class="brand">관리자 현황</span><span class="ver">TEST v0.7</span></div><div class="topbtns"><button class="topbtn" onclick="location.href='organization.html?from=admin'">조직도</button><button class="btn" id="cleanupBtn" style="display:none" onclick="location.href='admin_cleanup_test.html'">정리 도구</button><button class="topbtn" onclick="logout()">로그아웃</button></div></div></header>
+<header class="top"><div class="topin"><div><span class="brand">관리자 현황</span><span class="ver">TEST v0.9</span></div><div class="topbtns"><button class="topbtn" onclick="location.href='organization.html?from=admin'">조직도</button><button class="btn" id="cleanupBtn" style="display:none" onclick="location.href='admin_cleanup_test.html'">정리 도구</button><button class="topbtn" onclick="logout()">로그아웃</button></div></div></header>
 <main class="wrap">
   <div class="hero">
   <div class="hero-top">
@@ -144,7 +144,7 @@
     <div class="card"><div class="chead"><div><div class="ctitle">인원 관리</div><div class="sub">v0.1은 조회 중심입니다. 수정 기능은 다음 단계에서 연결합니다.</div></div></div><div class="toolbar"><input id="pSearch" placeholder="이름 / ID / 직무 검색" oninput="renderPeople()"><select id="pTeam" onchange="renderPeople()"><option value="">전체 팀</option></select><select id="pRole" onchange="renderPeople()"><option value="">전체 권한</option></select></div><div class="list" id="peopleList"></div></div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 관리자 · Admin TEST v0.7</div>
+  <div class="footer">© 2026 용인 현장 관리자 · Admin TEST v0.9</div>
 </main>
 <div class="loading" id="loading"><div class="loadbox" id="loadingText">DB 확인 중...</div></div>
 <script>
@@ -347,7 +347,25 @@ function renderTasks(){
       </details>`).join('')||'<div class="empty">조건에 맞는 오늘 작업이 없습니다.</div>';
 }
 function renderPeople(){const q=c(document.getElementById('pSearch').value).toLowerCase(),team=c(document.getElementById('pTeam').value),role=c(document.getElementById('pRole').value);const rows=activePeople.filter(p=>{if(team&&c(p['팀'])!==team)return false;if(role&&c(p['권한'])!==role)return false;const hay=[p['성명'],p['사용자ID'],p['직무'],p['직급']].map(c).join(' ').toLowerCase();return !q||hay.includes(q)});document.getElementById('peopleList').innerHTML=rows.map(p=>`<div class="row"><div><div class="name">${e(p['성명'])}</div><div class="muted">${e(p['사용자ID'])}</div></div><div>${e(p['팀']||'-')}</div><div>${e(p['직급']||'-')}</div><div>${e(p['권한']||'-')}</div><div class="muted">${e(p['TBM현장']||p['현장원본']||'-')}</div></div>`).join('')||'<div class="empty">조건에 맞는 인원이 없습니다.</div>'}
-async function refreshAll(){if(refreshing)return;refreshing=true;const btn=document.getElementById('refreshBtn');btn.disabled=true;btn.textContent='새로고침 중...';showLoad('인원/출결/TBM DB 확인 중...');try{const pRes=await jsonp(ORG_API,{action:'personnelOrg'});if(!pRes?.success)throw new Error(pRes?.message||'인원DB 조회 실패');people=pRes.people||[];activePeople=people.filter(p=>c(p['사용여부']).toUpperCase()!=='N');const ids=activePeople.map(p=>c(p['사용자ID'])).filter(Boolean);const [aRes,tRes]=await Promise.all([jsonp(ORG_API,{action:'teamAttendance',date:today(),userIds:ids.join(',')}),jsonp(TBM_API,{action:'todayAssignments',date:today(),team:'',includeCompleted:'Y'})]);attendanceMap={};(aRes?.records||[]).forEach(r=>{const uid=c(r.userId);if(!attendanceMap[uid])attendanceMap[uid]={};attendanceMap[uid][c(r.type)]=r});assignments=tRes?.assignments||{};fillFilters();renderStats();renderTeams();renderAttendance();renderTasks();renderPeople();updateClock();document.getElementById('todayLabel').textContent=today()}catch(err){console.error(err);alert('관리자 현황을 불러오지 못했습니다.\n'+err.message)}finally{hideLoad();refreshing=false;btn.disabled=false;btn.textContent='새로고침'}}
+async function refreshAll(){if(refreshing)return;refreshing=true;const btn=document.getElementById('refreshBtn');btn.disabled=true;btn.textContent='새로고침 중...';showLoad('인원/출결/TBM DB 확인 중...');try{const pRes=await jsonp(ORG_API,{action:'personnelOrg'});if(!pRes?.success)throw new Error(pRes?.message||'인원DB 조회 실패');people=pRes.people||[];
+try{
+  const orgCachePeople=people.map(p=>({
+    '사용여부':p['사용여부']??'',
+    '사용자ID':p['사용자ID']??'',
+    '성명':p['성명']??'',
+    '직급':p['직급']??'',
+    '권한':p['권한']??'',
+    '팀':p['팀']??'',
+    '팀구성원본':p['팀구성원본']??'',
+    '팀역할원본':p['팀역할원본']??'',
+    '현장원본':p['현장원본']??'',
+    'TBM현장':p['TBM현장']??'',
+    '직무':p['직무']??''
+  }));
+  localStorage.setItem('organization_people_cache_v3',JSON.stringify({savedAt:Date.now(),people:orgCachePeople}));
+  localStorage.removeItem('organization_people_cache_v2');
+}catch(e){}
+activePeople=people.filter(p=>c(p['사용여부']).toUpperCase()!=='N');const ids=activePeople.map(p=>c(p['사용자ID'])).filter(Boolean);const [aRes,tRes]=await Promise.all([jsonp(ORG_API,{action:'teamAttendance',date:today(),userIds:ids.join(',')}),jsonp(TBM_API,{action:'todayAssignments',date:today(),team:'',includeCompleted:'Y'})]);attendanceMap={};(aRes?.records||[]).forEach(r=>{const uid=c(r.userId);if(!attendanceMap[uid])attendanceMap[uid]={};attendanceMap[uid][c(r.type)]=r});assignments=tRes?.assignments||{};fillFilters();renderStats();renderTeams();renderAttendance();renderTasks();renderPeople();updateClock();document.getElementById('todayLabel').textContent=today()}catch(err){console.error(err);alert('관리자 현황을 불러오지 못했습니다.\n'+err.message)}finally{hideLoad();refreshing=false;btn.disabled=false;btn.textContent='새로고침'}}
 (function init(){authUser=readAuth();if(!authUser){alert('로그인이 필요합니다.');location.replace('index_test.html');return}if(!isAdmin(authUser)){alert('관리자 권한이 없습니다.');const lead=['팀장'].includes(c(authUser.rank))||['팀장'].includes(c(authUser.role));location.replace(lead?'leader_test.html':'member_test.html');return}document.getElementById('adminName').textContent=authUser.name+' 관리자';document.getElementById('adminMeta').textContent=[authUser.userId,authUser.team,authUser.rank||authUser.role].filter(Boolean).join(' · ');const cleanupBtn=document.getElementById('cleanupBtn');if(cleanupBtn&&(authUser.userId==='YI-0003'||authUser.name==='박보강'))cleanupBtn.style.display='inline-flex';updateClock();refreshAll()})();
 </script>
 

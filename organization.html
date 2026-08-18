@@ -52,7 +52,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 @media(max-width:760px){.tree-teams,.unassigned-grid{grid-template-columns:1fr}.unassigned-fab{right:10px;top:auto;bottom:14px}}
 
 
-/* v2.0 compact layout */
+/* v2.2 compact layout */
 .page{max-width:1320px}
 .tree-level.top .group{width:min(560px,100%)}
 .tree-level.manager .group{width:min(430px,100%)}
@@ -82,7 +82,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 }
 
 
-/* v2.0 upper cards compact */
+/* v2.2 upper cards compact */
 .tree-level.top .group{width:min(360px,100%)}
 .tree-level.manager .group{width:min(280px,100%)}
 .tree-level.top .person,
@@ -96,7 +96,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 .tree-connector{height:18px;margin:-2px auto 0}
 
 
-/* v2.0 top card width fix */
+/* v2.2 top card width fix */
 .tree-level.top .group{
   width:280px !important;
   max-width:280px !important;
@@ -140,7 +140,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v2.0</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v2.2</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" id="orgBackBtn" onclick="goOrgBack()">메인으로</button>
@@ -196,7 +196,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v2.0</div>
+  <div class="footer">© 2026 Yongin Site Organization · v2.2</div>
 </div>
 
 <script>
@@ -241,22 +241,61 @@ function jsonp(params){
     }
     const cb="org_cb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
     const s=document.createElement("script");
-    const timer=setTimeout(()=>{cleanup();reject(new Error("조직도 DB 응답 시간 초과"));},15000);
-    function cleanup(){
+    let settled=false;
+    const timer=setTimeout(()=>{
+      if(settled)return;
+      settled=true;
       clearTimeout(timer);
-      try{delete window[cb]}catch(e){}
+      window[cb]=function(){};
+      setTimeout(()=>{try{delete window[cb]}catch(e){}},60000);
       s.remove();
-    }
-    window[cb]=(data)=>{cleanup();resolve(data)};
-    const q=new URLSearchParams({...params,callback:cb});
+      reject(new Error("조직도 DB 응답 시간 초과"));
+    },30000);
+
+    window[cb]=(data)=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      window[cb]=function(){};
+      setTimeout(()=>{try{delete window[cb]}catch(e){}},60000);
+      s.remove();
+      resolve(data);
+    };
+
+    const q=new URLSearchParams({...params,callback:cb,_t:Date.now()});
     s.src=API_URL+"?"+q.toString();
-    s.onerror=()=>{cleanup();reject(new Error("조직도 DB 연결 실패"));};
+    s.onerror=()=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      window[cb]=function(){};
+      setTimeout(()=>{try{delete window[cb]}catch(e){}},60000);
+      s.remove();
+      reject(new Error("조직도 DB 연결 실패"));
+    };
     document.body.appendChild(s);
   });
 }
 
-const ORG_CACHE_KEY="organization_people_cache_v2";
-const ORG_CACHE_MAX_MS=10*60*1000;
+const ORG_CACHE_KEY="organization_people_cache_v3";
+const ORG_CACHE_FRESH_MS=10*60*1000;
+
+function minimalOrgPerson(p){
+  return {
+    "사용여부":p?.["사용여부"]??"",
+    "사용자ID":p?.["사용자ID"]??"",
+    "성명":p?.["성명"]??"",
+    "직급":p?.["직급"]??"",
+    "권한":p?.["권한"]??"",
+    "팀":p?.["팀"]??"",
+    "팀구성원본":p?.["팀구성원본"]??"",
+    "팀역할원본":p?.["팀역할원본"]??"",
+    "현장원본":p?.["현장원본"]??"",
+    "TBM현장":p?.["TBM현장"]??"",
+    "직무":p?.["직무"]??""
+  };
+}
+
 
 function applyPeople(nextPeople,fromCache){
   people=(nextPeople||[]).filter(p=>clean(p["성명"]));
@@ -266,36 +305,54 @@ function applyPeople(nextPeople,fromCache){
 }
 
 async function init(){
+  try{localStorage.removeItem("organization_people_cache_v2")}catch(e){}
   let hadCache=false;
   try{
     const raw=localStorage.getItem(ORG_CACHE_KEY);
     if(raw){
       const cached=JSON.parse(raw);
-      if(cached&&Array.isArray(cached.people)&&Date.now()-Number(cached.savedAt||0)<ORG_CACHE_MAX_MS){
+      if(cached&&Array.isArray(cached.people)&&cached.people.length){
+        const age=Date.now()-Number(cached.savedAt||0);
         applyPeople(cached.people,true);
         hadCache=true;
+        const login=document.getElementById("loginUser");
+        if(login && age>ORG_CACHE_FRESH_MS){
+          login.innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 · DB 확인 중</span>`;
+        }
       }
     }
   }catch(e){}
 
-  if(!hadCache) document.getElementById("loginUser").textContent="인원DB 확인 중";
+  if(!hadCache){
+    const login=document.getElementById("loginUser");
+    if(login) login.textContent="인원DB 확인 중";
+  }
 
   try{
     const res=await jsonp({action:"personnelOrg"});
     if(!(res&&res.success)) throw new Error(res?.message||"인원DB를 불러오지 못했습니다.");
     const fresh=(res.people||[]).filter(p=>clean(p["성명"]));
-    try{localStorage.setItem(ORG_CACHE_KEY,JSON.stringify({savedAt:Date.now(),people:fresh}))}catch(e){}
+    try{
+      const compact=fresh.map(minimalOrgPerson);
+      localStorage.setItem(ORG_CACHE_KEY,JSON.stringify({savedAt:Date.now(),people:compact}));
+      localStorage.removeItem("organization_people_cache_v2");
+    }catch(e){}
     applyPeople(fresh,false);
   }catch(err){
     console.error(err);
-    if(!hadCache){
-      document.getElementById("loginUser").textContent="조직도 DB 연결 확인";
-      document.getElementById("management").innerHTML=
-        `<div class="group management-box"><div class="empty">${esc(err.message)}</div></div>`;
-      document.getElementById("teams").innerHTML="";
-    }else{
-      document.getElementById("loginUser").innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 중</span>`;
+    const login=document.getElementById("loginUser");
+    if(hadCache){
+      if(login) login.innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 중</span>`;
+      return;
     }
+    if(login) login.textContent="조직도 DB 연결 확인";
+
+    const office=document.getElementById("officeLevel");
+    const manager=document.getElementById("managerLevel");
+    const teams=document.getElementById("teams");
+    if(office) office.innerHTML=`<div class="group management-box"><div class="empty">${esc(err.message)}</div></div>`;
+    if(manager) manager.innerHTML="";
+    if(teams) teams.innerHTML="";
   }
 }
 
