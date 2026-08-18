@@ -328,7 +328,7 @@
     </div>
   </section>
 
-  <div class="footer">Attendance Test v0.7 · 인원DB 로그인 TEST</div>
+  <div class="footer">Attendance Test v0.8 · 인원DB 로그인 TEST</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -662,12 +662,12 @@
     setResult("resultTime",formatNow());
     setResult("resultDistance","위치 확인 중...");
     setResult("resultAccuracy","-");
-    setResult("resultStatus","위치를 확인하고 있습니다.","waiting");
+    setResult("resultJudge","위치를 확인하고 있습니다.","waiting");
 
     document.getElementById("statusCard").scrollIntoView({behavior:"smooth",block:"nearest"});
 
     if(!navigator.geolocation){
-      setResult("resultStatus","이 브라우저는 위치 확인 기능을 지원하지 않습니다.","bad");
+      setResult("resultJudge","이 브라우저는 위치 확인 기능을 지원하지 않습니다.","bad");
       return;
     }
 
@@ -686,12 +686,12 @@
 
         if(distance<=site.radius){
           if(type==="퇴근" && journalFlag){
-            setResult("resultStatus","퇴근 처리 · 일지 이상사항 보고됨","waiting");
+            setResult("resultJudge","퇴근 처리 · 일지 이상사항 보고됨","waiting");
           }else{
-            setResult("resultStatus","현장 내 · "+type+" 확인","good");
+            setResult("resultJudge","현장 내 · "+type+" 확인","good");
           }
         }else{
-          setResult("resultStatus","현장 외 · 확인 필요","bad");
+          setResult("resultJudge","현장 외 · 확인 필요","bad");
         }
 
         const sheetPayload = {
@@ -736,7 +736,7 @@
 
         setResult("resultDistance","-");
         setResult("resultAccuracy","-");
-        setResult("resultStatus",message,"bad");
+        setResult("resultJudge",message,"bad");
 
         sendToGoogleSheet({
           date: formatDateOnly(),
