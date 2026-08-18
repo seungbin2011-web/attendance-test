@@ -194,7 +194,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.24 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.25 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -209,6 +209,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 <div class="field"><label class="label">현장</label>
 <select id="siteName"><option value="">현장을 선택하세요</option><option>용인 현장</option><option>용인 하이닉스 현장</option><option>용인 사무실</option><option>이천 사무실</option></select>
 </div>
+<div style="font-size:11px;color:#718096;margin:-4px 0 10px">팀원 정보: 조직도 정식 인원DB 연동</div>
 <div class="compact-action">
   <button class="btn submit" type="button" onclick="checkTodayState()">오늘 상태 확인</button>
   <div class="state-box" id="todayStateMsg">팀장·팀명·현장을 입력하면 오늘 저장된 작업계획이 있는지 확인합니다.</div><div class="stage-note">확인 후 다음 화면으로 자동 전환됩니다. 아래로 스크롤할 필요가 없습니다.</div>
@@ -350,7 +351,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.24 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.25 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -418,6 +419,7 @@ function applyTBMAuthUser(){
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
 const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyo4ntQKyTQgLZeK1HO2pjYPgOGnmgrgKX5OAAz-nUoOP6zssEj9enUoFh4Jy6UKp5fqg/exec";
+const ORGANIZATION_API_URL = "https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
 
 let currentPlan = null;
 let previousPlan = null;
@@ -544,6 +546,33 @@ function jsonp(params){
     document.body.appendChild(script);
   });
 }
+
+function orgJsonp(params){
+  return new Promise((resolve,reject)=>{
+    if(!ORGANIZATION_API_URL){
+      reject(new Error('조직도 인원DB URL 미설정'));
+      return;
+    }
+
+    const callbackName='org_tbm_cb_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>cleanup(new Error('정식 인원DB 불러오기 시간 초과')),15000);
+
+    function cleanup(err,data){
+      clearTimeout(timer);
+      try{delete window[callbackName]}catch(e){}
+      if(script.parentNode)script.parentNode.removeChild(script);
+      if(err)reject(err); else resolve(data);
+    }
+
+    window[callbackName]=(data)=>cleanup(null,data);
+    const qs=new URLSearchParams({...params,callback:callbackName,_t:Date.now()});
+    script.src=ORGANIZATION_API_URL+'?'+qs.toString();
+    script.onerror=()=>cleanup(new Error('정식 인원DB를 불러오지 못했습니다.'));
+    document.body.appendChild(script);
+  });
+}
+
 
 
 
@@ -1428,21 +1457,43 @@ async function loadTeamMembers(){
   const team=document.getElementById('teamName').value.trim();
   const site=document.getElementById('siteName').value;
 
-  if(!team||!site){
+  if(!loginAuthUser || !loginAuthUser.userId){
     availableTeamMembers=[];
-    renderAllTaskMembers();
+    renderAllTaskMembers('팀장 로그인 정보가 없습니다.');
+    return;
+  }
+
+  if(!team){
+    availableTeamMembers=[];
+    renderAllTaskMembers('소속 팀 정보가 없습니다.');
     return;
   }
 
   try{
-    const res=await jsonp({action:'teamMembers',team,site});
-    if(!res||!res.success) throw new Error(res?.message||'팀원 조회 실패');
-    availableTeamMembers=res.members||[];
+    const res=await orgJsonp({
+      action:'teamView',
+      userId:loginAuthUser.userId
+    });
+
+    if(!res||!res.success){
+      throw new Error(res?.message||'정식 인원DB 팀원 조회 실패');
+    }
+
+    if(res.team && res.team!==team){
+      console.warn('로그인 팀과 인원DB 팀이 다릅니다.',team,res.team);
+    }
+
+    availableTeamMembers=(res.members||[]).map(m=>({
+      userId:m.userId||'',
+      name:m.name||'',
+      role:m.rank||m.role||m.job||'팀원'
+    })).filter(m=>m.name);
+
     renderAllTaskMembers();
   }catch(err){
     console.error(err);
     availableTeamMembers=[];
-    renderAllTaskMembers('팀원 불러오기 실패: '+err.message);
+    renderAllTaskMembers('정식 인원DB 불러오기 실패: '+err.message);
   }
 }
 
