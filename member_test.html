@@ -156,12 +156,27 @@ body{
 }
 .attendance-item strong.done{color:var(--green)}
 
+
+.my-task{
+  border:1px solid var(--line);
+  border-radius:11px;
+  padding:12px;
+  margin-bottom:9px;
+  background:#fbfdff;
+}
+.my-task:last-child{margin-bottom:0}
+.my-task-title{font-size:14px;font-weight:900;color:var(--navy)}
+.my-task-role{display:inline-block;margin-left:5px;padding:3px 7px;border-radius:999px;background:#EEF5FF;color:#245DA8;font-size:10px;font-weight:900}
+.my-task-meta{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:6px}
+.tbm-directive{margin-top:8px;padding:9px 10px;border-radius:9px;background:#FFF8E8;border:1px solid #F0D9A8;font-size:11.5px;line-height:1.55}
+.changed-badge{color:#C65A00;font-weight:900}
+
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.5</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.6</span></div>
     <div style="display:flex;gap:6px">
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="goHome()">홈으로</button>
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
@@ -208,6 +223,16 @@ body{
 
   <section class="card">
     <div class="section-title">
+      <span>오늘 내 작업 / TBM 지시</span>
+      <span id="myTaskCount">0건</span>
+    </div>
+    <div class="section-body" id="myTasks">
+      <div class="status">오늘 작업 지시를 확인하는 중입니다.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
       <span>우리 팀장</span>
       <span id="leaderCount">0명</span>
     </div>
@@ -230,11 +255,12 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.5</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.6</div>
 </main>
 
 <script>
 const ORGANIZATION_API_URL="https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
+const TBM_API_URL="https://script.google.com/macros/s/AKfycbyo4ntQKyTQgLZeK1HO2pjYPgOGnmgrgKX5OAAz-nUoOP6zssEj9enUoFh4Jy6UKp5fqg/exec";
 
 let authUser=null;
 
@@ -353,6 +379,71 @@ function renderAttendanceStatus(){
   }
 }
 
+function tbmJsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb="member_tbm_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const s=document.createElement("script");
+    const timer=setTimeout(()=>{cleanup();reject(new Error("TBM DB 응답 시간 초과"));},15000);
+    function cleanup(){
+      clearTimeout(timer);
+      try{delete window[cb]}catch(e){}
+      s.remove();
+    }
+    window[cb]=(data)=>{cleanup();resolve(data)};
+    const q=new URLSearchParams({...params,callback:cb,_t:Date.now()});
+    s.src=TBM_API_URL+"?"+q.toString();
+    s.onerror=()=>{cleanup();reject(new Error("TBM DB 연결 실패"));};
+    document.body.appendChild(s);
+  });
+}
+
+async function loadMyTodayTasks(){
+  const wrap=document.getElementById("myTasks");
+  try{
+    const res=await tbmJsonp({
+      action:"memberTodayTasks",
+      userId:authUser.userId,
+      date:todayDate()
+    });
+    if(!(res&&res.success)) throw new Error(res?.message||"오늘 작업 조회 실패");
+
+    const tasks=res.tasks||[];
+    const tbm=(res.tbm||[]).filter(x=>x.note||x.extra);
+
+    document.getElementById("myTaskCount").textContent=`${tasks.length}건`;
+
+    if(!tasks.length){
+      wrap.innerHTML='<div class="status">오늘 나에게 배정된 작업이 없습니다.</div>';
+      return;
+    }
+
+    const latestTbm=tbm[0]||null;
+    wrap.innerHTML=tasks.map(t=>`
+      <div class="my-task">
+        <div class="my-task-title">
+          작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}
+          <span class="my-task-role">${esc(t.role||"작업자")}</span>
+        </div>
+        <div class="my-task-meta">
+          작업내용: ${esc(t.content||"-")}<br>
+          팀장: ${esc(t.leader||"-")} · 현장: ${esc(t.site||"-")}<br>
+          예상종료: ${esc(t.endTime||"-")}
+          ${t.changed?'<br><span class="changed-badge">※ 작업 변경사항 반영됨</span>':""}
+        </div>
+        <div class="tbm-directive">
+          <strong>안전/TBM 지시</strong><br>
+          위험요인: ${esc(t.risks||"없음")}<br>
+          안전조치: ${esc(t.safety||"-")}
+          ${latestTbm?`<br>최근 전달: ${esc(latestTbm.note||latestTbm.extra||"-")}`:""}
+        </div>
+      </div>
+    `).join("");
+  }catch(err){
+    console.error(err);
+    wrap.innerHTML='<div class="status">오늘 작업/TBM 지시를 불러오지 못했습니다.<br>'+esc(err.message)+'</div>';
+  }
+}
+
 async function reloadTeam(){
   const notice=document.getElementById("notice");
   document.getElementById("leaders").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
@@ -425,6 +516,7 @@ function logout(){
     `출결등급 ${attendanceGradeLabel(authUser.attendanceGrade)}`;
 
   renderAttendanceStatus();
+  loadMyTodayTasks();
   reloadTeam();
 })();
 </script>

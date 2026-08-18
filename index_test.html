@@ -410,7 +410,7 @@
     </div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.12</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.13</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -830,8 +830,35 @@
     if(!box) return;
     title.textContent=`${type} 처리 요청 완료`;
     text.textContent=`${siteName} · ${formatTimeOnly()} · 중복 입력 방지를 위해 같은 ${type} 버튼을 잠갔습니다.`;
+    const homeBtn=box.querySelector(".home-return-btn");
+    if(homeBtn){
+      homeBtn.textContent=isTeamLeader(authUser) ? "TBM 홈으로 돌아가기" : "팀원 홈으로 돌아가기";
+      homeBtn.onclick=()=>location.href=isTeamLeader(authUser) ? "leader_test.html" : "member_test.html";
+    }
     box.classList.add("open");
     box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
+  async function mirrorAttendanceEvent(payload){
+    if(!authUser) return false;
+    try{
+      const res=await orgJsonp({
+        action:"attendanceEvent",
+        date:payload.date||formatDateOnly(),
+        time:payload.time||formatTimeOnly(),
+        userId:cleanText(authUser.userId),
+        name:cleanText(authUser.name),
+        team:cleanText(authUser.team),
+        type:cleanText(payload.type),
+        site:cleanText(payload.site),
+        locationStatus:cleanText(payload.locationStatus),
+        attendanceGrade:cleanText(authUser.attendanceGrade||"A")
+      });
+      return !!(res&&res.success);
+    }catch(err){
+      console.warn("출결현황 미러 저장 실패",err);
+      return false;
+    }
   }
 
   async function sendToGoogleSheet(payload){
@@ -997,6 +1024,7 @@
 
         const sent=await sendToGoogleSheet(sheetPayload);
         if(sent){
+          await mirrorAttendanceEvent(sheetPayload);
           saveLocalAttendanceStatus(type,siteName,locationStatus);
           showAttendanceDone(type,siteName);
         }
@@ -1207,12 +1235,13 @@
 
       authUser=user;
 
-      if(isTeamLeader(user)){
+      const params=new URLSearchParams(location.search);
+
+      if(isTeamLeader(user) && params.get("mode")!=="attendance"){
         location.href="leader_test.html";
         return;
       }
 
-      const params=new URLSearchParams(location.search);
       if(params.get("mode")==="attendance"){
         openAttendanceForUser(user);
         return;
