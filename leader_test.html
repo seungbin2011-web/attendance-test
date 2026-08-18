@@ -205,7 +205,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.34 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.35 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -365,7 +365,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.34 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.35 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -1586,24 +1586,41 @@ async function loadTeamMembers(){
       console.warn('로그인 팀과 인원DB 팀이 다릅니다.',team,res.team);
     }
 
+    const baseMembers=(res.members||[]).map(m=>({
+      userId:m.userId||'',
+      name:m.name||'',
+      role:m.rank||m.role||m.job||'팀원'
+    })).filter(m=>m.name);
+
     const attendanceRes=await orgJsonp({
       action:'teamAttendance',
       team:res.team||team,
-      date:todayString()
-    }).catch(()=>({success:false,records:[]}));
+      date:todayString(),
+      userIds:baseMembers.map(m=>m.userId).filter(Boolean).join(',')
+    }).catch(err=>{
+      console.warn('출근상태 조회 실패',err);
+      return {success:false,records:[]};
+    });
 
     teamAttendanceMap={};
     (attendanceRes.records||[]).forEach(r=>{
-      if(!teamAttendanceMap[r.userId]) teamAttendanceMap[r.userId]={};
-      teamAttendanceMap[r.userId][r.type]=r;
+      const uid=String(r.userId||'').trim();
+      if(!uid) return;
+      if(!teamAttendanceMap[uid]) teamAttendanceMap[uid]={};
+      teamAttendanceMap[uid][r.type]=r;
     });
 
-    availableTeamMembers=(res.members||[]).map(m=>({
-      userId:m.userId||'',
-      name:m.name||'',
-      role:m.rank||m.role||m.job||'팀원',
+    availableTeamMembers=baseMembers.map(m=>({
+      ...m,
       attendance:teamAttendanceMap[m.userId]||{}
-    })).filter(m=>m.name);
+    }));
+
+    console.log('팀 출근상태 갱신',{
+      team:res.team||team,
+      members:baseMembers.length,
+      attendanceRecords:(attendanceRes.records||[]).length,
+      checkedIn:baseMembers.filter(m=>!!teamAttendanceMap[m.userId]?.['출근']).map(m=>m.name)
+    });
 
     renderAllTaskMembers();
   }catch(err){
