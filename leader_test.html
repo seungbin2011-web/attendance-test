@@ -198,7 +198,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.28 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.29 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -358,7 +358,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.28 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.29 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -372,11 +372,14 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 let loginAuthUser = null;
 
 function tbmHome(){
-  // TBM 내부 홈으로 이동하고 브라우저 뒤로가기 의존을 줄인다.
+  // 실제 TBM 홈 stage로 이동
   try{
-    showStage('home');
-  }catch(e){
+    showStage('stageTbmHome');
+    updateTbmTimeGuide();
     window.scrollTo({top:0,behavior:'smooth'});
+  }catch(e){
+    console.error('TBM 홈 이동 오류',e);
+    location.reload();
   }
 }
 
@@ -444,7 +447,7 @@ function applyTBMAuthUser(){
 /* =====================================================
    ★ 배포 후 Apps Script 웹앱 URL을 여기에 넣으세요.
    ===================================================== */
-const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyo4ntQKyTQgLZeK1HO2pjYPgOGnmgrgKX5OAAz-nUoOP6zssEj9enUoFh4Jy6UKp5fqg/exec";
+const TBM_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPtHjGZXnke0iRRG11jQWFZ-ysxe9vq5YKPr89F80ZN3GxANCNjV2BgzSeql5WK2chwQ/exec";
 const ORGANIZATION_API_URL = "https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
 
 let currentPlan = null;
