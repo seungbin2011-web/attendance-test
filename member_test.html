@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>팀원 홈 TEST</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --navy:#17365d;
+  --blue:#2f7df4;
+  --bg:#f3f6f9;
+  --line:#dce5ee;
+  --text:#243244;
+  --muted:#6b7b8c;
+  --green:#2f855a;
+}
+body{
+  margin:0;
+  font-family:"Malgun Gothic","맑은 고딕",Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.topbar{
+  background:var(--navy);
+  color:#fff;
+  padding:15px 18px;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+.topbar-inner{
+  max-width:560px;
+  margin:auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+.brand{font-size:19px;font-weight:900}
+.ver{
+  margin-left:7px;
+  font-size:10px;
+  padding:3px 7px;
+  border:1px solid rgba(255,255,255,.35);
+  border-radius:999px;
+}
+.wrap{max-width:560px;margin:auto;padding:16px}
+.card{
+  background:#fff;
+  border:1px solid #e3eaf1;
+  border-radius:15px;
+  box-shadow:0 3px 14px rgba(0,0,0,.05);
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.user-card{padding:18px}
+.hello{font-size:12px;color:var(--muted);margin-bottom:5px}
+.name{font-size:22px;font-weight:900;color:var(--navy)}
+.meta{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.section-title{
+  padding:12px 14px;
+  font-size:14px;
+  font-weight:900;
+  color:var(--navy);
+  background:#eef4fa;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+}
+.section-body{padding:12px}
+.person{
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  margin-bottom:8px;
+  background:#fbfdff;
+}
+.person:last-child{margin-bottom:0}
+.person-name{font-size:14px;font-weight:900}
+.person-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.badge{
+  display:inline-block;
+  font-size:10px;
+  font-weight:900;
+  border-radius:999px;
+  padding:3px 7px;
+  margin-left:6px;
+  vertical-align:1px;
+}
+.badge.leader{background:#e9f7ef;color:#1f7a49;border:1px solid #b9e0c8}
+.badge.me{background:#eef5ff;color:#245da8;border:1px solid #c9dcfa}
+.actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:14px;
+}
+.btn{
+  min-height:52px;
+  border:0;
+  border-radius:12px;
+  font-size:16px;
+  font-weight:900;
+  cursor:pointer;
+}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.secondary{background:var(--navy);color:#fff}
+.btn.ghost{
+  background:#fff;
+  color:var(--navy);
+  border:1px solid #ccd8e6;
+}
+.status{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8fafc;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.5;
+}
+.footer{
+  text-align:center;
+  color:#8a97a6;
+  font-size:10.5px;
+  padding:10px 0 18px;
+}
+@media(max-width:420px){
+  .wrap{padding:12px}
+  .actions{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.1</span></div>
+    <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="user-card">
+      <div class="hello">로그인 사용자</div>
+      <div class="name" id="myName">-</div>
+      <div class="meta" id="myMeta">-</div>
+
+      <div class="actions">
+        <button class="btn primary" onclick="goAttendance()">출결 등록</button>
+        <button class="btn secondary" onclick="reloadTeam()">팀 다시 확인</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
+      <span>우리 팀장</span>
+      <span id="leaderCount">0명</span>
+    </div>
+    <div class="section-body" id="leaders">
+      <div class="status">팀 정보를 불러오는 중입니다.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
+      <span>우리 팀원</span>
+      <span id="memberCount">0명</span>
+    </div>
+    <div class="section-body" id="members">
+      <div class="status">팀 정보를 불러오는 중입니다.</div>
+    </div>
+  </section>
+
+  <div class="status" id="notice">
+    로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
+  </div>
+
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST</div>
+</main>
+
+<script>
+const ORGANIZATION_API_URL="https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
+
+let authUser=null;
+
+function clean(v){return String(v??"").trim()}
+function esc(v){
+  return clean(v).replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+function readAuth(){
+  try{
+    const raw=sessionStorage.getItem("attendanceAuthUser");
+    if(!raw) return null;
+    const user=JSON.parse(raw);
+    return user && user.name ? user : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function jsonp(params){
+  return new Promise((resolve,reject)=>{
+    const cb="member_home_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const s=document.createElement("script");
+    const timer=setTimeout(()=>{cleanup();reject(new Error("인원DB 응답 시간 초과"));},15000);
+    function cleanup(){
+      clearTimeout(timer);
+      try{delete window[cb]}catch(e){}
+      s.remove();
+    }
+    window[cb]=(data)=>{cleanup();resolve(data)};
+    const q=new URLSearchParams({...params,callback:cb});
+    s.src=ORGANIZATION_API_URL+"?"+q.toString();
+    s.onerror=()=>{cleanup();reject(new Error("인원DB 연결 실패"));};
+    document.body.appendChild(s);
+  });
+}
+
+function personCard(p,kind){
+  const isMe=clean(p.userId)===clean(authUser.userId);
+  return `<div class="person">
+    <div class="person-name">
+      ${esc(p.name)}
+      ${kind==="leader"?'<span class="badge leader">팀장</span>':""}
+      ${isMe?'<span class="badge me">나</span>':""}
+    </div>
+    <div class="person-meta">${esc(p.job||p.rank||"-")}</div>
+  </div>`;
+}
+
+async function reloadTeam(){
+  const notice=document.getElementById("notice");
+  document.getElementById("leaders").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
+  document.getElementById("members").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
+
+  try{
+    const res=await jsonp({
+      action:"teamView",
+      userId:authUser.userId
+    });
+
+    if(!(res&&res.success)){
+      throw new Error(res?.message||"팀 정보를 불러오지 못했습니다.");
+    }
+
+    const leaders=res.leaders||[];
+    const members=res.members||[];
+
+    document.getElementById("leaderCount").textContent=`${leaders.length}명`;
+    document.getElementById("memberCount").textContent=`${members.length}명`;
+
+    document.getElementById("leaders").innerHTML=
+      leaders.length ? leaders.map(p=>personCard(p,"leader")).join("") :
+      '<div class="status">등록된 팀장이 없습니다.</div>';
+
+    document.getElementById("members").innerHTML=
+      members.length ? members.map(p=>personCard(p,"member")).join("") :
+      '<div class="status">등록된 팀원이 없습니다.</div>';
+
+    notice.textContent=`${res.team||authUser.team||"팀"} · 총 ${leaders.length+members.length}명`;
+  }catch(err){
+    console.error(err);
+    document.getElementById("leaders").innerHTML='<div class="status">팀 정보를 불러오지 못했습니다.</div>';
+    document.getElementById("members").innerHTML='<div class="status">팀 정보를 불러오지 못했습니다.</div>';
+    notice.textContent=err.message||"인원DB 연결을 확인해주세요.";
+  }
+}
+
+function goAttendance(){
+  location.href="index_test.html";
+}
+
+function logout(){
+  sessionStorage.removeItem("attendanceAuthUser");
+  sessionStorage.removeItem("tbmAuthUser");
+  location.href="index_test.html";
+}
+
+(function init(){
+  authUser=readAuth();
+
+  if(!authUser){
+    alert("로그인이 필요합니다.");
+    location.href="index_test.html";
+    return;
+  }
+
+  document.getElementById("myName").textContent=authUser.name||"-";
+  document.getElementById("myMeta").textContent=
+    [authUser.userId,authUser.team,authUser.rank||authUser.role,authUser.site]
+      .filter(Boolean).join(" · ");
+
+  reloadTeam();
+})();
+</script>
+</body>
+</html>
