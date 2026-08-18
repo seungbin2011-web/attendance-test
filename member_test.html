@@ -131,12 +131,37 @@ body{
   .wrap{padding:12px}
   .actions{grid-template-columns:1fr}
 }
+
+.attendance-summary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.attendance-item{
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fbfdff;
+}
+.attendance-item span{
+  display:block;
+  font-size:11px;
+  color:var(--muted);
+  margin-bottom:5px;
+}
+.attendance-item strong{
+  display:block;
+  font-size:14px;
+  color:var(--navy);
+}
+.attendance-item strong.done{color:var(--green)}
+
 </style>
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.2</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.3</span></div>
     <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
   </div>
 </header>
@@ -151,6 +176,28 @@ body{
       <div class="actions">
         <button class="btn primary" onclick="goAttendance()">출결 등록</button>
         <button class="btn secondary" onclick="reloadTeam()">팀 다시 확인</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
+      <span>오늘 출결 상태</span>
+      <span id="attendanceDate">-</span>
+    </div>
+    <div class="section-body">
+      <div class="attendance-summary">
+        <div class="attendance-item">
+          <span>출근</span>
+          <strong id="checkinStatus">미등록</strong>
+        </div>
+        <div class="attendance-item">
+          <span>퇴근</span>
+          <strong id="checkoutStatus">미등록</strong>
+        </div>
+      </div>
+      <div class="status" id="attendanceNotice" style="margin-top:10px">
+        출결 등록 결과가 여기에 표시됩니다.
       </div>
     </div>
   </section>
@@ -179,7 +226,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.2</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.3</div>
 </main>
 
 <script>
@@ -233,6 +280,60 @@ function personCard(p,kind){
     </div>
     <div class="person-meta">${esc(p.job||p.rank||"-")}</div>
   </div>`;
+}
+
+function todayDate(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
+function attendanceStorageKey(userId,date){
+  return `attendanceStatus:${userId}:${date}`;
+}
+
+function loadAttendanceStatus(){
+  if(!authUser) return {};
+  try{
+    return JSON.parse(localStorage.getItem(attendanceStorageKey(authUser.userId,todayDate()))||"{}");
+  }catch(e){
+    return {};
+  }
+}
+
+function renderAttendanceStatus(){
+  const state=loadAttendanceStatus();
+  document.getElementById("attendanceDate").textContent=todayDate();
+
+  const inEl=document.getElementById("checkinStatus");
+  const outEl=document.getElementById("checkoutStatus");
+  const notice=document.getElementById("attendanceNotice");
+
+  if(state["출근"]){
+    inEl.textContent=`요청 완료 ${state["출근"].time||""}`;
+    inEl.className="done";
+  }else{
+    inEl.textContent="미등록";
+    inEl.className="";
+  }
+
+  if(state["퇴근"]){
+    outEl.textContent=`요청 완료 ${state["퇴근"].time||""}`;
+    outEl.className="done";
+  }else{
+    outEl.textContent="미등록";
+    outEl.className="";
+  }
+
+  if(state["퇴근"]){
+    notice.textContent="오늘 출근·퇴근 처리 요청이 모두 완료되었습니다.";
+  }else if(state["출근"]){
+    notice.textContent="오늘 출근 처리 요청이 완료되었습니다. 퇴근 시 다시 출결 등록을 눌러주세요.";
+  }else{
+    notice.textContent="아직 오늘 출근 기록이 없습니다.";
+  }
 }
 
 async function reloadTeam(){
@@ -297,6 +398,7 @@ function logout(){
     [authUser.userId,authUser.team,authUser.rank||authUser.role,authUser.site]
       .filter(Boolean).join(" · ");
 
+  renderAttendanceStatus();
   reloadTeam();
 })();
 </script>

@@ -237,6 +237,48 @@
   border-radius:9px;padding:8px 10px;font-size:11px;font-weight:800;cursor:pointer
 }
 
+
+.action-btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+  transform:none !important;
+}
+.processing-note{
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#FFF8E8;
+  border:1px solid #F2D79B;
+  color:#8A6200;
+  font-size:12px;
+  font-weight:700;
+  text-align:center;
+}
+.attendance-done{
+  display:none;
+  margin-top:14px;
+  padding:14px;
+  border-radius:12px;
+  background:#EEF8F2;
+  border:1px solid #BFE1CB;
+  text-align:center;
+}
+.attendance-done.open{display:block}
+.done-title{font-size:15px;font-weight:900;color:#23613A}
+.done-text{font-size:12px;color:#52705D;margin-top:5px;line-height:1.5}
+.home-return-btn{
+  width:100%;
+  min-height:48px;
+  margin-top:12px;
+  border:0;
+  border-radius:11px;
+  background:var(--navy);
+  color:#fff;
+  font-size:14px;
+  font-weight:900;
+  cursor:pointer;
+}
+
 </style>
 </head>
 
@@ -302,9 +344,10 @@
     <div class="field">
       <div class="label"><span class="num">2</span>출근 / 퇴근</div>
       <div class="attendance">
-        <button class="action-btn checkin" type="button" onclick="startAttendance('출근')">출근</button>
-        <button class="action-btn checkout" type="button" onclick="startAttendance('퇴근')">퇴근</button>
+        <button class="action-btn checkin" id="checkinBtn" type="button" onclick="startAttendance('출근')">출근</button>
+        <button class="action-btn checkout" id="checkoutBtn" type="button" onclick="startAttendance('퇴근')">퇴근</button>
       </div>
+      <div id="processingNote" class="processing-note" style="display:none">처리 중입니다. 버튼을 다시 누르지 마세요.</div>
     </div>
 
     <div class="status-card" id="statusCard">
@@ -322,13 +365,19 @@
       </div>
     </div>
 
+    <div id="attendanceDone" class="attendance-done">
+      <div class="done-title" id="attendanceDoneTitle">처리 완료</div>
+      <div class="done-text" id="attendanceDoneText">출결 처리 결과를 확인했습니다.</div>
+      <button class="home-return-btn" type="button" onclick="location.href='member_test.html'">팀원 홈으로 돌아가기</button>
+    </div>
+
     <div class="privacy">
       ※ 위치정보는 출근·퇴근 확인을 위해 버튼을 누르는 순간 1회 사용합니다.<br>
       로그인 전에는 전체 인원 목록을 내려받지 않습니다.
     </div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.10</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.11</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -421,6 +470,7 @@
   let pendingAttendance = null;
   let signatureHasInk = false;
   let authUser = null;
+  let attendanceBusy = false;
 
 
   function toggleLoginPin(){
@@ -533,6 +583,7 @@
     if(user.site && user.site!=="전체" && siteMap[user.site]){
       document.getElementById("site").value=siteMap[user.site];
     }
+    refreshAttendanceButtons();
   }
 
   function logoutAttendance(){
@@ -577,6 +628,70 @@
     const mm=String(d.getMinutes()).padStart(2,"0");
     const ss=String(d.getSeconds()).padStart(2,"0");
     return `${hh}:${mm}:${ss}`;
+  }
+
+  function attendanceStorageKey(userId,date){
+    return `attendanceStatus:${userId}:${date}`;
+  }
+
+  function loadLocalAttendanceStatus(userId){
+    try{
+      return JSON.parse(localStorage.getItem(attendanceStorageKey(userId,formatDateOnly()))||"{}");
+    }catch(e){
+      return {};
+    }
+  }
+
+  function saveLocalAttendanceStatus(type,siteName,locationStatus){
+    if(!authUser) return;
+    const key=attendanceStorageKey(authUser.userId,formatDateOnly());
+    const current=loadLocalAttendanceStatus(authUser.userId);
+    current[type]={
+      time:formatTimeOnly(),
+      site:siteName,
+      locationStatus:locationStatus||"",
+      requested:true
+    };
+    localStorage.setItem(key,JSON.stringify(current));
+  }
+
+  function setAttendanceBusy(busy){
+    attendanceBusy=busy;
+    const checkin=document.getElementById("checkinBtn");
+    const checkout=document.getElementById("checkoutBtn");
+    const note=document.getElementById("processingNote");
+    if(checkin) checkin.disabled=busy;
+    if(checkout) checkout.disabled=busy;
+    if(note) note.style.display=busy?"block":"none";
+  }
+
+  function refreshAttendanceButtons(){
+    if(!authUser || attendanceBusy) return;
+    const state=loadLocalAttendanceStatus(authUser.userId);
+    const checkin=document.getElementById("checkinBtn");
+    const checkout=document.getElementById("checkoutBtn");
+
+    if(checkin){
+      const done=!!state["출근"];
+      checkin.disabled=done;
+      checkin.textContent=done ? `출근 요청 완료 ${state["출근"].time||""}` : "출근";
+    }
+    if(checkout){
+      const done=!!state["퇴근"];
+      checkout.disabled=done;
+      checkout.textContent=done ? `퇴근 요청 완료 ${state["퇴근"].time||""}` : "퇴근";
+    }
+  }
+
+  function showAttendanceDone(type,siteName){
+    const box=document.getElementById("attendanceDone");
+    const title=document.getElementById("attendanceDoneTitle");
+    const text=document.getElementById("attendanceDoneText");
+    if(!box) return;
+    title.textContent=`${type} 처리 요청 완료`;
+    text.textContent=`${siteName} · ${formatTimeOnly()} · 중복 입력 방지를 위해 같은 ${type} 버튼을 잠갔습니다.`;
+    box.classList.add("open");
+    box.scrollIntoView({behavior:"smooth",block:"nearest"});
   }
 
   async function sendToGoogleSheet(payload){
@@ -643,8 +758,20 @@
   }
 
   function startAttendance(type){
+    if(attendanceBusy){
+      alert("현재 출결 처리를 진행 중입니다. 잠시 기다려주세요.");
+      return;
+    }
+
     const basic=validateBasic();
     if(!basic)return;
+
+    const todayState=loadLocalAttendanceStatus(basic.userId);
+    if(todayState[type]){
+      alert(`오늘 ${type} 처리를 이미 요청했습니다. 중복 입력을 막기 위해 다시 등록할 수 없습니다.`);
+      refreshAttendanceButtons();
+      return;
+    }
 
     if(type==="퇴근"){
       pendingAttendance={type,userId:basic.userId,name:basic.name,team:basic.team,rank:basic.rank,role:basic.role,siteName:basic.siteName};
@@ -656,6 +783,7 @@
   }
 
   function processAttendance(type,name,siteName,journalData,workerData=null){
+    setAttendanceBusy(true);
     const site=SITES[siteName];
 
     document.getElementById("statusCard").style.display="block";
@@ -676,11 +804,13 @@
 
     if(!navigator.geolocation){
       setResult("resultJudge","이 브라우저는 위치 확인 기능을 지원하지 않습니다.","bad");
+      setAttendanceBusy(false);
+      refreshAttendanceButtons();
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-      function(position){
+      async function(position){
         const currentLat=position.coords.latitude;
         const currentLng=position.coords.longitude;
         const accuracy=position.coords.accuracy;
@@ -722,7 +852,13 @@
           signature: journalData && journalData.signed ? "완료" : "-"
         };
 
-        sendToGoogleSheet(sheetPayload);
+        const sent=await sendToGoogleSheet(sheetPayload);
+        if(sent){
+          saveLocalAttendanceStatus(type,siteName,locationStatus);
+          showAttendanceDone(type,siteName);
+        }
+        setAttendanceBusy(false);
+        refreshAttendanceButtons();
 
         console.log({
           worker:name,
@@ -736,7 +872,7 @@
           journal:journalData
         });
       },
-      function(error){
+      async function(error){
         let message="현재 위치를 확인할 수 없습니다.";
         if(error.code===error.PERMISSION_DENIED)message="위치 권한이 거부되었습니다.";
         if(error.code===error.POSITION_UNAVAILABLE)message="현재 위치 정보를 가져올 수 없습니다.";
@@ -746,7 +882,7 @@
         setResult("resultAccuracy","-");
         setResult("resultJudge",message,"bad");
 
-        sendToGoogleSheet({
+        await sendToGoogleSheet({
           date: formatDateOnly(),
           userId: cleanText(org.userId||org["사용자ID"]),
           name: name,
@@ -765,6 +901,8 @@
           note: journalData ? journalData.note : "-",
           signature: journalData && journalData.signed ? "완료" : "-"
         });
+        setAttendanceBusy(false);
+        refreshAttendanceButtons();
       },
       {enableHighAccuracy:true,timeout:15000,maximumAge:0}
     );
@@ -796,6 +934,10 @@
   }
 
   function submitJournal(){
+    if(attendanceBusy){
+      alert("현재 처리 중입니다. 잠시 기다려주세요.");
+      return;
+    }
     if(!pendingAttendance)return;
 
     const accident=selectedValue("accident");
