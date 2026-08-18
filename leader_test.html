@@ -71,6 +71,9 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 .task-member-presence{font-size:10px;font-weight:900;border-radius:999px;padding:3px 6px;white-space:nowrap}
 .task-member-presence.in{background:#E9F7EF;color:#1F7A49;border:1px solid #B9E0C8}
 .task-member-presence.out{background:#F2F4F7;color:#7A8794;border:1px solid #D8DEE6}
+.task-member-assigned{font-size:10px;font-weight:900;border-radius:999px;padding:3px 6px;white-space:nowrap;background:#FFF0E8;color:#B45309;border:1px solid #F2C7A5}
+.task-member.locked{opacity:.65;background:#FAF6F2}
+.task-member.locked .task-role-select{pointer-events:none}
 .task-role-select{width:100%;height:36px;font-size:11px;margin-top:6px;padding:0 7px}
 .task-member-empty{grid-column:1/-1;padding:14px;text-align:center;color:var(--muted);font-size:12px;background:#fff;border-radius:10px;border:1px dashed var(--line)}
 .add-task-btn{width:100%;border:1px dashed #2F7DF6;background:#EEF5FF;color:#155FC8;border-radius:12px;padding:13px;font-size:14px;font-weight:900;cursor:pointer;margin:4px 0 14px}
@@ -205,7 +208,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.35 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.36 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
@@ -365,7 +368,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.35 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.36 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -1553,6 +1556,7 @@ function getReasonCodes(){
 
 let availableTeamMembers=[];
 let teamAttendanceMap={};
+let todayAssignmentMap={};
 let workTasks=[];
 let taskSeq=0;
 
@@ -1601,6 +1605,17 @@ async function loadTeamMembers(){
       console.warn('출근상태 조회 실패',err);
       return {success:false,records:[]};
     });
+
+    const assignmentRes=await jsonp({
+      action:'todayAssignments',
+      date:todayString(),
+      team:res.team||team
+    }).catch(err=>{
+      console.warn('오늘 작업배정 조회 실패',err);
+      return {success:false,assignments:{}};
+    });
+
+    todayAssignmentMap=(assignmentRes&&assignmentRes.assignments)||{};
 
     teamAttendanceMap={};
     (attendanceRes.records||[]).forEach(r=>{
@@ -1696,6 +1711,52 @@ function renderAllTaskMembers(errorMessage=''){
   workTasks.forEach(t=>renderTaskMembers(t.id,errorMessage));
 }
 
+function getOtherLeaderAssignment(member){
+  const list=todayAssignmentMap[String(member.userId||'')]||[];
+  const myLeader=(document.getElementById('leaderName')?.value||'').trim();
+  const currentGroup=currentPlan?.groupId||'';
+
+  return list.find(a=>{
+    if(currentGroup && String(a.groupId||'')===String(currentGroup)) return false;
+    return String(a.leader||'').trim() && String(a.leader||'').trim()!==myLeader;
+  })||null;
+}
+
+function validateDraftAssignments(){
+  const conflicts=[];
+  workTasks.forEach(task=>{
+    getTaskMembers(task.id).forEach(m=>{
+      const member=availableTeamMembers.find(x=>String(x.userId)===String(m.userId));
+      if(!member) return;
+      const a=getOtherLeaderAssignment(member);
+      if(a){
+        conflicts.push({
+          name:member.name,
+          leader:a.leader,
+          place:a.place||'',
+          taskNo:a.taskNo||''
+        });
+      }
+    });
+  });
+
+  if(conflicts.length){
+    const unique=[];
+    const seen=new Set();
+    conflicts.forEach(x=>{
+      const k=x.name+'|'+x.leader+'|'+x.taskNo+'|'+x.place;
+      if(!seen.has(k)){seen.add(k);unique.push(x);}
+    });
+    alert(
+      '다른 팀장 작업에 이미 배정된 인원이 있습니다.\\n\\n'+
+      unique.map(x=>`• ${x.name} → ${x.leader} 팀장 작업${x.taskNo? ' '+x.taskNo:''}${x.place?' · '+x.place:''}`).join('\\n')+
+      '\\n\\n기존 팀장이 배정을 해제한 뒤 다시 지정해주세요.'
+    );
+    return false;
+  }
+  return true;
+}
+
 function renderTaskMembers(taskId,errorMessage=''){
   const list=document.getElementById('taskMembers_'+taskId);
   if(!list) return;
@@ -1712,23 +1773,29 @@ function renderTaskMembers(taskId,errorMessage=''){
     return;
   }
 
-  list.innerHTML=availableTeamMembers.map(m=>`
-    <label class="task-member">
+  list.innerHTML=availableTeamMembers.map(m=>{
+    const other=getOtherLeaderAssignment(m);
+    const selected=isDraftMemberSelected(taskId,m);
+    const locked=!!other && !selected;
+    return `
+    <label class="task-member ${locked?'locked':''}">
       <input type="checkbox"
         class="task-member-check"
         data-task="${taskId}"
         data-id="${escapeHtml(m.userId||'')}"
         value="${escapeHtml(m.name)}"
-        ${isDraftMemberSelected(taskId,m) ? 'checked' : ''}
+        ${selected ? 'checked' : ''}
+        ${locked ? 'disabled' : ''}
         onchange="updateTaskMemberCount(${taskId});schedulePlanDraftSave()">
       <span>${escapeHtml(m.name)}</span>
       <span class="task-member-presence ${m.attendance?.['출근']?'in':'out'}">${m.attendance?.['출근']?'출근':'미출근'}</span>
+      ${other?`<span class="task-member-assigned">${escapeHtml(other.leader)} 배정중</span>`:''}
       <span class="member-role">${escapeHtml(m.role||'팀원')}</span>
-      <select class="task-role-select" data-role-task="${taskId}" data-role-id="${escapeHtml(m.userId||'')}" onchange="schedulePlanDraftSave()">
+      <select class="task-role-select" data-role-task="${taskId}" data-role-id="${escapeHtml(m.userId||'')}" onchange="schedulePlanDraftSave()" ${locked?'disabled':''}>
         ${['작업자','작업지휘자','신호수','화기감시자','유도원','기타'].map(r=>`<option value="${r}" ${getPendingMemberRole(taskId,m)===r?'selected':''}>${r}</option>`).join('')}
       </select>
-    </label>
-  `).join('');
+    </label>`;
+  }).join('');
   updateTaskMemberCount(taskId);
   const task=workTasks.find(t=>t.id===taskId);
   if(task){
@@ -2169,6 +2236,7 @@ async function savePlan(){
       const risks=getRisks();
       const safety=document.getElementById('safetyNote').value.trim();
       const tasks=getWorkTaskData();
+      if(!validateDraftAssignments()) return;
 
       if(!leader||!team||!site){
         alert('팀장 이름, 팀명, 현장을 입력해주세요.');return;
