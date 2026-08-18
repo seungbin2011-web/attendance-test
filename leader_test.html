@@ -194,11 +194,13 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.26 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.27 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
-  <div class="stage-title">팀장 TBM 관리</div><div class="stage-actions"></div>
+  <div class="stage-title">팀장 TBM 관리</div><div class="stage-actions">
+        <button class="stage-small-btn" type="button" onclick="tbmHome()">홈</button>
+        <button class="stage-small-btn" type="button" onclick="tbmLogout()">로그아웃</button></div>
 </div></div><section class="card" id="basicSection">
 <div class="title">오늘 작업 기본정보</div>
 <div class="desc">팀장과 현장 정보를 먼저 입력합니다.</div>
@@ -351,7 +353,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.26 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.27 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -363,6 +365,25 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 
 <script>
 let loginAuthUser = null;
+
+function tbmHome(){
+  // TBM 내부 홈으로 이동하고 브라우저 뒤로가기 의존을 줄인다.
+  try{
+    showStage('home');
+  }catch(e){
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+
+function tbmLogout(){
+  if(!confirm('로그아웃하시겠습니까?')) return;
+
+  sessionStorage.removeItem('attendanceAuthUser');
+  sessionStorage.removeItem('tbmAuthUser');
+
+  // 임시 작업초안은 남기되 로그인 세션만 종료
+  location.replace('index_test.html');
+}
 
 function readTBMAuthUser(){
   try{
@@ -383,7 +404,7 @@ function applyTBMAuthUser(){
   loginAuthUser=readTBMAuthUser();
   if(!loginAuthUser){
     alert("팀장 로그인이 필요합니다. 출결 테스트 로그인 화면으로 이동합니다.");
-    location.href="index_test.html";
+    location.replace("index_test.html");
     return false;
   }
 
