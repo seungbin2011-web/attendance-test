@@ -107,6 +107,7 @@ body{
 }
 .btn.primary{background:var(--blue);color:#fff}
 .btn.secondary{background:var(--navy);color:#fff}
+.btn:disabled{opacity:.55;cursor:not-allowed}
 .btn.ghost{
   background:#fff;
   color:var(--navy);
@@ -176,7 +177,7 @@ body{
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.7</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.8</span></div>
     <div style="display:flex;gap:6px">
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="goHome()">홈으로</button>
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
@@ -194,7 +195,7 @@ body{
 
       <div class="actions">
         <button class="btn primary" onclick="goAttendance()">출결 등록</button>
-        <button class="btn secondary" onclick="reloadTeam()">팀 다시 확인</button>
+        <button class="btn secondary" id="refreshAllBtn" onclick="refreshAll()">팀 다시 확인</button>
       </div>
     </div>
   </section>
@@ -255,7 +256,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.7</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.8</div>
 </main>
 
 <script>
@@ -263,6 +264,7 @@ const ORGANIZATION_API_URL="https://script.google.com/macros/s/AKfycbydU13x0H55a
 const TBM_API_URL="https://script.google.com/macros/s/AKfycbyPtHjGZXnke0iRRG11jQWFZ-ysxe9vq5YKPr89F80ZN3GxANCNjV2BgzSeql5WK2chwQ/exec";
 
 let authUser=null;
+let refreshAllBusy=false;
 
 function clean(v){return String(v??"").trim()}
 function esc(v){
@@ -444,6 +446,37 @@ async function loadMyTodayTasks(){
   }
 }
 
+async function refreshAll(){
+  if(refreshAllBusy) return;
+
+  const btn=document.getElementById("refreshAllBtn");
+  refreshAllBusy=true;
+
+  const oldText=btn ? btn.textContent : "";
+  if(btn){
+    btn.disabled=true;
+    btn.textContent="확인 중...";
+  }
+
+  try{
+    // 화면 전체를 새로고침하지 않고 필요한 데이터만 동시에 재조회
+    renderAttendanceStatus();
+
+    await Promise.all([
+      loadMyTodayTasks(),
+      reloadTeam()
+    ]);
+  }catch(err){
+    console.error("전체 다시 확인 실패",err);
+  }finally{
+    refreshAllBusy=false;
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=oldText || "팀 다시 확인";
+    }
+  }
+}
+
 async function reloadTeam(){
   const notice=document.getElementById("notice");
   document.getElementById("leaders").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
@@ -516,8 +549,7 @@ function logout(){
     `출결등급 ${attendanceGradeLabel(authUser.attendanceGrade)}`;
 
   renderAttendanceStatus();
-  loadMyTodayTasks();
-  reloadTeam();
+  refreshAll();
 })();
 </script>
 </body>
