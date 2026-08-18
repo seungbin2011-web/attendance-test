@@ -318,7 +318,7 @@
         <div class="row"><span class="k">GPS 정확도</span><span class="v" id="resultAccuracy">-</span></div>
         <div class="row"><span class="k">현장과 거리</span><span class="v" id="resultDistance">-</span></div>
         <div class="row"><span class="k">현장 판정</span><span class="v waiting" id="resultJudge">확인 전</span></div>
-        <div class="row"><span class="k">Google Sheet</span><span class="v waiting" id="sheetSaveStatus">저장 전</span></div>
+        <div class="row"><span class="k">출결 DB</span><span class="v waiting" id="sheetSaveStatus">대기</span></div>
       </div>
     </div>
 
@@ -328,7 +328,7 @@
     </div>
   </section>
 
-  <div class="footer">Attendance Test v0.8 · 인원DB 로그인 TEST</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.9</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -579,6 +579,8 @@
   }
 
   async function sendToGoogleSheet(payload){
+    setResult("sheetSaveStatus","DB 저장 요청 중...","waiting");
+
     try{
       await fetch(GOOGLE_SCRIPT_URL,{
         method:"POST",
@@ -589,10 +591,14 @@
         body:JSON.stringify(payload)
       });
 
-      console.log("Google Sheet 전송 요청 완료:",payload);
+      // no-cors 방식은 브라우저가 서버 응답 내용을 읽을 수 없으므로
+      // 실제 DB 행 생성 여부가 아니라 '전송 요청 완료'까지만 표시한다.
+      setResult("sheetSaveStatus","DB 전송 요청 완료","good");
+      console.log("출결 DB 전송 요청 완료:",payload);
       return true;
     }catch(err){
-      console.error("Google Sheet 전송 오류:",err);
+      setResult("sheetSaveStatus","DB 전송 실패","bad");
+      console.error("출결 DB 전송 오류:",err);
       return false;
     }
   }
@@ -663,6 +669,7 @@
     setResult("resultDistance","위치 확인 중...");
     setResult("resultAccuracy","-");
     setResult("resultJudge","위치를 확인하고 있습니다.","waiting");
+    setResult("sheetSaveStatus","대기","waiting");
 
     document.getElementById("statusCard").scrollIntoView({behavior:"smooth",block:"nearest"});
 
