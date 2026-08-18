@@ -136,7 +136,7 @@ body{
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.1</span></div>
+    <div class="brand">팀원 홈 <span class="ver">TEST v0.2</span></div>
     <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
   </div>
 </header>
@@ -179,7 +179,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.2</div>
 </main>
 
 <script>
@@ -274,7 +274,7 @@ async function reloadTeam(){
 }
 
 function goAttendance(){
-  location.href="index_test.html";
+  location.href="index_test.html?mode=attendance";
 }
 
 function logout(){

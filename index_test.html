@@ -328,7 +328,7 @@
     </div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.9</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.10</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -502,8 +502,8 @@
       }
 
       msg.className="login-msg ok";
-      msg.textContent=`${authUser.name}님 확인 완료`;
-      openAttendanceForUser(authUser);
+      msg.textContent=`${authUser.name}님 확인 완료 · 팀원 홈으로 이동합니다.`;
+      setTimeout(()=>{location.href="member_test.html";},350);
     }catch(err){
       console.error(err);
       authUser=null;
@@ -544,6 +544,7 @@
     document.getElementById("loginPin").value="";
     document.getElementById("loginMsg").className="login-msg";
     document.getElementById("loginMsg").textContent="정식 인원DB에서 본인 여부를 확인합니다.";
+    if(location.search){history.replaceState(null,"",location.pathname);}
   }
 
   document.getElementById("loginPin").addEventListener("keydown",e=>{
@@ -917,12 +918,21 @@
       if(!raw) return;
       const user=JSON.parse(raw);
       if(!user || !user.name) return;
+
       authUser=user;
+
       if(isTeamLeader(user)){
         location.href="leader_test.html";
         return;
       }
-      openAttendanceForUser(user);
+
+      const params=new URLSearchParams(location.search);
+      if(params.get("mode")==="attendance"){
+        openAttendanceForUser(user);
+        return;
+      }
+
+      location.href="member_test.html";
     }catch(e){}
   })();
 </script>
