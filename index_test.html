@@ -413,7 +413,7 @@
     </div>
   </section>
 
-  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.15</div>
+  <div class="footer">© 2026 용인 현장 출퇴근 관리 · Attendance Test v0.16</div>
 </main>
 
 <!-- 퇴근 시 무사고 일지 -->
@@ -536,6 +536,11 @@
     });
   }
 
+  function isAdminUser(user){
+    const vals=[cleanText(user?.rank),cleanText(user?.role),cleanText(user?.job)];
+    return vals.some(v=>["PL","PM","소장","관리자","현장소장"].includes(v));
+  }
+
   function isTeamLeader(user){
     const rank=cleanText(user?.rank);
     const role=cleanText(user?.role);
@@ -580,6 +585,13 @@
       authUser=res.user;
       saveLoginSession(authUser);
 
+      if(isAdminUser(authUser)){
+        msg.className="login-msg ok";
+        msg.textContent=`${authUser.name} 관리자님 확인 완료 · 관리자 현황으로 이동합니다.`;
+        setTimeout(()=>{location.href="admin_test.html";},350);
+        return;
+      }
+
       if(isTeamLeader(authUser)){
         msg.className="login-msg ok";
         msg.textContent=`${authUser.name} 팀장님 확인 완료 · TBM으로 이동합니다.`;
@@ -610,7 +622,7 @@
 
     const homeBtn=document.getElementById("attendanceHomeBtn");
     if(homeBtn){
-      homeBtn.textContent=isTeamLeader(user) ? "TBM 홈" : "팀원 홈";
+      homeBtn.textContent=isAdminUser(user) ? "관리자 홈" : (isTeamLeader(user) ? "TBM 홈" : "팀원 홈");
     }
 
     const siteMap={
@@ -635,7 +647,9 @@
       return;
     }
 
-    if(isTeamLeader(authUser)){
+    if(isAdminUser(authUser)){
+      location.replace("admin_test.html");
+    }else if(isTeamLeader(authUser)){
       location.replace("leader_test.html");
     }else{
       location.replace("member_test.html");
@@ -853,8 +867,8 @@
     text.textContent=`${siteName} · ${formatTimeOnly()} · 중복 입력 방지를 위해 같은 ${type} 버튼을 잠갔습니다.`;
     const homeBtn=box.querySelector(".home-return-btn");
     if(homeBtn){
-      homeBtn.textContent=isTeamLeader(authUser) ? "TBM 홈으로 돌아가기" : "팀원 홈으로 돌아가기";
-      homeBtn.onclick=()=>location.href=isTeamLeader(authUser) ? "leader_test.html" : "member_test.html";
+      homeBtn.textContent=isAdminUser(authUser) ? "관리자 홈으로 돌아가기" : (isTeamLeader(authUser) ? "TBM 홈으로 돌아가기" : "팀원 홈으로 돌아가기");
+      homeBtn.onclick=()=>location.href=isAdminUser(authUser) ? "admin_test.html" : (isTeamLeader(authUser) ? "leader_test.html" : "member_test.html");
     }
     box.classList.add("open");
     box.scrollIntoView({behavior:"smooth",block:"nearest"});
@@ -1258,13 +1272,18 @@
 
       const params=new URLSearchParams(location.search);
 
-      if(isTeamLeader(user) && params.get("mode")!=="attendance"){
-        location.href="leader_test.html";
+      if(params.get("mode")==="attendance"){
+        openAttendanceForUser(user);
         return;
       }
 
-      if(params.get("mode")==="attendance"){
-        openAttendanceForUser(user);
+      if(isAdminUser(user)){
+        location.href="admin_test.html";
+        return;
+      }
+
+      if(isTeamLeader(user)){
+        location.href="leader_test.html";
         return;
       }
 
