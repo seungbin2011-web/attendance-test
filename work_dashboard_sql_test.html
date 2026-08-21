@@ -17,7 +17,7 @@ h1{font-size:20px;margin:0;color:var(--navy)}.sub{font-size:11px;color:var(--mut
 <div class="footer">© 공무 현황관리 Prototype</div></div>
 <script>
 const SUPABASE_URL='https://cgeciwdibirvdsucgrnz.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='PASTE_SUPABASE_PUBLISHABLE_KEY_HERE'; // Supabase Dashboard > Project Settings > API의 publishable key로 교체
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Ui2gOfJoBOvtN4mWwN5Paw_tjvSdxJs'; // Supabase Dashboard > Project Settings > API의 publishable key로 교체
 let rows=[],baseDate='',nextDate='';
 function c(v){return String(v??'').trim()}function e(v){return c(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function addDays(ymd,days){const [y,m,d]=ymd.split('-').map(Number),v=new Date(y,m-1,d+days);return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0')}
