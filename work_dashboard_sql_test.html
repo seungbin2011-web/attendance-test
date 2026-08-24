@@ -29,4 +29,3 @@ function render(){const day=dayFilter.value,team=teamFilter.value,building=build
 async function load(){refreshBtn.disabled=true;refreshBtn.textContent='확인 중...';try{rows=await fetchWorks();fillFilters();render()}catch(err){rows=[];fillFilters();render();todayList.innerHTML='<div class="empty">'+e(err.message)+'</div>';tomorrowList.innerHTML=''}finally{refreshBtn.disabled=false;refreshBtn.textContent='새로고침'}}
 load();
 </script></body></html>
-
