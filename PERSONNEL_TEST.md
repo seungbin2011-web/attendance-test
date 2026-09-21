@@ -1,6 +1,6 @@
 # 인원DB 로그인 시험
 
-진입점: `personnel_test.html`. 기존 `index_test.html`, `admin_test.html`, `leader_test.html`에서 링크한다. 기존 운영 페이지/Apps Script는 변경하지 않는다.
+진입점: `personnel_test.html`(역할별 인원 시험), `admin_sql_test.html`(관리자·소장 전용 인원 조회/편집). `index_test.html`·`leader_test.html`은 첫 화면으로, `admin_test.html`은 SQL 관리자 화면으로 연결한다. 기존 운영 페이지/Apps Script는 변경하지 않는다.
 
 ## 범위
 
@@ -18,9 +18,11 @@ Supabase `work-status-test`의 격리 스키마 `personnel_pilot_v1`에 가져�
 ## 적용 상태 및 검증
 
 - 시험 DB 52행과 인증 기반 조회·편집 함수 적용 완료.
-- 로컬 PostgreSQL 권한 테스트 통과. 실제 계정 5개 생성은 사용자의 비밀번호 입력·제출 단계가 남았으므로 실제 로그인/편집 검증은 미완료.
+- 로컬 PostgreSQL 권한 테스트 통과. 실제 시험 계정 5개는 준비됐고, 2026-09-22 각 계정의 로그인과 조회 인원(52/52/7/8/8)을 확인했다. 실제 편집 저장과 모바일 화면은 아직 미검증이다.
 - 별도 브랜치의 로컬 변경이며 아직 GitHub에 푸시하거나 배포하지 않았다.
 - 공개 가능한 Supabase publishable key만 포함한다. service-role/secret key, 비밀번호, 원본 인원 명단, 계정 생성 도구는 배포 파일에 포함하지 않는다.
 - 명부 팀 수정은 계정 권한이나 기존 소속 관계를 변경하지 않는다. 시험 비밀번호는 실운영에 사용하지 않는다.
 
-배포 전 계정 생성, 5개 역할 로그인과 편집 허용/거부, 모바일 화면을 검증해야 한다. 공개 배포는 기존 배포 브랜치를 확인한 뒤 진행하며 main 자동 병합은 하지 않는다.
+`admin_sql_test.html`은 Supabase 인원 명부만 다룬다. 기존 관리자 화면의 출결·TBM 데이터는 아직 Apps Script에 있으며 새 화면에서 제공하지 않는다. 기존 출퇴근 로그인과 Supabase 시험 로그인도 별개다.
+
+배포 전 실제 편집 허용/거부와 모바일 화면을 검증해야 한다. 공통 시험 비밀번호를 사용하는 동안 공개 배포하지 않는다. 공개 배포는 기존 배포 브랜치를 확인한 뒤 진행하며 main 자동 병합은 하지 않는다.

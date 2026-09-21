@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>관리자 인원 현황 · SQL 테스트</title>
+  <link rel="stylesheet" href="personnel_test.css">
+</head>
+<body data-admin-only="true">
+  <header><div class="brand">관리자 인원 현황 <span>TEST SQL v0.1</span></div><div id="identity"></div></header>
+  <main>
+    <p class="small"><a href="admin_test.html">← 기존 관리자 테스트</a> · <a href="work_dashboard_sql_test.html">공무 SQL 현황판</a> · <a href="work_admin_sql_test.html">공무 SQL 작업 입력</a></p>
+    <section id="loginPanel" class="login card">
+      <p class="eyebrow">Supabase 인원DB · 관리자 시험</p>
+      <h1>관리자 또는 소장 로그인</h1>
+      <p class="muted">시험 계정으로 로그인하면 DB의 인원 명부를 조회·편집할 수 있습니다.</p>
+      <form id="loginForm">
+        <label>아이디<input id="username" name="username" autocomplete="username" required placeholder="관리자 또는 소장"></label>
+        <label>비밀번호<input id="password" name="password" type="password" autocomplete="current-password" required></label>
+        <button id="loginButton" type="submit">로그인</button>
+      </form>
+    </section>
+    <section id="directory" hidden>
+      <div class="titlebar"><div><p class="eyebrow">DB 인원 현황</p><h1 id="scopeTitle">전체 시험 인원</h1></div><div><button id="refresh" class="secondary">새로고침</button> <button id="logout" class="secondary">로그아웃</button></div></div>
+      <p class="notice">인원은 Supabase 시험 DB에서 직접 조회합니다. 편집은 시험 DB에만 저장되며 원본 Spreadsheet에는 반영되지 않습니다. 출결·TBM 현황은 아직 이 페이지에 연결되지 않았습니다.</p>
+      <div class="stats"><div class="card"><span>조회 가능 인원</span><strong id="count">0</strong></div><div class="card"><span>팀 미지정</span><strong id="unassigned">0</strong></div><div class="card"><span>중복 ID 확인 대상</span><strong id="conflicts">0</strong></div></div>
+      <div class="toolbar"><label>검색<input id="search" placeholder="이름 또는 기존 ID"></label><label>팀<select id="teamFilter"><option value="">전체</option></select></label><p id="timing" class="muted small"></p></div>
+      <div class="tablewrap card"><table><thead><tr><th>이름 / 기존 ID</th><th>팀</th><th>직급 / 직무</th><th>원본 현장</th><th>재직 확인</th><th>관리</th></tr></thead><tbody id="people"></tbody></table></div>
+      <p id="empty" class="muted" hidden>검색 조건에 해당하는 인원이 없습니다.</p>
+    </section>
+    <p id="message" role="status" aria-live="polite"></p>
+    <dialog id="editDialog"><form id="editForm"><div class="titlebar"><h2>인원정보 편집</h2><button id="cancel" type="button" class="secondary">닫기</button></div><p id="editingId" class="muted small"></p><label>이름<input id="editName" maxlength="80" required></label><label>명부상 팀<select id="editTeam"><option value="">미지정</option><option>용인사무실</option><option>현장소장</option><option>자재팀</option><option>공사1팀</option><option>공사2팀</option><option>공사3팀</option><option>공사4팀</option></select></label><div class="two"><label>직급<input id="editRank" maxlength="40"></label><label>직무<input id="editJob" maxlength="80"></label></div><label>재직 확인<select id="editStatus"><option value="unknown">미확인</option><option value="active">재직</option><option value="inactive">비활성</option></select></label><label>관리 메모<textarea id="editNote" maxlength="1000" rows="3"></textarea></label><p class="muted small">원본 Spreadsheet·계정 권한·기존 사용자ID는 변경되지 않습니다.</p><p id="editMessage" role="status"></p><button id="saveButton" type="submit">변경 저장</button></form></dialog>
+  </main>
+  <script type="module" src="personnel_test.mjs"></script>
+</body>
+</html>

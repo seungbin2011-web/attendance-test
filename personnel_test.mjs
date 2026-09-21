@@ -36,6 +36,9 @@ async function loadRoster() {
   try {
     const result = await rpc('pilot_roster');
     if (ticket !== generation) return;
+    if (document.body.dataset.adminOnly === 'true' && !result.can_edit) {
+      throw new Error('이 페이지는 관리자 또는 소장 계정만 사용할 수 있습니다.');
+    }
     roster = result;
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
     $('scopeTitle').textContent = result.team_scope || (result.app_role === 'MATERIAL' ? '자재 업무 담당자' : '전체 시험 인원');
