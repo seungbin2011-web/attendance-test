@@ -1,7 +1,6 @@
 export const accounts = [
   { login: '관리자', email: 'attendance-pilot-admin@example.com', role: 'ADMIN' },
   { login: '소장', email: 'attendance-pilot-manager@example.com', role: 'MANAGER' },
-  { login: '자재팀', email: 'attendance-pilot-material@example.com', role: 'MATERIAL' },
   { login: '1팀장팀', email: 'attendance-pilot-leader1@example.com', role: 'LEADER', team: '공사1팀' },
   { login: '2팀장팀', email: 'attendance-pilot-leader2@example.com', role: 'LEADER', team: '공사2팀' }
 ];
