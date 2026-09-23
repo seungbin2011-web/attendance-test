@@ -1,1 +1,107 @@
-:root{font-family:system-ui,'Malgun Gothic',sans-serif;color:#20322d;background:#f3f6f4;font-size:15px}*{box-sizing:border-box}body{margin:0}header{min-height:76px;padding:20px max(24px,calc((100vw - 1120px)/2));background:#fff;border-bottom:1px solid #dde6df;display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{font-weight:800;font-size:19px;white-space:nowrap}.brand span{font-size:10px;background:#e2ede6;padding:5px 8px;border-radius:5px;margin-left:8px}main{max-width:1120px;margin:40px auto;padding:0 24px}.card{background:#fff;border:1px solid #dae4dd;border-radius:16px}.login{max-width:450px;margin:9vh auto 0;padding:36px}.eyebrow{font-size:12px;font-weight:700;color:#4f7766;letter-spacing:.05em}h1{font-size:28px;letter-spacing:-1px;margin:12px 0}h2{font-size:21px}.muted{color:#65766e}.small{font-size:12px;line-height:1.7}label{display:block;font-size:13px;font-weight:600;margin:17px 0 8px}input,select,textarea{display:block;width:100%;padding:12px;margin-top:7px;border:1px solid #bfcfc5;border-radius:8px;font:inherit;color:inherit;background:#fff}input:focus,select:focus,textarea:focus{outline:2px solid #579177;outline-offset:2px}button{border:0;border-radius:8px;padding:12px 18px;background:#1e5b43;color:white;font:inherit;font-weight:650;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.login button,#saveButton{width:100%;margin-top:18px}.secondary{color:#345747;background:#eaf0ec}.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px}.notice{background:#e8eee9;padding:14px;border-radius:8px;font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}.stats .card{padding:22px}.stats span{font-size:13px;color:#65766e}.stats strong{display:block;font-size:34px;margin-top:10px}.toolbar{display:flex;align-items:end;gap:14px;margin-bottom:18px}.toolbar label{margin:0}.toolbar label:first-child{flex:1}.toolbar label:nth-child(2){width:170px}.toolbar p{min-width:120px;text-align:right}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap;text-align:left}th,td{padding:17px 16px;border-bottom:1px solid #e7ede8;font-size:13px}th{background:#f8faf8;color:#607369;font-size:12px}td small{display:block;color:#6b7c72;margin-top:5px}.conflict{color:#9d4b1f;font-size:11px}.badge{display:inline-block;padding:5px 9px;border-radius:5px;background:#edf1ee;font-size:11px}.error{color:#a43d2f!important}#message{max-width:900px;margin:24px auto;white-space:pre-wrap}dialog{width:min(500px,calc(100vw - 32px));max-height:90vh;overflow:auto;border:1px solid #c9d8ce;border-radius:16px;padding:26px;color:inherit}dialog::backdrop{background:#142f2566}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}[hidden]{display:none!important}@media(max-width:650px){header{padding:17px;font-size:12px}main{margin:24px auto;padding:0 16px}.login{padding:24px;margin-top:40px}h1{font-size:23px}.stats{gap:8px}.stats .card{padding:13px}.stats span{font-size:11px}.stats strong{font-size:27px}.toolbar{flex-wrap:wrap}.toolbar label:nth-child(2){width:130px}.toolbar p{width:100%;text-align:left;margin:0}.titlebar{align-items:start;flex-wrap:wrap}}
+:root {
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  color: #182230;
+  background: #f3f6fa;
+  font-size: 15px;
+  --navy: #173a63;
+  --navy-dark: #102c4d;
+  --blue: #2e7cf6;
+  --blue-soft: #edf5ff;
+  --line: #d9e3ee;
+  --muted: #65758b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eaf1f8 0, #f6f8fb 220px); }
+header {
+  min-height: 86px;
+  padding: 18px max(24px, calc((100vw - 1120px) / 2));
+  background: linear-gradient(135deg, var(--navy-dark), var(--navy));
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 14px #173a6326;
+}
+.brand strong, .brand small { display: block; }
+.brand strong { font-size: 21px; letter-spacing: -.4px; }
+.brand small { margin-top: 7px; color: #d9e8f8; font-size: 12px; }
+#identity { font-size: 13px; }
+main { max-width: 1120px; margin: 40px auto; padding: 0 24px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px #173a630d; }
+.login { max-width: 488px; margin: 5vh auto 0; padding: 34px 36px 30px; }
+.login-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.login-heading h1 { margin-top: 0; }
+.version { flex: 0 0 auto; padding: 6px 9px; border-radius: 6px; background: var(--blue-soft); color: #1f62bd; font-size: 10px; font-weight: 800; }
+.field-title { display: flex; align-items: center; gap: 8px; }
+.field-number { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e9f3ff; color: #1d64bd; font-size: 12px; font-weight: 800; }
+.login-note { margin: 14px 0 0; padding: 12px 14px; border: 1px solid #d9e7f5; border-radius: 9px; background: #f5f9fd; color: #62758b; font-size: 12px; line-height: 1.65; }
+.eyebrow { font-size: 12px; font-weight: 700; color: #2c68ad; letter-spacing: .05em; }
+h1 { font-size: 28px; letter-spacing: -1px; margin: 12px 0; }
+h2 { font-size: 21px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; line-height: 1.7; }
+label { display: block; font-size: 13px; font-weight: 700; margin: 19px 0 8px; }
+input, select, textarea { display: block; width: 100%; padding: 13px 14px; margin-top: 8px; border: 1px solid #c9d8e8; border-radius: 10px; font: inherit; color: inherit; background: #fff; }
+input:focus, select:focus, textarea:focus { outline: 3px solid #2e7cf629; border-color: var(--blue); }
+button { border: 0; border-radius: 10px; padding: 13px 18px; background: var(--blue); color: #fff; font: inherit; font-weight: 750; cursor: pointer; }
+button:hover { background: #246ddb; }
+button:disabled { opacity: .5; cursor: wait; }
+.login button, #saveButton { width: 100%; margin-top: 18px; }
+.secondary { color: #264f7d; background: #e8f1fb; }
+.titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.notice { background: #eaf2fb; padding: 14px; border-radius: 8px; font-size: 13px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0; }
+.stats .card { padding: 22px; }
+.stats span { font-size: 13px; color: var(--muted); }
+.stats strong { display: block; font-size: 34px; margin-top: 10px; }
+.toolbar { display: flex; align-items: end; gap: 14px; margin-bottom: 18px; }
+.toolbar label { margin: 0; }
+.toolbar label:first-child { flex: 1; }
+.toolbar label:nth-child(2) { width: 170px; }
+.toolbar p { min-width: 120px; text-align: right; }
+.tablewrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; }
+th, td { padding: 17px 16px; border-bottom: 1px solid #e5edf5; font-size: 13px; }
+th { background: #f7faff; color: #5e7187; font-size: 12px; }
+td small { display: block; color: #6b7c90; margin-top: 5px; }
+.conflict { color: #9d4b1f; font-size: 11px; }
+.badge { display: inline-block; padding: 5px 9px; border-radius: 5px; background: #eaf2fb; font-size: 11px; }
+.error { color: #a43d2f !important; }
+#message { max-width: 900px; margin: 24px auto; white-space: pre-wrap; }
+dialog { width: min(500px, calc(100vw - 32px)); max-height: 90vh; overflow: auto; border: 1px solid #c9d8e8; border-radius: 16px; padding: 26px; color: inherit; }
+dialog::backdrop { background: #102c4d66; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+[hidden] { display: none !important; }
+
+/* 로그인 후 인원 관리 영역은 관리자 화면의 초록색 구분을 유지한다. */
+body.directory-mode {
+  --blue: #1e6b4f;
+  --blue-soft: #e5f1eb;
+  --line: #d6e4dc;
+  --muted: #65766e;
+  background: #f3f6f4;
+}
+.directory-mode header { background: linear-gradient(135deg, #164936, #1e6b4f); }
+.directory-mode .secondary { color: #345747; background: #eaf0ec; }
+.directory-mode .notice { background: #e8eee9; }
+.directory-mode th { background: #f8faf8; color: #607369; }
+.directory-mode .badge { background: #edf1ee; }
+
+@media (max-width: 650px) {
+  header { padding: 16px 18px; }
+  .brand strong { font-size: 18px; }
+  main { margin: 24px auto; padding: 0 16px; }
+  .login { padding: 26px 22px 22px; margin-top: 36px; }
+  .login-heading { gap: 8px; }
+  h1 { font-size: 23px; }
+  .stats { gap: 8px; }
+  .stats .card { padding: 13px; }
+  .stats span { font-size: 11px; }
+  .stats strong { font-size: 27px; }
+  .toolbar { flex-wrap: wrap; }
+  .toolbar label:nth-child(2) { width: 130px; }
+  .toolbar p { width: 100%; text-align: left; margin: 0; }
+  .titlebar { align-items: start; flex-wrap: wrap; }
+}
