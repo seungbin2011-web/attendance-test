@@ -65,6 +65,7 @@ async function rpc(name, body = {}) {
 }
 function clearSession() {
   generation++; session = null; roster = null; editing = null; gradeEditing = null;
+  document.body.classList.remove('admin-mode');
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('attendanceAuthUser'); sessionStorage.removeItem('tbmAuthUser');
   $('people').replaceChildren(); $('identity').textContent = '';
@@ -93,6 +94,7 @@ async function loadRoster() {
     if (!roleNames[result.app_role]) throw new Error('팀장·소장·관리자 계정만 사용할 수 있습니다.');
     roster = result;
     syncRoleSession(result);
+    document.body.classList.toggle('admin-mode', result.app_role === 'ADMIN');
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
     $('scopeTitle').textContent = result.team_scope || '전체 시험 인원';
     $('count').textContent = result.people.length;
