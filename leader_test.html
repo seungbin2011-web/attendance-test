@@ -212,8 +212,9 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
 </style>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.38 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
+<header class="topbar"><div class="topbar-inner"><div style="display:flex;align-items:center;gap:8px"><div class="brand">팀장 TBM 관리</div><span style="font-size:11px;font-weight:800;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;padding:3px 7px;border-radius:999px">v0.40 TEST</span></div><div class="brand-sub">오늘 작업계획 · 출근/오후/퇴근 TBM</div></div></header>
 <main class="wrap">
+  <p><a href="personnel_test.html">새 인원DB 테스트 · 내 팀 인원 조회</a></p>
 
 <div class="app-stage active" id="stageLogin"><div class="stage-nav"><div class="stage-nav-inner">
   <div class="stage-title">팀장 TBM 관리</div><div class="stage-actions">
@@ -372,7 +373,7 @@ input,select,textarea{width:100%;border:1px solid var(--line);border-radius:11px
   <div class="field" style="margin-top:14px"><label class="label">퇴근 공통 전달사항</label><textarea id="eveningNote"></textarea></div>
 </div>
 </section></div>
-<div class="footer">© 2026 TBM Leader · v0.38 TEST</div>
+<div class="footer">© 2026 TBM Leader · v0.40 TEST</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -402,9 +403,10 @@ function tbmLogout(){
 
   sessionStorage.removeItem('attendanceAuthUser');
   sessionStorage.removeItem('tbmAuthUser');
+  sessionStorage.removeItem('personnelPilotSessionV2');
 
   // 임시 작업초안은 남기되 로그인 세션만 종료
-  location.replace('index_test.html');
+  location.replace('personnel_test.html');
 }
 
 function readTBMAuthUser(){
@@ -412,7 +414,7 @@ function readTBMAuthUser(){
     const raw=sessionStorage.getItem("tbmAuthUser");
     if(!raw) return null;
     const user=JSON.parse(raw);
-    if(!user || !user.name) return null;
+    if(!user || !user.name || user.authSource!=="supabase-v2" || user.appRole!=="LEADER") return null;
     const rank=String(user.rank||"").trim();
     const role=String(user.role||"").trim();
     if(rank!=="팀장" && role!=="팀장") return null;
@@ -425,8 +427,8 @@ function readTBMAuthUser(){
 function applyTBMAuthUser(){
   loginAuthUser=readTBMAuthUser();
   if(!loginAuthUser){
-    alert("팀장 로그인이 필요합니다. 출결 테스트 로그인 화면으로 이동합니다.");
-    location.replace("index_test.html");
+    alert("팀장 로그인이 필요합니다. 통합 로그인 화면으로 이동합니다.");
+    location.replace("personnel_test.html");
     return false;
   }
 
