@@ -38,6 +38,7 @@ async function rpc(name, body = {}) {
 }
 function clearSession() {
   generation++; session = null; roster = null; editing = null; gradeEditing = null;
+  document.body.classList.remove('directory-mode');
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('attendanceAuthUser'); sessionStorage.removeItem('tbmAuthUser');
   $('people').replaceChildren(); $('identity').textContent = '';
@@ -76,6 +77,7 @@ async function loadRoster() {
     [...new Set(result.people.map(p => p.team_name || '미지정'))].sort().forEach(team => $('teamFilter').add(new Option(team, team)));
     if ([...$('teamFilter').options].some(o => o.value === previous)) $('teamFilter').value = previous;
     $('timing').textContent = `최근 조회 ${Math.round(performance.now() - started)}ms`;
+    document.body.classList.add('directory-mode');
     $('loginPanel').hidden = true; $('directory').hidden = false; render();
   } finally { $('refresh').disabled = false; }
 }
