@@ -2,6 +2,7 @@ import { accounts, endpoint, publishableKey } from './personnel_accounts_test.mj
 const $ = id => document.getElementById(id);
 const SESSION_KEY = 'personnelPilotSessionV2';
 const roleNames = { ADMIN: '관리자', MANAGER: '소장', LEADER: '팀장' };
+const organizationApiUrl = 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
 let session = null, roster = null, editing = null, gradeEditing = null, generation = 0;
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
 const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.' };
@@ -26,6 +27,32 @@ async function call(path, body, token) {
   }
   return result;
 }
+function organizationLogin(name, pin) {
+  return new Promise((resolve, reject) => {
+    const callback = `personnel_login_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('정식 인원DB 응답 시간이 초과됐습니다.')); }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) {}
+      script.remove();
+    }
+    window[callback] = result => { cleanup(); resolve(result); };
+    script.src = organizationApiUrl + '?' + new URLSearchParams({ action: 'attendanceLogin', name, pin, callback, _t: Date.now() });
+    script.onerror = () => { cleanup(); reject(new Error('정식 인원DB 연결에 실패했습니다.')); };
+    document.body.append(script);
+  });
+}
+async function loginRosterMember(name, pin) {
+  if (!/^\d{4}$/.test(pin)) throw new Error('일반 인원은 휴대폰 번호 뒤 4자리를 입력해주세요.');
+  const result = await organizationLogin(name, pin);
+  if (!(result?.success && result.user)) throw new Error(result?.message || '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다.');
+  const user = { ...result.user, authSource: 'organization-api-v04', appRole: 'MEMBER' };
+  sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
+  sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
+  tell(`${user.name}님 확인 완료 · 팀원 화면으로 이동합니다.`);
+  setTimeout(() => { location.href = 'member_test.html'; }, 350);
+}
 async function rpc(name, body = {}) {
   if (!session) throw new Error('로그인이 필요합니다.');
   if (Date.now() > session.expiresAt - 30000) {
@@ -38,7 +65,7 @@ async function rpc(name, body = {}) {
 }
 function clearSession() {
   generation++; session = null; roster = null; editing = null; gradeEditing = null;
-  document.body.classList.remove('directory-mode');
+  document.body.classList.remove('admin-mode');
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('attendanceAuthUser'); sessionStorage.removeItem('tbmAuthUser');
   $('people').replaceChildren(); $('identity').textContent = '';
@@ -67,6 +94,7 @@ async function loadRoster() {
     if (!roleNames[result.app_role]) throw new Error('팀장·소장·관리자 계정만 사용할 수 있습니다.');
     roster = result;
     syncRoleSession(result);
+    document.body.classList.toggle('admin-mode', result.app_role === 'ADMIN');
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
     $('scopeTitle').textContent = result.team_scope || '전체 시험 인원';
     $('count').textContent = result.people.length;
@@ -77,7 +105,6 @@ async function loadRoster() {
     [...new Set(result.people.map(p => p.team_name || '미지정'))].sort().forEach(team => $('teamFilter').add(new Option(team, team)));
     if ([...$('teamFilter').options].some(o => o.value === previous)) $('teamFilter').value = previous;
     $('timing').textContent = `최근 조회 ${Math.round(performance.now() - started)}ms`;
-    document.body.classList.add('directory-mode');
     $('loginPanel').hidden = true; $('directory').hidden = false; render();
   } finally { $('refresh').disabled = false; }
 }
@@ -122,9 +149,13 @@ function openEdit(person) {
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); $('loginButton').disabled = true; tell('로그인 확인 중…');
   try {
-    const account = accounts.find(a => a.login === $('username').value.trim());
-    if (!account) throw new Error('등록된 시험 아이디를 입력해주세요.');
+    const loginName = $('username').value.trim();
     const password = $('password').value;
+    const account = accounts.find(a => a.login === loginName);
+    if (!account) {
+      await loginRosterMember(loginName, password.replace(/\D/g, ''));
+      return;
+    }
     const auth = await call('/auth/v1/token?grant_type=password', { email: account.email, password });
     $('password').value = ''; session = { ...auth, expiresAt: Date.now() + auth.expires_in * 1000 }; saveSession(); generation++;
     await loadRoster(); tell('');

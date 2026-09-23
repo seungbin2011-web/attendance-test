@@ -75,19 +75,19 @@ dialog::backdrop { background: #102c4d66; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 [hidden] { display: none !important; }
 
-/* 로그인 후 인원 관리 영역은 관리자 화면의 초록색 구분을 유지한다. */
-body.directory-mode {
+/* 관리자(ADMIN)로 확인된 뒤에만 초록색 관리 화면을 사용한다. */
+body.admin-mode {
   --blue: #1e6b4f;
   --blue-soft: #e5f1eb;
   --line: #d6e4dc;
   --muted: #65766e;
   background: #f3f6f4;
 }
-.directory-mode header { background: linear-gradient(135deg, #164936, #1e6b4f); }
-.directory-mode .secondary { color: #345747; background: #eaf0ec; }
-.directory-mode .notice { background: #e8eee9; }
-.directory-mode th { background: #f8faf8; color: #607369; }
-.directory-mode .badge { background: #edf1ee; }
+.admin-mode header { background: linear-gradient(135deg, #164936, #1e6b4f); }
+.admin-mode .secondary { color: #345747; background: #eaf0ec; }
+.admin-mode .notice { background: #e8eee9; }
+.admin-mode th { background: #f8faf8; color: #607369; }
+.admin-mode .badge { background: #edf1ee; }
 
 @media (max-width: 650px) {
   header { padding: 16px 18px; }
