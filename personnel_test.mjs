@@ -47,11 +47,18 @@ async function loginRosterMember(name, pin) {
   if (!/^\d{4}$/.test(pin)) throw new Error('일반 인원은 휴대폰 번호 뒤 4자리를 입력해주세요.');
   const result = await organizationLogin(name, pin);
   if (!(result?.success && result.user)) throw new Error(result?.message || '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다.');
-  const user = { ...result.user, authSource: 'organization-api-v04', appRole: 'MEMBER' };
+  const values = [result.user.rank, result.user.role, result.user.job].map(value => String(value || '').trim());
+  const appRole = values.some(value => ['PL', 'PM', '소장', '현장소장', '관리자'].includes(value))
+    ? 'MANAGER'
+    : values.some(value => value === '팀장') ? 'LEADER' : 'MEMBER';
+  const user = { ...result.user, authSource: 'organization-api-v07', appRole };
+  sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
-  tell(`${user.name}님 확인 완료 · 팀원 화면으로 이동합니다.`);
-  setTimeout(() => { location.href = 'member_test.html'; }, 350);
+  const destination = appRole === 'MANAGER' ? 'admin_test.html' : appRole === 'LEADER' ? 'leader_test.html' : 'member_test.html';
+  const destinationLabel = appRole === 'MANAGER' ? '소장 현황' : appRole === 'LEADER' ? '팀장 TBM' : '팀원 화면';
+  tell(`${user.name}님 확인 완료 · ${destinationLabel}으로 이동합니다.`);
+  setTimeout(() => { location.href = destination; }, 350);
 }
 async function rpc(name, body = {}) {
   if (!session) throw new Error('로그인이 필요합니다.');
@@ -94,6 +101,10 @@ async function loadRoster() {
     if (!roleNames[result.app_role]) throw new Error('팀장·소장·관리자 계정만 사용할 수 있습니다.');
     roster = result;
     syncRoleSession(result);
+    if (document.body.dataset.adminOnly !== 'true' && result.app_role !== 'ADMIN') {
+      location.replace(result.app_role === 'LEADER' ? 'leader_test.html' : 'admin_test.html');
+      return;
+    }
     document.body.classList.toggle('admin-mode', result.app_role === 'ADMIN');
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
     $('scopeTitle').textContent = result.team_scope || '전체 시험 인원';
