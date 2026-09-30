@@ -1,9 +1,10 @@
-// S1 팀장 TBM 보고 화면 e2e 시험 (로컬 흉내 게이트웨이, 가짜 데이터)
+// S1 하루 흐름 e2e 시험: 팀장 TBM 보고 → 소장·관리자 현황 (로컬 흉내 게이트웨이, 가짜 데이터)
 import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, assert } from './helpers.mjs';
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
 const REPORT_VERSION = 'v0.3 TEST';
+const MANAGER_VERSION = 'v0.1 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -318,6 +319,65 @@ try {
     assert.deepEqual(result, { upload: 'UPLOAD_FAILED', urls: 0 });
   });
 
+  let manager;
+  await step('소장 업무계정: 현황 화면으로 이동, 팀별 상태·소장 확인 필요 표시 (읽기 전용)', async () => {
+    manager = await loginWork('소장', 'tbm_manager_test.html');
+    const { page, errors } = manager;
+    await page.waitForURL(/tbm_manager_test\.html/);
+    await page.waitForSelector('#stageList.active .team-card');
+    assert.equal(await page.textContent('#pageVersion'), MANAGER_VERSION);
+    assert.match(await page.textContent('#headerSub'), /^소장 · .*\(오늘\)/);
+    const team2 = page.locator('.team-card[data-team=공사2팀]');
+    assert.match(await team2.textContent(), /출근 보고/);
+    assert.match(await team2.textContent(), /소장 확인 필요/);
+    assert.match(await team2.textContent(), /자재 반입 지연 가능/);
+    assert.match(await team2.textContent(), /출근 3장/);
+    assert.ok((await team2.getAttribute('class')).includes('attention'));
+    assert.match(await page.locator('.team-card[data-team=시험3팀]').textContent(), /계획만 저장/);
+    assert.equal(await page.locator('#stageList button:has-text("승인")').count(), 0);
+    assert.ok(!(await page.evaluate(() => document.body.classList.contains('admin-mode'))));
+    assert.deepEqual(errors, []);
+  });
+
+  await step('보고 상세: 작업·인원·출근 전달사항·비공개 사진(서명 링크) 표시, 조회 RPC만 호출', async () => {
+    const { page } = manager;
+    const called = new Set();
+    page.on('request', r => { const m = r.url().match(/\/rest\/v1\/rpc\/(\w+)/); if (m) called.add(m[1]); });
+    await page.click('.team-card[data-team=공사2팀] [data-detail]');
+    await page.waitForSelector('#stageDetail.active');
+    const body = await page.textContent('#detailBody');
+    assert.match(body, /작업 1 · 3층 MDF실/); assert.match(body, /시험팀원가\(작업지휘자\)/); assert.match(body, /장비 점검 후 작업 시작/);
+    await page.waitForFunction(() => [...document.querySelectorAll('#detailBody img')].length === 3 && [...document.querySelectorAll('#detailBody img')].every(i => i.complete && i.naturalWidth > 0));
+    await page.click('#detailRefresh');
+    await page.click('.app-stage.active [data-go=stageList]');
+    await page.waitForSelector('#stageList.active');
+    assert.deepEqual([...called].sort(), ['tbm_report_detail', 'tbm_site_overview']);
+    const forbidden = await rpcFromPage(page, 'tbm_submit_morning', { p_report_id: (await sql(env, `select id from field_pilot_v1.daily_reports where team_id = $1`, [TEAM2]))[0].id });
+    assert.equal(forbidden.code, 'FORBIDDEN');
+  });
+
+  await step('지난 날짜 조회: 보고 없는 팀은 미보고', async () => {
+    const { page } = manager;
+    const yesterday = await page.evaluate(() => { const d = new Date(document.querySelector('#dateInput').value + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); });
+    await page.fill('#dateInput', yesterday);
+    await page.dispatchEvent('#dateInput', 'change');
+    await page.waitForFunction(() => !document.querySelector('#headerSub').textContent.includes('(오늘)'));
+    assert.match(await page.locator('.team-card[data-team=공사2팀]').textContent(), /미보고/);
+  });
+
+  await step('관리자 업무계정은 초록 화면, 팀장·팀원은 현황 화면 차단', async () => {
+    const admin = await loginWork('관리자', 'tbm_manager_test.html');
+    await admin.page.waitForURL(/tbm_manager_test\.html/);
+    await admin.page.waitForSelector('#stageList.active .team-card');
+    assert.ok(await admin.page.evaluate(() => document.body.classList.contains('admin-mode')));
+    const { page } = leader;
+    await page.goto(`${env.base}/tbm_manager_test.html`);
+    await page.waitForSelector('#blocked:not([hidden])');
+    assert.match(await page.textContent('#blockedText'), /소장·관리자 계정만/);
+    await page.goto(`${env.base}/tbm_report_test.html`);
+    await page.waitForSelector('#stageHome.active');
+  });
+
   await step('팀 공용 팀장계정(2팀장팀)도 같은 보고를 이어서 봄', async () => {
     const { page } = await loginWork('2팀장팀');
     await page.waitForURL(/tbm_report_test\.html/);
@@ -339,7 +399,7 @@ try {
     assert.equal(r.code, 'FORBIDDEN');
   });
 
-  await step('모바일 폭: 홈·작업계획 가로 스크롤 없음', async () => {
+  await step('모바일 폭: 팀장 홈·작업계획·출근, 소장 목록·상세 가로 스크롤 없음', async () => {
     const { page, errors } = await loginPin('T-0025', '시험이팀장', '507319', { mobile: true });
     await page.waitForSelector('#stageHome.active');
     assert.ok(await noHorizontalScroll(page));
@@ -353,8 +413,17 @@ try {
     assert.ok(await noHorizontalScroll(page));
     await page.screenshot({ path: 'artifacts/s1_report_morning_mobile.png', fullPage: true });
     assert.deepEqual(errors, []);
+    const m = await loginWork('소장', 'tbm_manager_test.html', { mobile: true });
+    await m.page.waitForSelector('#stageList.active .team-card');
+    assert.ok(await noHorizontalScroll(m.page));
+    await m.page.screenshot({ path: 'artifacts/s1_manager_list_mobile.png', fullPage: true });
+    await m.page.click('.team-card[data-team=공사2팀] [data-detail]');
+    await m.page.waitForSelector('#stageDetail.active');
+    assert.ok(await noHorizontalScroll(m.page));
+    await m.page.screenshot({ path: 'artifacts/s1_manager_detail_mobile.png', fullPage: true });
+    assert.deepEqual(m.errors, []);
   });
 } finally {
-  summary('S1 tbm report e2e');
+  summary('S1 tbm day flow e2e');
   await env.close();
 }
