@@ -7,7 +7,7 @@ select test_util.expect('v0.8 functions removed', (select count(*)::text from pg
      or (n.nspname = 'public' and p.proname in ('pilot_member_login_verify','pilot_member_link_account','pilot_whoami','pilot_member_change_pin'))), '0');
 select test_util.expect('v0.8 tables removed', (select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'personnel_pilot_v1' and c.relname in ('member_pins','member_login_attempts','member_pin_events')), '0');
-select test_util.expect('account_links rows kept', (select count(*)::text from personnel_pilot_v1.account_links), '3');
+select test_util.expect('account_links rows kept', (select count(*)::text from personnel_pilot_v1.account_links), (select value from test_util.snapshot where key = 'account_links_before_rollback'));
 select test_util.expect('pilot functions unchanged',
   (select md5(string_agg(p.proname || md5(p.prosrc), ',' order by p.proname)) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname in ('pilot_roster', 'pilot_set_attendance_grade', 'pilot_update_person', 'pilot_bind_account')),

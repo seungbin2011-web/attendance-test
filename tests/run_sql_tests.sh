@@ -20,6 +20,7 @@ run "$ROOT/tests/sql/06_snapshot.sql"
 run "$ROOT/personnel_auth_v08.sql"
 runtest "$ROOT/tests/sql/10_test_personnel_auth_v08.sql"
 run "$ROOT/personnel_auth_v08_check.sql" > /dev/null
+run "$ROOT/tests/sql/02_fixture_e2e.sql"
 for f in "$ROOT"/field_sql_v0*.sql; do
   case "$f" in *_rollback.sql|*_check.sql) continue;; esac
   [ -e "$f" ] || continue
@@ -29,6 +30,7 @@ for f in "$ROOT"/field_sql_v0*.sql; do
   c="${f%.sql}_check.sql"; [ -e "$c" ] && run "$c" > /dev/null
 done
 # 롤백은 적용의 역순
+run "$ROOT/tests/sql/18_snapshot_before_rollback.sql"
 for f in $(ls "$ROOT"/field_sql_v0*_rollback.sql 2>/dev/null | sort -r); do run "$f"; done
 run "$ROOT/personnel_auth_v08_rollback.sql"
 runtest "$ROOT/tests/sql/19_test_personnel_auth_v08_rollback.sql"
