@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#173A63">
+<title>팀장 TBM 보고 TEST</title>
+<link rel="stylesheet" href="tbm_test.css?v=0.6">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.61 TEST</span></div>
+  <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
+</div></header>
+<main class="wrap">
+  <div class="message" id="message" role="status" aria-live="polite"></div>
+
+  <section class="card" id="blocked" hidden>
+    <div class="title">이 화면을 열 수 없습니다</div>
+    <div class="desc" id="blockedText"></div>
+    <button class="btn save" id="goLogin" type="button">통합 로그인으로</button>
+  </section>
+
+  <div class="app-stage" id="stageHome">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">오늘 TBM</div>
+      <div class="stage-actions">
+        <button class="stage-small-btn" id="refreshBtn" type="button">새로고침</button>
+        <button class="stage-small-btn" id="logoutBtn" type="button">로그아웃</button>
+      </div>
+    </div></div>
+    <section class="card">
+      <div class="tbm-home-head">
+        <div class="section-title" style="margin-bottom:4px"><div class="tbm-home-title" id="homeTitle">오늘 TBM</div><span class="badge" id="homeStatus">미작성</span></div>
+        <div class="tbm-home-sub" id="homeSub"></div>
+        <div class="steps" id="homeSteps"></div>
+      </div>
+      <div class="tbm-home-menu">
+        <button class="tbm-home-btn plan" id="openPlan" type="button">오늘 작업계획<small id="openPlanSub">작성 · 수정</small></button>
+        <button class="tbm-home-btn morning" id="openMorning" type="button">출근 TBM<small id="openMorningSub">작업계획 공유</small></button>
+        <button class="tbm-home-btn lunch" id="openAfternoon" type="button">오후 TBM<small id="openAfternoonSub">정상 · 변경 · 지연 · 위험</small></button>
+        <button class="tbm-home-btn evening" id="openEvening" type="button">퇴근 TBM<small id="openEveningSub">작업별 완료 · 이월</small></button>
+      </div>
+      <div class="stage-note">모든 저장은 서버 확인 후에만 “저장됨”으로 표시됩니다. 작성 중인 내용은 이 기기에만 임시로 남습니다.</div>
+    </section>
+  </div>
+
+  <div class="app-stage" id="stagePlan">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">오늘 작업계획</div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-open="openMorning">출근 TBM</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong>금일 작업계획</strong><span class="badge">작업별 인원배정</span></div>
+      <div class="desc">작업마다 위치·내용과 투입 인원을 고릅니다. 인원은 서버에 등록된 우리 팀 소속만 표시됩니다.</div>
+      <div class="notice" id="planLocked" hidden></div>
+      <div class="carry-box" id="carryBox" hidden>
+        <div class="carry-title">이전 작업 이월 <span id="carryCount"></span></div>
+        <div class="carry-text">다시 입력하지 않고 오늘 작업으로 이어받거나, 이어받지 않음으로 정리합니다. 저장해야 서버에 반영됩니다.</div>
+        <div id="carryList"></div>
+      </div>
+      <div class="field"><label class="label" for="endTime">예상 종료시간</label><input id="endTime" type="time" data-field="end_time"></div>
+      <div id="taskList" class="task-list"></div>
+      <button class="add-task-btn" id="addTask" type="button">＋ 작업 추가</button>
+
+      <div class="field"><span class="label">공통 주요 위험요인</span>
+        <div class="risk-grid" id="riskGrid"></div>
+      </div>
+      <div class="field" id="riskOtherField" hidden><label class="label" for="riskOther">기타 위험요인</label><input id="riskOther" maxlength="200" data-field="risk_other" placeholder="기타 위험요인을 적어주세요."></div>
+      <div class="field"><label class="label" for="safetyNote">안전조치 / 전달사항</label><textarea id="safetyNote" maxlength="1000" data-field="safety_note" placeholder="오늘 작업 전체에 공통으로 전달할 안전조치와 유의사항"></textarea></div>
+      <div class="field"><label class="label" for="issueNote">특이사항 (보고 전체)</label><textarea id="issueNote" maxlength="1000" data-field="issue_note" placeholder="소장님께 알릴 내용이 있으면 적어주세요. 작업별 변경·지연·위험은 오후 TBM에서 작업마다 입력합니다."></textarea></div>
+      <label class="check-line field"><input type="checkbox" id="needsCheck" data-field="needs_manager_check">소장 확인 필요</label>
+
+      <div class="draft-status"><span id="draftStatus"><strong>임시저장:</strong> 없음</span><button type="button" class="draft-clear" id="draftClear">임시저장 삭제</button></div>
+      <button class="btn submit" id="savePlan" type="button">작업계획 저장</button>
+      <div class="server-state" id="serverState"></div>
+    </section>
+  </div>
+
+
+  <div class="app-stage" id="stageMorning">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">출근 TBM</div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-go="stagePlan">작업계획</button><button class="stage-small-btn" type="button" data-open="openAfternoon">오후 TBM</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong>출근 TBM</strong><span class="badge" id="morningBadge">보고 전</span></div>
+      <div class="desc">저장된 작업계획을 팀원과 공유하고 보고합니다. 내용이 다르면 먼저 작업계획을 고쳐 저장해주세요.</div>
+      <div class="summary" id="morningSummary"></div>
+      <div class="plan-view" id="morningTasks"></div>
+      <div class="field" style="margin-top:14px"><label class="label" for="morningNote">출근 TBM 추가 전달사항</label><textarea id="morningNote" maxlength="1000" placeholder="작업 전 추가로 전달한 내용이 있으면 적어주세요. (선택)"></textarea></div>
+      <div class="photo-box" data-photo-kind="MORNING">
+        <div class="photo-title">출근 TBM 사진</div>
+        <div class="photo-help">회차마다 최대 3장. 사진은 비공개로 저장되며 우리 팀 팀장과 소장·관리자만 볼 수 있습니다.</div>
+        <input class="photo-input" type="file" accept="image/*" capture="environment" multiple data-photo-input="MORNING" aria-label="출근 TBM 사진 선택">
+        <div class="photo-preview" data-photo-preview="MORNING"></div>
+        <div class="photo-count" data-photo-count="MORNING">사진 0장</div>
+      </div>
+      <button class="btn submit" id="submitMorning" type="button">출근 TBM 보고</button>
+      <div class="server-state" id="morningState"></div>
+    </section>
+  </div>
+
+  <div class="app-stage" id="stageAfternoon">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">오후 TBM</div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-open="openEvening">퇴근 TBM</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong>오후 TBM</strong><span class="badge" id="afternoonBadge">확인 전</span></div>
+      <div class="desc">모두 계획대로면 한 번에 저장하고, 변경·지연·위험이 있는 작업만 골라 내용을 적습니다.</div>
+      <div class="notice" id="afternoonBlocked" hidden></div>
+      <div class="field"><label class="label" for="afternoonNote">오후 전달사항 (선택)</label><textarea id="afternoonNote" maxlength="1000" placeholder="오후 TBM에서 공통으로 전달한 내용"></textarea></div>
+      <button class="all-clear-btn" id="afternoonAllClear" type="button">전체 이상 없음</button>
+      <div class="task-tbm-list" id="afternoonTasks"></div>
+      <div class="photo-box" data-photo-kind="AFTERNOON">
+        <div class="photo-title">오후 TBM 사진</div>
+        <div class="photo-help">회차마다 최대 3장. 사진은 비공개로 저장되며 우리 팀 팀장과 소장·관리자만 볼 수 있습니다.</div>
+        <input class="photo-input" type="file" accept="image/*" capture="environment" multiple data-photo-input="AFTERNOON" aria-label="오후 TBM 사진 선택">
+        <div class="photo-preview" data-photo-preview="AFTERNOON"></div>
+        <div class="photo-count" data-photo-count="AFTERNOON">사진 0장</div>
+      </div>
+      <div class="server-state" id="afternoonState"></div>
+    </section>
+  </div>
+
+  <div class="app-stage" id="stageEvening">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">퇴근 TBM</div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong>퇴근 TBM</strong><span class="badge" id="eveningBadge">마감 전</span></div>
+      <div class="desc">완료된 작업은 한 번에 마감하고, 일부완료·미완료 작업만 사유와 내일 이월 여부를 적습니다.</div>
+      <div class="notice" id="eveningBlocked" hidden></div>
+      <div class="task-tbm-list" id="eveningTasks"></div>
+      <div class="photo-box" data-photo-kind="EVENING">
+        <div class="photo-title">퇴근 TBM 사진</div>
+        <div class="photo-help">최종 현장 상태 사진. 회차마다 최대 3장, 비공개로 저장됩니다.</div>
+        <input class="photo-input" type="file" accept="image/*" capture="environment" multiple data-photo-input="EVENING" aria-label="퇴근 TBM 사진 선택">
+        <div class="photo-preview" data-photo-preview="EVENING"></div>
+        <div class="photo-count" data-photo-count="EVENING">사진 0장</div>
+      </div>
+      <div class="field"><label class="label" for="eveningNote">퇴근 공통 전달사항 (선택)</label><textarea id="eveningNote" maxlength="1000" placeholder="정리·정돈, 내일 준비사항 등"></textarea></div>
+      <button class="btn dark" id="eveningClose" type="button">퇴근 TBM 마감</button>
+      <div class="server-state" id="eveningState"></div>
+    </section>
+  </div>
+
+  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.61 TEST</span> · 시험 화면</div>
+</main>
+<div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
+  <div class="loading-card">
+    <div class="loading-spinner"></div>
+    <div class="loading-title" id="loadingTitle">저장 중입니다</div>
+    <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
+  </div>
+</div>
+<script type="module" src="tbm_report_test.mjs?v=0.61"></script>
+</body>
+</html>
