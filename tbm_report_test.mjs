@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.5: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.6: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
 import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.5';
+const PAGE_VERSION = '0.6';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -51,6 +51,7 @@ function formFromReport(r) {
     safety_note: r?.safety_note || '',
     issue_note: r?.issue_note || '',
     needs_manager_check: !!r?.needs_manager_check,
+    drop_carry_ids: [],
     tasks: (r?.tasks || []).map(t => ({
       key: 't' + (++taskSeq), id: t.id, task_no: t.task_no, place: t.place, content: t.content,
       closed: !!t.result, carried_from_task_id: t.carried_from_task_id || null,
@@ -86,7 +87,7 @@ function restoreDraft() {
     tell('서버의 작업계획이 이 기기의 임시저장보다 최신이라 서버 내용을 표시합니다.');
     return false;
   }
-  form = draft.form; form.tasks.forEach(t => { t.key = 't' + (++taskSeq); });
+  form = draft.form; form.drop_carry_ids = form.drop_carry_ids || []; form.tasks.forEach(t => { t.key = 't' + (++taskSeq); });
   dirty = true;
   $('draftStatus').innerHTML = `<strong>임시저장:</strong> 이 기기의 ${escapeHtml(kstTime(new Date(draft.saved_at).toISOString()))} 내용을 불러옴 (서버 저장 전)`;
   return true;
@@ -153,6 +154,7 @@ function renderPlan() {
   $('riskOtherField').hidden = !form.risks.includes('기타');
   $('riskOther').value = form.risk_other; $('safetyNote').value = form.safety_note; $('issueNote').value = form.issue_note;
   $('needsCheck').checked = form.needs_manager_check;
+  renderCarry();
   renderTasks();
   document.querySelectorAll('#stagePlan input, #stagePlan textarea, #stagePlan select').forEach(el => { if (locked) el.disabled = true; });
   $('addTask').disabled = locked; $('savePlan').disabled = locked;
@@ -201,6 +203,54 @@ function renderServerState() {
   else { el.className = 'server-state'; el.textContent = '아직 서버에 저장된 작업계획이 없습니다.'; }
 }
 
+// ---------- 이월 이어받기 (다시 입력하지 않음, 원래 작업과 연결, 한 번만) ----------
+function carryCandidates() {
+  const used = new Set(form.tasks.map(t => t.carried_from_task_id).filter(Boolean));
+  return (today.carry_candidates || []).filter(c => !used.has(c.task_id));
+}
+function renderCarry() {
+  const list = carryCandidates();
+  const locked = !editable();
+  $('carryBox').hidden = !list.length;
+  $('carryCount').textContent = list.length ? `${list.length}건` : '';
+  $('carryList').innerHTML = list.map(c => {
+    const dropped = form.drop_carry_ids.includes(c.task_id);
+    return `<div class="carry-item" data-carry="${c.task_id}">
+      <strong>${escapeHtml(kstDateLabel(c.work_date))} 작업 ${c.task_no} · ${escapeHtml(c.place)}</strong>
+      <span>${escapeHtml(c.carry_note || c.content)}</span>
+      <span>${c.result === 'PARTIAL' ? '일부완료' : '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
+      <div class="carry-actions">
+        <button type="button" data-carry-take="${c.task_id}" ${locked ? 'disabled' : ''}>오늘 이어서</button>
+        <button type="button" class="drop ${dropped ? 'selected' : ''}" data-carry-drop="${c.task_id}" ${locked ? 'disabled' : ''}>${dropped ? '이어받지 않음 (저장 시 반영)' : '이어받지 않음'}</button>
+      </div></div>`;
+  }).join('');
+}
+function takeCarry(id) {
+  const c = today.carry_candidates.find(x => x.task_id === id);
+  if (!c) return;
+  if (form.tasks.length >= 20) { tell('작업은 최대 20개까지 입력할 수 있습니다.', 'error'); return; }
+  const lockIds = new Set((today.locks || []).map(l => l.person_id));
+  const teamIds = new Set(today.members.map(m => m.person_id));
+  const members = c.members.filter(m => teamIds.has(m.person_id) && !lockIds.has(m.person_id)).map(m => ({ person_id: m.person_id, role: m.role }));
+  const skipped = c.members.filter(m => !members.some(x => x.person_id === m.person_id)).map(m => m.name);
+  // 비어 있는 첫 작업 칸은 이월 작업으로 대신한다
+  const blank = form.tasks.find(t => !t.id && !t.place.trim() && !t.content.trim() && !t.members.length);
+  if (blank) form.tasks = form.tasks.filter(t => t !== blank);
+  form.tasks.push({ ...emptyTask(), place: c.place, content: c.carry_note || c.content, carried_from_task_id: c.task_id, members });
+  form.drop_carry_ids = form.drop_carry_ids.filter(x => x !== id);
+  renderCarry(); renderTasks(); saveDraftSoon();
+  tell(`이월 작업을 오늘 작업 ${form.tasks.length}(으)로 가져왔습니다. 저장해야 서버에 반영됩니다.${skipped.length ? ` 오늘 선택할 수 없는 인원은 빠졌습니다: ${skipped.join(', ')}` : ''}`);
+}
+$('carryList').addEventListener('click', e => {
+  const take = e.target.closest('[data-carry-take]')?.dataset.carryTake;
+  if (take) { takeCarry(take); return; }
+  const drop = e.target.closest('[data-carry-drop]')?.dataset.carryDrop;
+  if (drop) {
+    form.drop_carry_ids = form.drop_carry_ids.includes(drop) ? form.drop_carry_ids.filter(x => x !== drop) : [...form.drop_carry_ids, drop];
+    renderCarry(); saveDraftSoon();
+  }
+});
+
 // ---------- 입력 ----------
 function taskOf(el) { const key = el.closest('[data-task]')?.dataset.task; return form.tasks.find(t => t.key === key); }
 $('stagePlan').addEventListener('input', e => {
@@ -228,7 +278,7 @@ $('taskList').addEventListener('click', e => {
   const task = form.tasks.find(t => t.key === key);
   if ((task.place || task.content || task.members.length) && !confirm('이 작업을 목록에서 뺄까요? 저장해야 서버에 반영됩니다.')) return;
   form.tasks = form.tasks.filter(t => t.key !== key);
-  renderTasks(); saveDraftSoon();
+  renderCarry(); renderTasks(); saveDraftSoon();
 });
 $('addTask').addEventListener('click', () => {
   if (form.tasks.length >= 20) { tell('작업은 최대 20개까지 입력할 수 있습니다.', 'error'); return; }
@@ -277,7 +327,8 @@ async function savePlan() {
     slots.plan = {};
     today.report = result.report; form = formFromReport(result.report); dirty = false; clearDraft();
     renderAll();
-    tell(`작업계획을 서버에 저장했습니다 (${kstTime(result.report.updated_at)}, 작업 ${result.report.tasks.length}건).`, 'ok');
+    const carried = result.report.tasks.filter(t => t.carried_from_task_id).length;
+    tell(`작업계획을 서버에 저장했습니다 (${kstTime(result.report.updated_at)}, 작업 ${result.report.tasks.length}건${carried ? `, 이월 이어받음 ${carried}건` : ''}${payload.drop_carry_ids.length ? `, 이어받지 않음 ${payload.drop_carry_ids.length}건` : ''}).`, 'ok');
   } catch (e) {
     if (e.code === 'VERSION_CONFLICT' || e.code === 'CARRY_NOT_AVAILABLE' || e.code === 'TASK_NOT_FOUND') {
       slots.plan = {}; clearDraft();

@@ -3,7 +3,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.5 TEST';
+const REPORT_VERSION = 'v0.6 TEST';
 const MANAGER_VERSION = 'v0.3 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
@@ -594,6 +594,64 @@ try {
     assert.ok(await noHorizontalScroll(m.page));
     await m.page.screenshot({ path: 'artifacts/s1_manager_detail_mobile.png', fullPage: true });
     assert.deepEqual(m.errors, []);
+  });
+
+  // ---------- 다음 날 (보고 날짜를 하루 앞으로 옮겨 흉내) ----------
+  let sourceTaskId;
+  await step('다음 날: 이월 후보만 표시(이월 안 함은 제외), "오늘 이어서"로 다시 입력 없이 가져와 저장', async () => {
+    sourceTaskId = (await sql(env, `select k.id from field_pilot_v1.report_tasks k join field_pilot_v1.daily_reports r on r.id = k.report_id
+      where r.team_id = $1 and k.task_no = 2 and k.is_active and r.work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]))[0].id;
+    await sql(env, `update field_pilot_v1.daily_reports set work_date = work_date - 1 where work_date = (now() at time zone 'Asia/Seoul')::date`);
+    const { page } = leader;
+    await page.goto(`${env.base}/tbm_report_test.html`);
+    await page.waitForSelector('#stageHome.active');
+    assert.equal(await page.textContent('#homeStatus'), '미작성');
+    await page.click('#openPlan');
+    await page.waitForSelector('#carryBox:not([hidden])');
+    assert.equal(await page.textContent('#carryCount'), '1건');
+    const item = await page.textContent('#carryList');
+    assert.match(item, /작업 2 · B동 옥상/); assert.match(item, /옥상 관로 나머지 구간/); assert.match(item, /미완료 · 안전난간 미설치로 중단/);
+    await page.click(`[data-carry-take="${sourceTaskId}"]`);
+    assert.ok(await page.isHidden('#carryBox'));
+    const card = page.locator('.task-card').first();
+    assert.match(await card.locator('.task-title').textContent(), /작업 1이월/);
+    assert.equal(await card.locator('[data-tfield=place]').inputValue(), 'B동 옥상');
+    assert.equal(await card.locator('[data-tfield=content]').inputValue(), '옥상 관로 나머지 구간');
+    assert.equal(await card.locator('.task-member', { hasText: '시험중복가' }).locator('select').inputValue(), '신호수');
+    await page.click('#addTask');
+    await fillTask(page, 1, '5층 전기실', '분전반 설치', { '시험팀원나': '' });
+    await page.click('#savePlan');
+    await waitMsg(page, '이월 이어받음 1건');
+    const rows = await sql(env, `select k.carried_from_task_id, (select carry_status from field_pilot_v1.report_tasks s where s.id = k.carried_from_task_id) as source_status
+      from field_pilot_v1.report_tasks k join field_pilot_v1.daily_reports r on r.id = k.report_id
+      where r.team_id = $1 and k.is_active and r.work_date = (now() at time zone 'Asia/Seoul')::date and k.carried_from_task_id is not null`, [TEAM2]);
+    assert.deepEqual(rows, [{ carried_from_task_id: sourceTaskId, source_status: 'CONTINUED' }]);
+  });
+
+  await step('이월은 한 번만: 같은 작업을 다시 이어받으면 서버가 거절', async () => {
+    const { page } = leader;
+    const version = (await sql(env, `select version from field_pilot_v1.daily_reports where team_id = $1 and work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]))[0].version;
+    const again = await rpcFromPage(page, 'tbm_save_plan', { p_payload: { version, tasks: [{ place: 'B동 옥상', content: '또 이어받기', carried_from_task_id: sourceTaskId, members: [{ person_id: P(36) }] }] } });
+    assert.equal(again.code, 'CARRY_NOT_AVAILABLE');
+  });
+
+  await step('이어받은 작업을 빼면 다시 후보, "이어받지 않음"은 저장할 때 정리', async () => {
+    const { page } = leader;
+    await page.locator('.task-card').first().locator('.task-remove').click();
+    await page.waitForSelector('#carryBox:not([hidden])');
+    await page.click(`[data-carry-drop="${sourceTaskId}"]`);
+    assert.match(await page.textContent(`[data-carry-drop="${sourceTaskId}"]`), /저장 시 반영/);
+    await page.click('#savePlan');
+    await waitMsg(page, '이어받지 않음 1건');
+    const src = await sql(env, `select carry_status from field_pilot_v1.report_tasks where id = $1`, [sourceTaskId]);
+    assert.equal(src[0].carry_status, 'DROPPED');
+    const active = await sql(env, `select count(*)::int as n from field_pilot_v1.report_tasks k join field_pilot_v1.daily_reports r on r.id = k.report_id
+      where r.team_id = $1 and k.is_active and r.work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]);
+    assert.equal(active[0].n, 1);
+    await page.reload();
+    await page.waitForSelector('#stageHome.active');
+    await page.click('#openPlan');
+    assert.ok(await page.isHidden('#carryBox'));
   });
 } finally {
   summary('S1 tbm day flow e2e');

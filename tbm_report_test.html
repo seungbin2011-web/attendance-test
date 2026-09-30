@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>팀장 TBM 보고 TEST</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.5">
+<link rel="stylesheet" href="tbm_test.css?v=0.6">
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.5 TEST</span></div>
+  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.6 TEST</span></div>
   <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
 </div></header>
 <main class="wrap">
@@ -54,6 +54,11 @@
       <div class="section-title"><strong>금일 작업계획</strong><span class="badge">작업별 인원배정</span></div>
       <div class="desc">작업마다 위치·내용과 투입 인원을 고릅니다. 인원은 서버에 등록된 우리 팀 소속만 표시됩니다.</div>
       <div class="notice" id="planLocked" hidden></div>
+      <div class="carry-box" id="carryBox" hidden>
+        <div class="carry-title">이전 작업 이월 <span id="carryCount"></span></div>
+        <div class="carry-text">다시 입력하지 않고 오늘 작업으로 이어받거나, 이어받지 않음으로 정리합니다. 저장해야 서버에 반영됩니다.</div>
+        <div id="carryList"></div>
+      </div>
       <div class="field"><label class="label" for="endTime">예상 종료시간</label><input id="endTime" type="time" data-field="end_time"></div>
       <div id="taskList" class="task-list"></div>
       <button class="add-task-btn" id="addTask" type="button">＋ 작업 추가</button>
@@ -142,7 +147,7 @@
     </section>
   </div>
 
-  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.5 TEST</span> · 시험 화면</div>
+  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.6 TEST</span> · 시험 화면</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -151,6 +156,6 @@
     <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
   </div>
 </div>
-<script type="module" src="tbm_report_test.mjs?v=0.5"></script>
+<script type="module" src="tbm_report_test.mjs?v=0.6"></script>
 </body>
 </html>
