@@ -3,8 +3,8 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.4 TEST';
-const MANAGER_VERSION = 'v0.2 TEST';
+const REPORT_VERSION = 'v0.5 TEST';
+const MANAGER_VERSION = 'v0.3 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -28,6 +28,7 @@ async function loginWork(name, next = 'tbm_report_test.html', opts = {}) {
   return ctx;
 }
 const msg = page => page.textContent('#message');
+const clearMsg = page => page.evaluate(() => { document.querySelector('#message').textContent = ''; });
 async function waitMsg(page, text) {
   await page.waitForFunction(t => document.querySelector('#message').textContent.includes(t), text, { timeout: 8000 });
 }
@@ -451,6 +452,7 @@ try {
     await page.fill('#dateInput', await page.evaluate(() => document.querySelector('#dateInput').max));
     await page.dispatchEvent('#dateInput', 'change');
     await page.waitForFunction(() => document.querySelector('#headerSub').textContent.includes('(오늘)'));
+    await clearMsg(page);
     await page.click('#refreshBtn');
     await waitMsg(page, '최신 현황');
     const team2 = await page.locator('.team-card[data-team=공사2팀]').textContent();
@@ -462,6 +464,77 @@ try {
     assert.match(body, /오후 작업 순서 공유/);
     assert.match(body, /위험 · 옥상 끝단 추락 위험 · 조치: 안전난간 추가 설치 요청/);
     assert.match(body, /변경 · MDF실 선행공정 지연으로 위치 변경/);
+    await page.click('.app-stage.active [data-go=stageList]');
+  });
+
+  const todayTask = no => sql(env, `select k.result, k.result_note, k.carry_over, k.carry_note, k.carry_status from field_pilot_v1.report_tasks k join field_pilot_v1.daily_reports r on r.id = k.report_id
+    where r.team_id = $1 and k.task_no = $2 and k.is_active and r.work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2, no]).then(r => r[0]);
+
+  await step('퇴근 TBM: 미완료는 사유 없이 저장 안 됨, 사유·내일 이월 내용과 함께 저장', async () => {
+    const { page } = leader;
+    await page.click('#openEvening');
+    await page.waitForSelector('#stageEvening.active');
+    assert.equal(await page.textContent('#eveningClose'), '나머지 2건 완료로 하고 퇴근 마감');
+    const card2 = page.locator('.task-tbm-card[data-evening-task]').nth(1);
+    await card2.locator('[data-result=NOT_DONE]').click();
+    await card2.locator('[data-result-save]').click();
+    await waitMsg(page, '사유를 2자 이상');
+    assert.equal((await todayTask(2)).result, null);
+    await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-redit=note]').fill('안전난간 미설치로 중단');
+    assert.ok(await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-redit-carry]').isChecked());
+    await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-redit=carryNote]').fill('옥상 관로 나머지 구간');
+    await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-result-save]').click();
+    await waitMsg(page, "작업 2을(를) '미완료'·이월(으)로 저장했습니다");
+    assert.deepEqual(await todayTask(2), { result: 'NOT_DONE', result_note: '안전난간 미설치로 중단', carry_over: true, carry_note: '옥상 관로 나머지 구간', carry_status: 'PENDING' });
+    assert.equal(await page.textContent('#eveningClose'), '나머지 1건 완료로 하고 퇴근 마감');
+  });
+
+  await step('퇴근 TBM: 나머지는 완료로 한 번에 마감 (확인창), 연결 실패 시 성공 표시 없음', async () => {
+    const { page } = leader;
+    await page.fill('#eveningNote', '공구 정리 완료, 내일 안전난간 먼저 설치');
+    await page.route('**/rest/v1/rpc/tbm_evening_close', route => route.abort());
+    await page.click('#eveningClose');
+    await waitMsg(page, '서버에 연결하지 못했습니다');
+    assert.equal(await page.textContent('#eveningBadge'), '마감 전');
+    await page.unroute('**/rest/v1/rpc/tbm_evening_close');
+    await page.click('#eveningClose');
+    await waitMsg(page, '퇴근 TBM을 마감했습니다');
+    assert.match(await msg(page), /이월 1건/);
+    assert.match(await page.textContent('#eveningBadge'), /마감 \d\d:\d\d/);
+    assert.equal((await todayTask(1)).result, 'DONE');
+    const r = await sql(env, `select evening_note, evening_at is not null as closed from field_pilot_v1.daily_reports where team_id = $1 and work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]);
+    assert.deepEqual(r[0], { evening_note: '공구 정리 완료, 내일 안전난간 먼저 설치', closed: true });
+    assert.ok(await page.isDisabled('.task-tbm-card[data-afternoon-task] [data-alert=RISK]'), '결과가 난 작업은 오후 상태 변경 불가');
+  });
+
+  await step('퇴근 TBM: 마감 후에도 결과 수정 가능 (일부완료 + 이월 안 함)', async () => {
+    const { page } = leader;
+    const card1 = page.locator('.task-tbm-card[data-evening-task]').nth(0);
+    await card1.locator('[data-result=PARTIAL]').click();
+    await page.locator('.task-tbm-card[data-evening-task]').nth(0).locator('[data-redit=note]').fill('배선 90% 완료, 나머지는 타 팀 인계');
+    await page.locator('.task-tbm-card[data-evening-task]').nth(0).locator('[data-redit-carry]').uncheck();
+    assert.equal(await page.locator('.task-tbm-card[data-evening-task]').nth(0).locator('[data-redit=carryNote]').count(), 0);
+    await page.locator('.task-tbm-card[data-evening-task]').nth(0).locator('[data-result-save]').click();
+    await waitMsg(page, "작업 1을(를) '일부완료'(으)로 저장했습니다");
+    assert.deepEqual(await todayTask(1), { result: 'PARTIAL', result_note: '배선 90% 완료, 나머지는 타 팀 인계', carry_over: false, carry_note: null, carry_status: null });
+    await page.click('.app-stage.active [data-go=stageHome]');
+    assert.equal(await page.textContent('#homeStatus'), '퇴근 마감');
+    assert.match(await page.textContent('#openEveningSub'), /마감 \d\d:\d\d · 이월 1건/);
+  });
+
+  await step('소장 현황 v0.3: 퇴근 마감 시각, 일부완료·미완료·이월 수, 작업별 결과', async () => {
+    const { page } = manager;
+    await clearMsg(page);
+    await page.click('#refreshBtn');
+    await waitMsg(page, '최신 현황');
+    const team2 = await page.locator('.team-card[data-team=공사2팀]').textContent();
+    assert.match(team2, /퇴근 마감/); assert.match(team2, /퇴근 \d\d:\d\d/);
+    assert.match(team2, /일부완료 1/); assert.match(team2, /미완료 1/); assert.match(team2, /이월 1/); assert.match(team2, /미완료·이월/);
+    await page.click('.team-card[data-team=공사2팀] [data-detail]');
+    await page.waitForSelector('#stageDetail.active');
+    const body = await page.textContent('#detailBody');
+    assert.match(body, /퇴근: 미완료 · 안전난간 미설치로 중단 · 이월: 옥상 관로 나머지 구간/);
+    assert.match(body, /공구 정리 완료, 내일 안전난간 먼저 설치/);
     await page.click('.app-stage.active [data-go=stageList]');
   });
 
@@ -501,12 +574,16 @@ try {
     await page.screenshot({ path: 'artifacts/s1_report_morning_mobile.png', fullPage: true });
     await page.click('.app-stage.active [data-open=openAfternoon]');
     await page.waitForSelector('#stageAfternoon.active');
-    await page.locator('.task-tbm-card').nth(0).locator('[data-alert=CHANGED]').click();
     assert.ok(await noHorizontalScroll(page));
     const riskButtons = await page.locator('.task-tbm-card.is-risk .task-status-buttons').boundingBox();
     assert.ok(riskButtons.width > 280, `위험 카드 버튼 줄이 좁음: ${riskButtons.width}`);
     await page.screenshot({ path: 'artifacts/s1_report_afternoon_mobile.png', fullPage: true });
-    await page.locator('.task-tbm-card').nth(0).locator('[data-alert-cancel]').click();
+    await page.click('.app-stage.active [data-open=openEvening]');
+    await page.waitForSelector('#stageEvening.active');
+    await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-result=NOT_DONE]').click();
+    assert.ok(await noHorizontalScroll(page));
+    await page.screenshot({ path: 'artifacts/s1_report_evening_mobile.png', fullPage: true });
+    await page.locator('.task-tbm-card[data-evening-task]').nth(1).locator('[data-result-cancel]').click();
     assert.deepEqual(errors, []);
     const m = await loginWork('소장', 'tbm_manager_test.html', { mobile: true });
     await m.page.waitForSelector('#stageList.active .team-card');

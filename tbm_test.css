@@ -13,6 +13,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 .risk input{width:17px;height:17px}.risk:has(input:checked){border-color:var(--orange);background:#FFF6E5;color:#8A5600}
 .check-line{display:flex;gap:9px;align-items:center;font-size:13px;font-weight:800;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff}.check-line input{width:18px;height:18px;min-height:auto}
 .check-line:has(input:checked){border-color:var(--red);background:#FEF3F2;color:var(--red)}
+.check-line.plain:has(input:checked){border-color:var(--blue);background:#EDF5FF;color:#195FB8}
 .btn{width:100%;border:0;border-radius:13px;min-height:52px;color:#fff;font-size:15px;font-weight:800;cursor:pointer}.save{background:var(--blue)}.submit{background:var(--green)}.dark{background:var(--navy-dark)}.warn{background:var(--orange)}
 .btn.light{background:#EEF4FA;color:var(--navy);border:1px solid #CAD8E8}
 .btn[disabled],.tbm-home-btn[disabled],.stage-small-btn[disabled],.all-clear-btn[disabled],.task-status-btn[disabled],.task-save-btn[disabled]{opacity:.58;cursor:not-allowed;pointer-events:none}

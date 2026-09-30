@@ -1,12 +1,13 @@
-// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.2: 소장·관리자 읽기 전용 · 오후 변경/지연/위험)
+// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.3: 소장·관리자 읽기 전용 · 오후 변경/지연/위험 · 퇴근 결과/이월)
 // 볼 수 있는 현장·팀은 서버(tbm_site_overview)가 정한다. 이 화면에는 저장 기능이 없다.
 import { rpc, requireLogin, logout, loginUrl, describeError, escapeHtml, kstTime, kstDateLabel, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_manager_test.html';
-const PAGE_VERSION = '0.2';
+const PAGE_VERSION = '0.3';
 const BLOCKING = ['AUTH_REQUIRED', 'AUTH_EXPIRED', 'SESSION_EXPIRED', 'ACCOUNT_NOT_LINKED', 'ACCOUNT_INACTIVE', 'ACCOUNT_DISABLED', 'PIN_CHANGE_REQUIRED', 'FORBIDDEN'];
 const KIND_NAMES = { MORNING: '출근', AFTERNOON: '오후', EVENING: '퇴근' };
 const ALERT_NAMES = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
+const RESULT_NAMES = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const $ = id => document.getElementById(id);
 
 let overview = null;
@@ -65,6 +66,7 @@ function teamCard(t) {
     <div class="team-meta">${escapeHtml(kstDateLabel(overview.date))} 작업계획이 아직 없습니다.</div></div>`;
   const photos = Object.entries(r.photo_counts || {}).filter(([, n]) => n > 0).map(([k, n]) => `${KIND_NAMES[k]} ${n}장`).join(' · ') || '없음';
   const alerts = r.alerts || {};
+  const results = r.results || {};
   const attention = r.needs_manager_check || alerts.RISK > 0;
   return `<div class="team-card ${attention ? 'attention' : ''}" data-team="${escapeHtml(t.team_name)}">
     <div class="team-head"><div><div class="team-name">${escapeHtml(t.team_name)}</div>
@@ -73,14 +75,18 @@ function teamCard(t) {
     <div class="chips">
       <span class="badge ${r.morning_at ? 'ok' : 'gray'}">출근 ${r.morning_at ? escapeHtml(kstTime(r.morning_at)) : '전'}</span>
       <span class="badge ${r.afternoon_at ? 'ok' : 'gray'}">오후 ${r.afternoon_at ? escapeHtml(kstTime(r.afternoon_at)) : '전'}</span>
+      <span class="badge ${r.evening_at ? 'ok' : 'gray'}">퇴근 ${r.evening_at ? escapeHtml(kstTime(r.evening_at)) : '전'}</span>
       ${r.needs_manager_check ? '<span class="badge danger">소장 확인 필요</span>' : ''}
       ${alerts.RISK ? `<span class="badge danger">위험 ${alerts.RISK}</span>` : ''}
       ${alerts.CHANGED ? `<span class="badge warn">변경 ${alerts.CHANGED}</span>` : ''}
       ${alerts.DELAYED ? `<span class="badge warn">지연 ${alerts.DELAYED}</span>` : ''}
+      ${results.PARTIAL ? `<span class="badge warn">일부완료 ${results.PARTIAL}</span>` : ''}
+      ${results.NOT_DONE ? `<span class="badge warn">미완료 ${results.NOT_DONE}</span>` : ''}
+      ${r.carry_count ? `<span class="badge">이월 ${r.carry_count}</span>` : ''}
       ${(r.risks || []).length ? `<span class="badge warn">위험요인 ${escapeHtml(r.risks.join(', '))}</span>` : ''}
     </div>
     ${r.issue_note ? `<div class="team-task"><strong>특이사항</strong> ${escapeHtml(r.issue_note)}</div>` : ''}
-    ${(r.tasks || []).map(k => `<div class="team-task">작업 ${k.task_no} · ${escapeHtml(k.place)} — ${escapeHtml(k.content)}${['CHANGED', 'DELAYED', 'RISK'].includes(k.alert) ? ` <span class="alert-line ${k.alert}">[${ALERT_NAMES[k.alert]}]</span>` : ''}</div>`).join('')}
+    ${(r.tasks || []).map(k => `<div class="team-task">작업 ${k.task_no} · ${escapeHtml(k.place)} — ${escapeHtml(k.content)}${['CHANGED', 'DELAYED', 'RISK'].includes(k.alert) ? ` <span class="alert-line ${k.alert}">[${ALERT_NAMES[k.alert]}]</span>` : ''}${k.result ? ` <span class="badge ${k.result === 'DONE' ? 'ok' : k.result === 'EXCLUDED' ? 'gray' : 'warn'}">${RESULT_NAMES[k.result]}${k.carry_over ? '·이월' : ''}</span>` : ''}</div>`).join('')}
     <div class="team-meta">사진: ${escapeHtml(photos)}</div>
     <button class="detail-btn" type="button" data-detail="${r.id}">상세 보기</button>
   </div>`;
@@ -110,12 +116,14 @@ function renderDetail(d) {
       <dt>위험요인</dt><dd>${escapeHtml(risks)}</dd><dt>안전조치</dt><dd>${escapeHtml(r.safety_note || '-')}</dd>
       <dt>특이사항</dt><dd>${escapeHtml(r.issue_note || '-')}</dd><dt>소장 확인</dt><dd>${r.needs_manager_check ? '필요' : '-'}</dd>
       <dt>출근 TBM</dt><dd>${r.morning_at ? `${escapeHtml(kstTime(r.morning_at))} 보고${r.morning_note ? ' · ' + escapeHtml(r.morning_note) : ''}` : '보고 전'}</dd>
-      <dt>오후 TBM</dt><dd>${r.afternoon_at ? `${escapeHtml(kstTime(r.afternoon_at))} 확인${r.afternoon_note ? ' · ' + escapeHtml(r.afternoon_note) : ''}` : '확인 전'}</dd></dl>
+      <dt>오후 TBM</dt><dd>${r.afternoon_at ? `${escapeHtml(kstTime(r.afternoon_at))} 확인${r.afternoon_note ? ' · ' + escapeHtml(r.afternoon_note) : ''}` : '확인 전'}</dd>
+      <dt>퇴근 TBM</dt><dd>${r.evening_at ? `${escapeHtml(kstTime(r.evening_at))} 마감${r.evening_note ? ' · ' + escapeHtml(r.evening_note) : ''}` : '마감 전'}</dd></dl>
     <div class="detail-section"><h3>작업 ${r.tasks.length}건</h3><div class="plan-view">${r.tasks.map(t => `<div class="plan-view-item">
       <strong>작업 ${t.task_no} · ${escapeHtml(t.place)}${t.carried_from_task_id ? ' <span class="task-tag">이월</span>' : ''}</strong>
       <span>${escapeHtml(t.content)}</span>
       <span>인원 ${t.members.length}명: ${t.members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'}</span>
-      <span>오후: ${ALERT_NAMES[t.alert] ? `<span class="alert-line ${t.alert}">${ALERT_NAMES[t.alert]}</span>` : '미확인'}${t.alert_note ? ' · ' + escapeHtml(t.alert_note) : ''}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}</span></div>`).join('')}</div></div>
+      <span>오후: ${ALERT_NAMES[t.alert] ? `<span class="alert-line ${t.alert}">${ALERT_NAMES[t.alert]}</span>` : '미확인'}${t.alert_note ? ' · ' + escapeHtml(t.alert_note) : ''}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}</span>
+      <span>퇴근: ${t.result ? `<strong>${RESULT_NAMES[t.result]}</strong>` : '미입력'}${t.result_note ? ' · ' + escapeHtml(t.result_note) : ''}${t.carry_over ? ` · 이월: ${escapeHtml(t.carry_note || '')}${t.carry_status === 'CONTINUED' ? ' (이어받음)' : t.carry_status === 'DROPPED' ? ' (이어받지 않음)' : ''}` : ''}</span></div>`).join('')}</div></div>
     <div class="detail-section"><h3>사진</h3>${photoKinds.length ? photoKinds.map(k => `<div class="photo-title">${KIND_NAMES[k]} TBM</div>
       <div class="photo-preview" style="margin-bottom:10px">${r.photos.filter(p => p.kind === k).map(p => `<a class="photo-thumb" target="_blank" rel="noopener" data-photo-link="${escapeHtml(p.path)}"><img alt="${KIND_NAMES[k]} 사진 ${escapeHtml(kstTime(p.created_at))}" data-photo-path="${escapeHtml(p.path)}"><span class="photo-state">${escapeHtml(kstTime(p.created_at))}</span></a>`).join('')}</div>`).join('') : '<div class="team-meta">올라온 사진이 없습니다.</div>'}</div>`;
   loadPhotos().catch(() => tell('사진 미리보기를 불러오지 못했습니다. 새로고침해주세요.', 'error'));

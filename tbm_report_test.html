@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>팀장 TBM 보고 TEST</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.4">
+<link rel="stylesheet" href="tbm_test.css?v=0.5">
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.4 TEST</span></div>
+  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.5 TEST</span></div>
   <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
 </div></header>
 <main class="wrap">
@@ -39,7 +39,7 @@
         <button class="tbm-home-btn plan" id="openPlan" type="button">오늘 작업계획<small id="openPlanSub">작성 · 수정</small></button>
         <button class="tbm-home-btn morning" id="openMorning" type="button">출근 TBM<small id="openMorningSub">작업계획 공유</small></button>
         <button class="tbm-home-btn lunch" id="openAfternoon" type="button">오후 TBM<small id="openAfternoonSub">정상 · 변경 · 지연 · 위험</small></button>
-        <button class="tbm-home-btn evening" id="openEvening" type="button" disabled>퇴근 TBM<small>다음 버전에서 제공</small></button>
+        <button class="tbm-home-btn evening" id="openEvening" type="button">퇴근 TBM<small id="openEveningSub">작업별 완료 · 이월</small></button>
       </div>
       <div class="stage-note">모든 저장은 서버 확인 후에만 “저장됨”으로 표시됩니다. 작성 중인 내용은 이 기기에만 임시로 남습니다.</div>
     </section>
@@ -99,7 +99,7 @@
   <div class="app-stage" id="stageAfternoon">
     <div class="stage-nav"><div class="stage-nav-inner">
       <div class="stage-title">오후 TBM</div>
-      <div class="stage-actions"><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-open="openEvening">퇴근 TBM</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
     </div></div>
     <section class="card">
       <div class="section-title"><strong>오후 TBM</strong><span class="badge" id="afternoonBadge">확인 전</span></div>
@@ -119,7 +119,30 @@
     </section>
   </div>
 
-  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.4 TEST</span> · 시험 화면</div>
+  <div class="app-stage" id="stageEvening">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title">퇴근 TBM</div>
+      <div class="stage-actions"><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong>퇴근 TBM</strong><span class="badge" id="eveningBadge">마감 전</span></div>
+      <div class="desc">완료된 작업은 한 번에 마감하고, 일부완료·미완료 작업만 사유와 내일 이월 여부를 적습니다.</div>
+      <div class="notice" id="eveningBlocked" hidden></div>
+      <div class="task-tbm-list" id="eveningTasks"></div>
+      <div class="photo-box" data-photo-kind="EVENING">
+        <div class="photo-title">퇴근 TBM 사진</div>
+        <div class="photo-help">최종 현장 상태 사진. 회차마다 최대 3장, 비공개로 저장됩니다.</div>
+        <input class="photo-input" type="file" accept="image/*" capture="environment" multiple data-photo-input="EVENING" aria-label="퇴근 TBM 사진 선택">
+        <div class="photo-preview" data-photo-preview="EVENING"></div>
+        <div class="photo-count" data-photo-count="EVENING">사진 0장</div>
+      </div>
+      <div class="field"><label class="label" for="eveningNote">퇴근 공통 전달사항 (선택)</label><textarea id="eveningNote" maxlength="1000" placeholder="정리·정돈, 내일 준비사항 등"></textarea></div>
+      <button class="btn dark" id="eveningClose" type="button">퇴근 TBM 마감</button>
+      <div class="server-state" id="eveningState"></div>
+    </section>
+  </div>
+
+  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.5 TEST</span> · 시험 화면</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -128,6 +151,6 @@
     <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
   </div>
 </div>
-<script type="module" src="tbm_report_test.mjs?v=0.4"></script>
+<script type="module" src="tbm_report_test.mjs?v=0.5"></script>
 </body>
 </html>

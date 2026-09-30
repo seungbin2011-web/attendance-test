@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.4: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.5: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
 import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.4';
+const PAGE_VERSION = '0.5';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -16,7 +16,8 @@ let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {}, afternoon: {}, alert: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, result: {}, evening: {} };
+const RESULTS = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
 const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'CARRY_NOT_AVAILABLE'];
 
@@ -127,12 +128,17 @@ function renderAll() {
   const flagged = (r?.tasks || []).filter(t => ['CHANGED', 'DELAYED', 'RISK'].includes(t.alert)).length;
   $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}` : '정상 · 변경 · 지연 · 위험';
   $('openAfternoon').classList.toggle('done', !!r?.afternoon_at);
+  const carried = (r?.tasks || []).filter(t => t.carry_over).length;
+  $('openEveningSub').textContent = r?.evening_at ? `마감 ${kstTime(r.evening_at)}${carried ? ` · 이월 ${carried}건` : ''}` : '작업별 완료 · 이월';
+  $('openEvening').classList.toggle('done', !!r?.evening_at);
   const hour = kstNowHour();
-  const recommended = !r ? 'openPlan' : !r.morning_at || hour < 11 ? 'openMorning' : !r.afternoon_at || hour < 15 ? 'openAfternoon' : null;
-  ['openPlan', 'openMorning', 'openAfternoon'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
+  // 시간대 추천(강조만): 출근 전 → 출근, 15시 전 → 오후, 15시 이후 → 퇴근. 모든 TBM은 언제든 열 수 있다.
+  const recommended = !r ? 'openPlan' : !r.morning_at ? 'openMorning' : hour < 15 ? (r.afternoon_at ? null : 'openAfternoon') : r.evening_at ? null : 'openEvening';
+  ['openPlan', 'openMorning', 'openAfternoon', 'openEvening'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
   renderPlan();
   renderMorning();
   renderAfternoon();
+  renderEvening();
   renderPhotos();
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
@@ -547,6 +553,104 @@ $('openAfternoon').addEventListener('click', async () => {
   if (!dirty) await load({ quiet: true });
   if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
   showStage('stageAfternoon');
+});
+
+// ---------- 퇴근 TBM (완료는 한 번에, 일부완료·미완료만 사유·이월) ----------
+let resultEdit = null; // { taskId, result, note, carry, carryNote }
+let eveningNoteTouched = false;
+function renderEvening() {
+  const r = report();
+  const ready = !!r?.morning_at && editable();
+  $('eveningBlocked').hidden = ready;
+  $('eveningBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '소장 확인이 끝난 보고라 수정할 수 없습니다.' : '';
+  $('eveningBadge').textContent = r?.evening_at ? `마감 ${kstTime(r.evening_at)}` : '마감 전';
+  $('eveningBadge').className = 'badge' + (r?.evening_at ? ' ok' : '');
+  if (r?.evening_note && !eveningNoteTouched) $('eveningNote').value = r.evening_note;
+  $('eveningNote').disabled = !ready;
+  const open = (r?.tasks || []).filter(t => !t.result);
+  $('eveningClose').disabled = !ready;
+  $('eveningClose').textContent = r?.evening_at ? (open.length ? `나머지 ${open.length}건 완료로 다시 마감` : '퇴근 마감 내용 다시 저장') : open.length ? `나머지 ${open.length}건 완료로 하고 퇴근 마감` : '퇴근 TBM 마감';
+  $('eveningTasks').innerHTML = (r?.tasks || []).map(t => {
+    const editing = resultEdit?.taskId === t.id ? resultEdit : null;
+    const selected = editing ? editing.result : t.result;
+    const cls = t.result === 'DONE' ? 'saved' : ['PARTIAL', 'NOT_DONE'].includes(t.result) ? 'is-alert' : '';
+    const label = t.result ? `${RESULTS[t.result]}${t.carry_over ? ' · 이월' : ''} 저장됨` : '미입력';
+    const buttons = Object.entries(RESULTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'DONE' ? 'normal' : code === 'EXCLUDED' ? '' : 'danger'} ${selected === code ? 'selected' : ''}"
+      data-result="${code}" data-task-id="${t.id}" ${!ready ? 'disabled' : ''}>${name}</button>`).join('');
+    const partial = editing && ['PARTIAL', 'NOT_DONE'].includes(editing.result);
+    const editor = editing && editing.result !== 'DONE' ? `<div class="task-detail-editor">
+      <div class="field"><label class="label">${partial ? '사유 (필수)' : '제외 사유 (선택)'}</label><textarea data-redit="note" maxlength="500" placeholder="${partial ? '예: 자재 미입고, 타 공정 간섭' : '예: 작업 취소'}">${escapeHtml(editing.note)}</textarea></div>
+      ${partial ? `<label class="check-line plain field"><input type="checkbox" data-redit-carry ${editing.carry ? 'checked' : ''}>내일로 이월 (다음 날 작업계획에서 이어받기)</label>
+      ${editing.carry ? `<div class="field"><label class="label">내일 이어서 할 내용</label><textarea data-redit="carryNote" maxlength="500">${escapeHtml(editing.carryNote)}</textarea></div>` : ''}` : ''}
+      <div class="btn-row"><button type="button" class="task-save-btn" data-result-save="${t.id}">이 작업 저장</button><button type="button" class="task-save-btn" style="background:#EEF4FA;color:var(--navy)" data-result-cancel>취소</button></div>
+    </div>` : '';
+    return `<div class="task-tbm-card ${cls}" data-evening-task="${t.id}">
+      <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
+        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}${ALERTS[t.alert] && t.alert !== 'NORMAL' ? `<br>오후: ${ALERTS[t.alert]} · ${escapeHtml(t.alert_note || '')}` : ''}</div>
+        ${t.result_note || t.carry_over ? `<div class="task-tbm-meta">${t.result_note ? escapeHtml(t.result_note) : ''}${t.carry_over ? `${t.result_note ? ' · ' : ''}이월: ${escapeHtml(t.carry_note || '')}` : ''}</div>` : ''}</div>
+        <span class="task-save-state">${label}</span></div>
+      <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
+  }).join('');
+  $('eveningState').className = 'server-state' + (r?.evening_at ? ' ok' : '');
+  $('eveningState').textContent = r?.evening_at ? `서버 저장됨 · ${kstTime(r.evening_at)} 마감` : open.length ? `결과를 입력하지 않은 작업 ${open.length}건` : '모든 작업 결과가 입력됐습니다. 마감을 눌러주세요.';
+}
+async function saveResult(taskId, result) {
+  if (busy || planIsDirty()) return;
+  const task = report().tasks.find(t => t.id === taskId);
+  const edit = resultEdit?.taskId === taskId ? resultEdit : null;
+  const partial = ['PARTIAL', 'NOT_DONE'].includes(result);
+  const note = result === 'DONE' ? '' : (edit?.note || '').trim();
+  if (partial && note.length < 2) { tell('일부완료·미완료는 사유를 2자 이상 적어주세요.', 'error'); return; }
+  const args = { p_task_id: taskId, p_result: result, p_carry: partial ? !!edit.carry : null,
+    p_carry_note: partial && edit.carry ? (edit.carryNote || '').trim() || null : null, p_note: note || null };
+  args.p_request_id = requestIdFor(slots.result, args);
+  setBusy(true, '퇴근 TBM 저장 중');
+  try {
+    const res = await rpc('tbm_task_result', args);
+    slots.result = {}; resultEdit = null;
+    applyReport(res.report);
+    tell(`작업 ${task.task_no}을(를) '${RESULTS[result]}'${partial && args.p_carry ? '·이월' : ''}(으)로 저장했습니다.`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+async function eveningClose() {
+  const r = report();
+  if (busy || !r || planIsDirty()) return;
+  const open = r.tasks.filter(t => !t.result);
+  if (open.length && !confirm(`결과를 입력하지 않은 작업 ${open.length}건을 '완료'로 저장하고 마감할까요?\n${open.map(t => `작업 ${t.task_no} · ${t.place}`).join('\n')}`)) return;
+  const note = $('eveningNote').value.trim();
+  const request_id = requestIdFor(slots.evening, { id: r.id, note, rest: open.map(t => t.id) });
+  setBusy(true, '퇴근 TBM 마감 중');
+  try {
+    const res = await rpc('tbm_evening_close', { p_report_id: r.id, p_note: note || null, p_complete_rest: open.length > 0, p_request_id: request_id });
+    slots.evening = {}; eveningNoteTouched = false; resultEdit = null;
+    applyReport(res.report);
+    const carried = res.report.tasks.filter(t => t.carry_over).length;
+    tell(`퇴근 TBM을 마감했습니다 (${kstTime(res.report.evening_at)}).${carried ? ` 내일 이월 ${carried}건은 다음 날 작업계획에서 이어받을 수 있습니다.` : ''}`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+$('eveningClose').addEventListener('click', eveningClose);
+$('eveningNote').addEventListener('input', () => { eveningNoteTouched = true; });
+$('eveningTasks').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn || busy) return;
+  if (btn.dataset.result) {
+    const t = report().tasks.find(x => x.id === btn.dataset.taskId);
+    if (btn.dataset.result === 'DONE') { if (resultEdit?.taskId === t.id) resultEdit = null; saveResult(t.id, 'DONE'); return; }
+    const same = t.result === btn.dataset.result;
+    resultEdit = { taskId: t.id, result: btn.dataset.result, note: same ? t.result_note || '' : '', carry: same && t.result !== 'EXCLUDED' ? !!t.carry_over : true,
+      carryNote: same && t.carry_note ? t.carry_note : t.content };
+    renderEvening();
+    document.querySelector(`[data-evening-task="${t.id}"] [data-redit=note]`)?.focus();
+  } else if (btn.dataset.resultSave) saveResult(btn.dataset.resultSave, resultEdit.result);
+  else if (btn.hasAttribute('data-result-cancel')) { resultEdit = null; renderEvening(); }
+});
+$('eveningTasks').addEventListener('input', e => { const f = e.target.dataset.redit; if (f && resultEdit) resultEdit[f] = e.target.value; });
+$('eveningTasks').addEventListener('change', e => { if (e.target.hasAttribute('data-redit-carry') && resultEdit) { resultEdit.carry = e.target.checked; renderEvening(); } });
+$('openEvening').addEventListener('click', async () => {
+  if (!dirty) await load({ quiet: true }); // 오후 변경 사항을 최신으로
+  if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
+  showStage('stageEvening');
 });
 
 // ---------- 이동·기타 ----------
