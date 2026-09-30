@@ -3,7 +3,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.6 TEST';
+const REPORT_VERSION = 'v0.61 TEST';
 const MANAGER_VERSION = 'v0.4 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
@@ -691,6 +691,22 @@ try {
     await page.waitForSelector('#stageHome.active');
     await page.click('#openPlan');
     assert.ok(await page.isHidden('#carryBox'));
+  });
+
+  await step('로그아웃: 서버 세션 종료 + 이 기기 임시저장 삭제, 이후 화면은 로그인 요구', async () => {
+    const { page } = leader;
+    await page.click('.app-stage.active [data-go=stageHome]').catch(() => {});
+    await page.click('#openPlan');
+    await page.fill('#safetyNote', '로그아웃 전 임시 입력');
+    await page.waitForTimeout(700);
+    assert.ok(await page.evaluate(() => !!localStorage.getItem('tbmReportDraft_v1')));
+    await page.click('.app-stage.active [data-go=stageHome]');
+    await page.click('#logoutBtn');
+    await page.waitForURL(/personnel_test\.html/);
+    assert.equal(await page.evaluate(() => localStorage.getItem('tbmReportDraft_v1')), null);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('personnelPilotSessionV2')), null);
+    await page.goto(`${env.base}/tbm_report_test.html`);
+    await page.waitForURL(/personnel_test\.html\?next=tbm_report_test\.html/);
   });
 } finally {
   summary('S1 tbm day flow e2e');

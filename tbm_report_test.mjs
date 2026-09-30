@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.6: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.61: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
 import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.6';
+const PAGE_VERSION = '0.61';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -717,8 +717,10 @@ $('refreshBtn').addEventListener('click', async () => {
   if (dirty && !confirm('서버에 저장하지 않은 작업계획 변경이 있습니다. 새로고침해도 이 기기의 임시저장은 남습니다. 계속할까요?')) return;
   if (await load()) tell('최신 내용을 불러왔습니다.');
 });
+// 로그아웃하면 이 기기의 작업계획 임시저장(인원 이름 포함)도 지운다 (공용 기기 대비)
 $('logoutBtn').addEventListener('click', async () => {
-  if (!confirm('로그아웃할까요?')) return;
+  if (!confirm(dirty ? '서버에 저장하지 않은 작업계획 변경이 있습니다. 로그아웃하면 이 기기의 임시저장도 지워집니다. 로그아웃할까요?' : '로그아웃할까요?')) return;
+  dirty = false; clearDraft();
   await logout(); location.replace('personnel_test.html');
 });
 $('goLogin').addEventListener('click', async () => { await logout(); location.replace(loginUrl(PAGE)); });
