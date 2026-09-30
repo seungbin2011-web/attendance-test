@@ -72,8 +72,15 @@ function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'Content-Type': isBuffer ? headers['Content-Type'] || 'application/octet-stream' : 'application/json', 'Access-Control-Allow-Origin': '*', ...headers });
   res.end(isBuffer ? body : body === undefined ? '' : JSON.stringify(body));
 }
+// PostgREST의 오류 코드 → HTTP 상태 대응을 흉내 낸다 (화면은 상태가 아니라 message의 코드로 판단)
 function pgError(res, e, role) {
-  const status = e.code === '42501' ? (role === 'anon' ? 401 : 403) : e.code === '42883' ? 404 : e.code === '40001' ? 409 : 400;
+  const c = String(e.code || '');
+  const status = c === '42501' ? (role === 'anon' ? 401 : 403)
+    : c === '42883' || c === '42P01' ? 404
+    : c === '23503' || c === '23505' ? 409
+    : c === 'P0001' ? 400
+    : /^(40|P0|XX|25|55|57|58)/.test(c) ? 500
+    : 400;
   send(res, status, { code: e.code, message: e.message, details: null, hint: null });
 }
 async function readBody(req) {
