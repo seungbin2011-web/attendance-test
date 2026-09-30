@@ -3,6 +3,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
+const REPORT_VERSION = 'v0.2 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -62,7 +63,8 @@ try {
     await page.waitForSelector('#stageHome.active');
     assert.match(await page.textContent('#headerSub'), /공사2팀 · 용인 현장 · .* · 시험이팀장 팀장/);
     assert.equal(await page.textContent('#homeStatus'), '미작성');
-    assert.equal(await page.textContent('#pageVersion'), 'v0.1 TEST');
+    assert.equal(await page.textContent('#pageVersion'), REPORT_VERSION);
+    assert.match(await page.textContent('#footerVersion'), new RegExp(REPORT_VERSION));
     assert.deepEqual(errors, []);
   });
 
@@ -120,7 +122,7 @@ try {
     assert.equal(r.version, 2); assert.deepEqual(r.risks.sort(), ['기타', '전기'].sort()); assert.equal(r.risk_other, '협소 공간');
     assert.equal(r.needs_manager_check, true); assert.equal(r.end_time, '17:30'); assert.equal(r.reporter_label, '시험이팀장');
     assert.deepEqual(r.tasks, [{ no: 1, place: '3층 MDF실', members: ['작업지휘자:T-0026', '작업자:T-0027'] }, { no: 2, place: 'B동 옥상', members: ['신호수:T-0036'] }]);
-    await page.click('[data-go=stageHome]');
+    await page.click('.app-stage.active [data-go=stageHome]');
     assert.equal(await page.textContent('#homeStatus'), '계획 저장');
   });
 
@@ -195,13 +197,51 @@ try {
     await page.click('#savePlan');
     await waitMsg(page, '서버에 저장했습니다');
     const { page: p2 } = leader;
-    await p2.click('[data-go=stageHome]');
+    await p2.click('.app-stage.active [data-go=stageHome]');
     await p2.click('#openPlan');
     const locked = p2.locator('.task-card').first().locator('.task-member', { hasText: '시험삼팀원' });
     assert.match(await locked.textContent(), /시험3팀 배정중/);
     assert.ok(await locked.locator('input').isDisabled());
     const direct = await rpcFromPage(p2, 'tbm_save_plan', { p_payload: { version: 4, tasks: [{ place: 'x', content: 'y', members: [{ person_id: P(51) }] }] } });
     assert.equal(direct.code, 'MEMBER_ASSIGNED_ELSEWHERE'); assert.match(direct.message, /시험삼팀원 \(시험3팀\)/);
+  });
+
+  await step('출근 TBM: 저장 안 한 계획 변경이 있으면 보고를 막음', async () => {
+    const { page } = leader;
+    await page.fill('#safetyNote', '저장 안 한 변경');
+    await page.click('.app-stage.active [data-open=openMorning]');
+    await page.waitForSelector('#stageMorning.active');
+    await page.click('#submitMorning');
+    await waitMsg(page, '작업계획에 저장하지 않은 변경');
+    const rows = await sql(env, `select morning_at from field_pilot_v1.daily_reports where team_id = $1`, [TEAM2]);
+    assert.equal(rows[0].morning_at, null);
+    await page.click('.app-stage.active [data-go=stagePlan]');
+    await page.click('#draftClear');
+  });
+
+  await step('출근 TBM: 계획 요약 표시, 연결 실패 시 성공 표시 없음, 재시도 후 보고 완료', async () => {
+    const { page } = leader;
+    await page.click('.app-stage.active [data-open=openMorning]');
+    await page.waitForSelector('#stageMorning.active');
+    const tasks = await page.textContent('#morningTasks');
+    assert.match(tasks, /작업 1 · 3층 MDF실/); assert.match(tasks, /시험팀원가\(작업지휘자\)/); assert.match(tasks, /시험중복가\(신호수\)/);
+    assert.match(await page.textContent('#morningSummary'), /기타\(협소 공간\)/);
+    await page.fill('#morningNote', '장비 점검 후 작업 시작');
+    await page.route('**/rest/v1/rpc/tbm_submit_morning', route => route.abort());
+    await page.click('#submitMorning');
+    await waitMsg(page, '서버에 연결하지 못했습니다');
+    assert.equal(await page.textContent('#morningBadge'), '보고 전');
+    await page.unroute('**/rest/v1/rpc/tbm_submit_morning');
+    await page.click('#submitMorning');
+    await waitMsg(page, '출근 TBM을 보고했습니다');
+    assert.match(await page.textContent('#morningBadge'), /보고 완료/);
+    assert.ok(await page.isDisabled('#submitMorning'));
+    const rows = await sql(env, `select status, morning_note, morning_at is not null as done from field_pilot_v1.daily_reports where team_id = $1`, [TEAM2]);
+    assert.deepEqual(rows[0], { status: 'SUBMITTED', morning_note: '장비 점검 후 작업 시작', done: true });
+    const hist = await sql(env, `select count(*)::int as n from field_pilot_v1.workflow_history h join field_pilot_v1.daily_reports r on r.id = h.report_id where r.team_id = $1 and h.action = 'MORNING_SUBMIT'`, [TEAM2]);
+    assert.equal(hist[0].n, 1);
+    await page.click('.app-stage.active [data-go=stageHome]');
+    assert.equal(await page.textContent('#homeStatus'), '출근 보고 완료');
   });
 
   await step('팀 공용 팀장계정(2팀장팀)도 같은 보고를 이어서 봄', async () => {

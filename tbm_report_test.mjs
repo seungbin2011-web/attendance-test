@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.1: 오늘 작업계획)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.2: 오늘 작업계획 · 출근 TBM)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel } from './tbm_api_test.mjs';
+import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.1';
+const PAGE_VERSION = '0.2';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -16,7 +16,8 @@ let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {} };
+const slots = { plan: {}, morning: {} };
+const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'CARRY_NOT_AVAILABLE'];
 
 function tell(text, kind = '') { $('message').textContent = text; $('message').className = 'message' + (kind ? ' ' + kind : ''); }
 // 저장 중에는 화면 전체를 덮어 추가 입력·중복 전송을 막는다 (busy 플래그로 한 번 더 확인)
@@ -120,7 +121,13 @@ function renderAll() {
   const now = steps.findIndex(s => !s[1]);
   $('homeSteps').innerHTML = steps.map(([label, done], i) => `<div class="step ${done ? 'done' : i === now ? 'now' : ''}">${label}${done ? ' ✓' : ''}</div>`).join('');
   $('openPlanSub').textContent = r ? '보기 · 수정' : '먼저 작성';
+  $('openMorningSub').textContent = r?.morning_at ? `보고 완료 ${kstTime(r.morning_at)}` : '작업계획 공유';
+  $('openMorning').classList.toggle('done', !!r?.morning_at);
+  const hour = kstNowHour();
+  const recommended = !r ? 'openPlan' : !r.morning_at || hour < 11 ? 'openMorning' : null;
+  ['openPlan', 'openMorning'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
   renderPlan();
+  renderMorning();
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
 
@@ -271,8 +278,75 @@ async function savePlan() {
 }
 $('savePlan').addEventListener('click', savePlan);
 
+// ---------- 출근 TBM ----------
+function risksText(r) { return [...(r.risks || []).filter(x => x !== '기타'), ...(r.risks?.includes('기타') ? [`기타(${r.risk_other || '-'})`] : [])].join(', ') || '없음'; }
+function tasksHtml(r) {
+  return r.tasks.map(t => `<div class="plan-view-item"><strong>작업 ${t.task_no} · ${escapeHtml(t.place)}</strong>
+    <span>${escapeHtml(t.content)}</span>
+    <span>인원: ${t.members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'}</span></div>`).join('');
+}
+function renderMorning() {
+  const r = report();
+  const done = !!r?.morning_at;
+  $('morningBadge').textContent = done ? `보고 완료 ${kstTime(r.morning_at)}` : '보고 전';
+  $('morningBadge').className = 'badge' + (done ? ' ok' : '');
+  if (!r) {
+    $('morningSummary').textContent = '오늘 작업계획이 아직 없습니다. 작업계획을 먼저 저장해주세요.';
+    $('morningTasks').innerHTML = ''; $('submitMorning').disabled = true; $('morningState').textContent = ''; return;
+  }
+  $('morningSummary').innerHTML = `<dl class="kv"><dt>예상 종료</dt><dd>${escapeHtml(r.end_time || '-')}</dd>
+    <dt>위험요인</dt><dd>${escapeHtml(risksText(r))}</dd><dt>안전조치</dt><dd>${escapeHtml(r.safety_note || '-')}</dd>
+    ${r.issue_note ? `<dt>특이사항</dt><dd>${escapeHtml(r.issue_note)}</dd>` : ''}${r.needs_manager_check ? '<dt>소장 확인</dt><dd>필요</dd>' : ''}</dl>`;
+  $('morningTasks').innerHTML = tasksHtml(r);
+  if (done) { $('morningNote').value = r.morning_note || ''; }
+  $('morningNote').disabled = done || !editable();
+  $('submitMorning').disabled = done || !editable();
+  $('submitMorning').textContent = done ? '출근 TBM 보고 완료' : '출근 TBM 보고';
+  $('morningState').className = 'server-state' + (done ? ' ok' : '');
+  $('morningState').textContent = done ? `서버 저장됨 · ${kstTime(r.morning_at)} 보고` : '아직 보고하지 않았습니다.';
+}
+// 작업계획에 저장하지 않은 변경이 있으면 다른 보고를 막는다 (서버 최신 버전과 어긋나지 않게)
+function planIsDirty() {
+  if (!dirty) return false;
+  tell('작업계획에 저장하지 않은 변경이 있습니다. 작업계획을 먼저 저장하거나 임시저장을 삭제해주세요.', 'error');
+  return true;
+}
+function applyReport(r) {
+  today.report = r;
+  if (!dirty) form = formFromReport(r);
+  renderAll();
+}
+async function handleActionError(e) {
+  if (RELOAD_CODES.includes(e.code)) { await load({ quiet: true }); tell(describeError(e), 'error'); }
+  else if (BLOCKING.includes(e.code)) block(describeError(e));
+  else tell(describeError(e) + (e.code === 'NETWORK' || e.code === 'TIMEOUT' ? '' : ' (서버에 저장되지 않았습니다)'), 'error');
+}
+async function submitMorning() {
+  const r = report();
+  if (busy || !r || r.morning_at || planIsDirty()) return;
+  const note = $('morningNote').value.trim();
+  const request_id = requestIdFor(slots.morning, { id: r.id, note });
+  setBusy(true, '출근 TBM 보고 중');
+  try {
+    const res = await rpc('tbm_submit_morning', { p_report_id: r.id, p_note: note || null, p_request_id: request_id });
+    slots.morning = {};
+    applyReport(res.report);
+    tell(`출근 TBM을 보고했습니다 (${kstTime(res.report.morning_at)}).`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+$('submitMorning').addEventListener('click', submitMorning);
+$('openMorning').addEventListener('click', async () => {
+  if (!dirty) await load({ quiet: true });
+  if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
+  showStage('stageMorning');
+});
+
 // ---------- 이동·기타 ----------
-document.addEventListener('click', e => { const go = e.target.closest('[data-go]')?.dataset.go; if (go) showStage(go); });
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]')?.dataset.go; if (go) showStage(go);
+  const open = e.target.closest('[data-open]')?.dataset.open; if (open) $(open).click();
+});
 $('openPlan').addEventListener('click', async () => {
   if (!dirty) await load({ quiet: true }); // 다른 팀 배정 현황을 최신으로
   showStage('stagePlan');
