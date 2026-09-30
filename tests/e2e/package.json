@@ -1,0 +1,11 @@
+{
+  "name": "attendance-test-e2e",
+  "private": true,
+  "type": "module",
+  "description": "로컬 시험 전용: Supabase 흉내 게이트웨이 + Playwright 시험 (실제 Supabase에 연결하지 않음)",
+  "scripts": { "test": "bash ./run_e2e.sh" },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "pg": "^8.13.0"
+  }
+}

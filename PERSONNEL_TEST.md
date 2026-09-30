@@ -1,4 +1,4 @@
-# 인원DB 통합 로그인 시험 v0.7
+# 인원DB 통합 로그인 시험 v0.9
 
 진입점: `personnel_test.html`(일반 인원과 업무 계정 통합 로그인), `admin_sql_test.html`(관리자·소장 전용 인원 및 출결등급 관리). `index_test.html`·`leader_test.html`은 첫 화면으로, `admin_test.html`은 SQL 관리자 화면으로 연결한다. 기존 운영 페이지/Apps Script는 변경하지 않는다.
 
@@ -14,6 +14,59 @@ Supabase `work-status-test`의 격리 스키마 `personnel_pilot_v1`에 가져�
 | 일반 명부 인원 | 본인 팀원 화면 | 불가 |
 
 수치는 최초 반입 기준이다. 관리자·소장·팀장은 Supabase 업무 계정으로 로그인하며 권한은 공개 JS의 역할 값이 아니라 서버 로그인 연결과 DB 함수에서 검사한다. 일반 인원은 통합 로그인 화면에서 기존 정식 인원DB의 이름과 휴대폰 번호 뒤 4자리로 본인 확인한 뒤 팀원 화면만 이용한다. 업무 계정 토큰은 같은 탭의 `sessionStorage`에만 보관해 페이지 이동과 새로고침을 지원한다.
+
+## v0.9 적용 내용 (화면, 전환 단계 S0-4·S0-5)
+
+- `personnel_test.html` / `personnel_test.mjs` TEST v0.9
+  - 일반 인원·팀장: 이름 + 개인 PIN 6자리 → Edge Function `member-login` → 개인 Supabase 세션
+  - 로그인 후 역할·팀은 서버 `pilot_whoami` 결과로만 정한다. (화면·로그인 응답의 역할 값을 믿지 않음)
+  - 임시 PIN으로 처음 로그인하면 "개인 PIN 변경" 화면이 먼저 나온다. PIN은 브라우저 저장소에 남기지 않는다.
+  - `?next=` 이동은 허용된 시험 화면과 역할 조합만 따른다.
+  - 전환 기간: 휴대폰 뒤 4자리(Apps Script) 경로를 `LEGACY_ROSTER_LOGIN = true`로 유지한다. PIN 발급이 끝나면 false로 바꾼다.
+  - 관리자 전용 `admin_sql_test.html`은 개인 PIN 로그인을 받지 않는다.
+- `leader_test.html` v0.42: 로그인 조건에 새 인증 출처 `supabase-pin` 허용 (그 외 변경 없음)
+- `admin_test.html`은 변경하지 않는다. 개인 PIN 로그인으로는 소장·관리자 권한을 받을 수 없기 때문이다.
+
+## v0.8 적용 내용 (SQL, 전환 단계 S0-2·S0-3)
+
+- `personnel_auth_v08.sql`: 개인 PIN(해시), 로그인 시도 기록·잠금, `pilot_whoami`, `require_actor`
+  - 같은 이름 연속 5회 실패 시 30분 잠금, IP별 15분 20회, 전체 1시간 100회 한도
+  - PIN 로그인 허용 역할은 MEMBER·TEAM_LEADER. 소장·관리자는 업무계정만 사용
+  - 퇴사(inactive)가 아니고 PIN이 발급된 사람만 로그인 가능. unknown 인원을 일괄 변경하지 않는다.
+- `personnel_auth_v08_check.sql`: 적용 후 읽기 전용 확인 / `personnel_auth_v08_rollback.sql`: 되돌리기
+- `personnel_membership_v08_template.sql`: 현장 명부 확인 후 쓰는 팀·소속·팀장 반입 템플릿 (비어 있으면 변경 없음)
+- `supabase/functions/member-login`: 배포 방법은 폴더의 README 참고 (Verify JWT 끄기)
+
+### 적용 순서 (사용자 작업)
+
+1. SQL Editor에서 `personnel_auth_v08.sql` 전체 실행
+2. `personnel_auth_v08_check.sql` 실행 → anon 실행 권한이 모두 false인지 확인
+3. Edge Function `member-login` 배포 (Verify JWT 끄기)
+4. 시험 인원에게 임시 PIN 발급 (SQL Editor, 결과 화면에서만 PIN이 보인다. 본인에게 직접 전달)
+
+```sql
+select legacy_user_id, display_name, team_name, temp_pin
+from personnel_pilot_v1.admin_issue_temp_pins(
+  array(select id from personnel_pilot_v1.people where legacy_user_id = '사용자ID' and display_name = '이름'),
+  '시험 발급');
+```
+
+5. 잠금 해제·사용 중지가 필요할 때
+
+```sql
+select personnel_pilot_v1.admin_unlock_member((select id from personnel_pilot_v1.people where legacy_user_id = '사용자ID' and display_name = '이름'), '잠금 해제 사유');
+select personnel_pilot_v1.admin_set_member_login((select id from personnel_pilot_v1.people where legacy_user_id = '사용자ID' and display_name = '이름'), false, '사용 중지 사유');
+```
+
+### 수동 설정 (Supabase Dashboard)
+
+- Authentication → Sign In / Providers → "Allow new users to sign up" 끄기 (브라우저에서 임의 가입 방지)
+- 개인 PIN 로그인은 가입 기능을 쓰지 않으므로 꺼도 동작한다.
+
+### 로컬 시험
+
+- `tests/run_sql_tests.sh`: 흉내 DB에서 SQL 적용·권한·잠금·롤백 시험
+- `tests/e2e/run_e2e.sh`: 흉내 게이트웨이 + 실제 Edge Function 코드 + Chromium으로 역할별 이동 시험
 
 ## v0.7 적용 내용
 

@@ -4,8 +4,14 @@ const SESSION_KEY = 'personnelPilotSessionV2';
 const roleNames = { ADMIN: '관리자', MANAGER: '소장', LEADER: '팀장' };
 const organizationApiUrl = 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
 let session = null, roster = null, editing = null, gradeEditing = null, generation = 0;
+// 전환 기간: 기존 이름+휴대폰 뒤 4자리(Apps Script) 로그인을 함께 허용한다. 개인 PIN 발급이 끝나면 false로 바꾼다.
+const LEGACY_ROSTER_LOGIN = true;
+// 로그인 후 ?next=로 이동할 수 있는 시험 화면과 허용 역할 (서버에서 받은 역할 기준)
+const NEXT_PAGES = { 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'] };
+let pendingPin = '';
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
-const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.' };
+const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.' };
+const pinMessages = { INVALID_CREDENTIALS: '현재 PIN이 맞지 않습니다.', PIN_NOT_ALLOWED: '사용할 수 없는 PIN입니다. 같은 숫자 반복·연속 숫자·현재 PIN은 쓸 수 없습니다.', LOCKED: 'PIN 변경 실패가 반복되어 잠시 잠겼습니다. 15분 뒤 다시 시도해주세요.', NOT_MEMBER_SESSION: '개인 로그인에서만 PIN을 바꿀 수 있습니다.' };
 function tell(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
 function saveSession() {
   if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -60,18 +66,61 @@ async function loginRosterMember(name, pin) {
   tell(`${user.name}님 확인 완료 · ${destinationLabel}으로 이동합니다.`);
   setTimeout(() => { location.href = destination; }, 350);
 }
+function nextPage(appRole) {
+  const next = new URLSearchParams(location.search).get('next');
+  return next && NEXT_PAGES[next]?.includes(appRole) ? next : '';
+}
+async function callMemberLogin(name, pin) {
+  let response;
+  try {
+    response = await fetch(endpoint + '/functions/v1/member-login', { method: 'POST', headers: { apikey: publishableKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, pin }), signal: AbortSignal.timeout(20000) });
+  } catch (_) { throw new Error('로그인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.'); }
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok || !result.access_token) throw new Error(result.message || `로그인에 실패했습니다 (${response.status}).`);
+  return result;
+}
+// 역할·팀은 로그인 결과가 아니라 서버의 pilot_whoami 결과로만 정한다.
+function memberSessionUser(actor) {
+  return { name: actor.name, userId: actor.user_id, personId: actor.person_id, team: actor.team || '', rank: actor.rank || '', role: actor.role_label, job: actor.job || '', attendanceGrade: actor.attendance_grade || 'A', appRole: actor.app_role, authSource: 'supabase-pin' };
+}
+async function loginMemberPin(name, pin) {
+  const auth = await callMemberLogin(name, pin);
+  session = { access_token: auth.access_token, refresh_token: auth.refresh_token, expires_in: auth.expires_in, expiresAt: Date.now() + auth.expires_in * 1000, kind: 'member' };
+  saveSession(); generation++; pendingPin = pin;
+  await continueMemberSession();
+}
+async function continueMemberSession() {
+  const actor = await rpc('pilot_whoami');
+  if (actor.kind !== 'MEMBER_PIN') throw new Error('개인 로그인 세션이 아닙니다. 다시 로그인해주세요.');
+  if (actor.must_change_pin) { showPinChange(actor); return; }
+  pendingPin = '';
+  const user = memberSessionUser(actor);
+  sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
+  sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
+  const destination = nextPage(actor.app_role) || (actor.app_role === 'LEADER' ? 'leader_test.html' : 'member_test.html');
+  tell(`${actor.name}님 확인 완료 · ${actor.app_role === 'LEADER' ? '팀장 화면' : '팀원 화면'}으로 이동합니다.`);
+  setTimeout(() => { location.href = destination; }, 350);
+}
+function showPinChange(actor) {
+  $('loginPanel').hidden = true; $('directory').hidden = true; $('pinPanel').hidden = false;
+  $('pinWho').textContent = `${actor.name} · ${actor.team || '팀 미지정'} · ${actor.role_label}`;
+  $('pinCurrent').value = pendingPin; $('pinNew').value = ''; $('pinConfirm').value = '';
+  (pendingPin ? $('pinNew') : $('pinCurrent')).focus();
+  tell('처음 사용하는 PIN입니다. 본인만 아는 새 PIN으로 바꿔주세요.');
+}
 async function rpc(name, body = {}) {
   if (!session) throw new Error('로그인이 필요합니다.');
   if (Date.now() > session.expiresAt - 30000) {
     try {
       const renewed = await call('/auth/v1/token?grant_type=refresh_token', { refresh_token: session.refresh_token });
-      session = { ...renewed, expiresAt: Date.now() + renewed.expires_in * 1000 }; saveSession();
+      session = { ...renewed, kind: session.kind, expiresAt: Date.now() + renewed.expires_in * 1000 }; saveSession();
     } catch (e) { clearSession(); throw new Error('로그인이 만료됐습니다. 다시 로그인해주세요.'); }
   }
   return call('/rest/v1/rpc/' + name, body, session.access_token);
 }
 function clearSession() {
-  generation++; session = null; roster = null; editing = null; gradeEditing = null;
+  generation++; session = null; roster = null; editing = null; gradeEditing = null; pendingPin = '';
+  if ($('pinPanel')) { $('pinPanel').hidden = true; $('pinCurrent').value = ''; $('pinNew').value = ''; $('pinConfirm').value = ''; }
   document.body.classList.remove('admin-mode');
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('attendanceAuthUser'); sessionStorage.removeItem('tbmAuthUser');
@@ -101,6 +150,8 @@ async function loadRoster() {
     if (!roleNames[result.app_role]) throw new Error('팀장·소장·관리자 계정만 사용할 수 있습니다.');
     roster = result;
     syncRoleSession(result);
+    const next = document.body.dataset.adminOnly === 'true' ? '' : nextPage(result.app_role);
+    if (next) { location.replace(next); return; }
     if (document.body.dataset.adminOnly !== 'true' && result.app_role !== 'ADMIN') {
       location.replace(result.app_role === 'LEADER' ? 'leader_test.html' : 'admin_test.html');
       return;
@@ -164,8 +215,15 @@ $('loginForm').addEventListener('submit', async event => {
     const password = $('password').value;
     const account = accounts.find(a => a.login === loginName);
     if (!account) {
-      await loginRosterMember(loginName, password.replace(/\D/g, ''));
-      return;
+      const digits = password.replace(/\D/g, '');
+      $('password').value = '';
+      if (digits.length === 6) {
+        if (document.body.dataset.adminOnly === 'true') throw new Error('이 페이지는 관리자 또는 소장 업무 계정만 사용할 수 있습니다.');
+        await loginMemberPin(loginName, digits);
+        return;
+      }
+      if (LEGACY_ROSTER_LOGIN && digits.length === 4) { await loginRosterMember(loginName, digits); return; }
+      throw new Error('개인 PIN 6자리를 입력해주세요.' + (LEGACY_ROSTER_LOGIN ? ' (전환 기간에는 휴대폰 번호 뒤 4자리도 가능합니다.)' : ''));
     }
     const auth = await call('/auth/v1/token?grant_type=password', { email: account.email, password });
     $('password').value = ''; session = { ...auth, expiresAt: Date.now() + auth.expires_in * 1000 }; saveSession(); generation++;
@@ -179,6 +237,21 @@ $('logout').addEventListener('click', async () => {
   if (token) await call('/auth/v1/logout', {}, token).catch(() => tell('이 화면에서는 로그아웃했습니다. 서버 세션 종료는 연결 문제로 확인하지 못했습니다.', true));
 });
 $('search').addEventListener('input', render); $('teamFilter').addEventListener('change', render);
+if ($('pinForm')) $('pinForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const current = $('pinCurrent').value.replace(/\D/g, ''), next = $('pinNew').value.replace(/\D/g, ''), confirm = $('pinConfirm').value.replace(/\D/g, '');
+  if (!/^\d{6}$/.test(current) || !/^\d{6}$/.test(next)) { tell('PIN은 숫자 6자리로 입력해주세요.', true); return; }
+  if (next !== confirm) { tell('새 PIN과 확인 값이 다릅니다.', true); return; }
+  $('pinButton').disabled = true;
+  try {
+    const result = await rpc('pilot_member_change_pin', { p_current_pin: current, p_new_pin: next });
+    if (!result.ok) { tell(pinMessages[result.code] || 'PIN을 바꾸지 못했습니다.', true); return; }
+    pendingPin = ''; $('pinCurrent').value = ''; $('pinNew').value = ''; $('pinConfirm').value = '';
+    tell('PIN을 바꿨습니다.');
+    await continueMemberSession();
+  } catch (e) { tell(e.message, true); if (!session) $('loginPanel').hidden = false; }
+  finally { $('pinButton').disabled = false; }
+});
 $('cancel').addEventListener('click', () => $('editDialog').close());
 $('gradeCancel').addEventListener('click', () => $('gradeDialog').close());
 $('editForm').addEventListener('submit', async event => {
@@ -210,4 +283,6 @@ $('gradeForm').addEventListener('submit', async event => {
 });
 
 restoreSession();
-if (session) loadRoster().then(() => tell('로그인 상태를 복원했습니다.')).catch(e => { clearSession(); tell(e.message, true); });
+if (session?.kind === 'member' && document.body.dataset.adminOnly === 'true') { clearSession(); tell('관리자 또는 소장 업무 계정으로 로그인해주세요.', true); }
+else if (session?.kind === 'member') continueMemberSession().catch(e => { clearSession(); tell(e.message, true); });
+else if (session) loadRoster().then(() => tell('로그인 상태를 복원했습니다.')).catch(e => { clearSession(); tell(e.message, true); });
