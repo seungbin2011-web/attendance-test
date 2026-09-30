@@ -3,8 +3,8 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.3 TEST';
-const MANAGER_VERSION = 'v0.1 TEST';
+const REPORT_VERSION = 'v0.4 TEST';
+const MANAGER_VERSION = 'v0.2 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -378,6 +378,93 @@ try {
     await page.waitForSelector('#stageHome.active');
   });
 
+  await step('오후 TBM: "전체 이상 없음" 한 번으로 저장 (연결 실패 시 성공 표시 없음, 두 번 눌러도 한 번)', async () => {
+    const { page } = leader;
+    await page.click('#openAfternoon');
+    await page.waitForSelector('#stageAfternoon.active');
+    assert.equal(await page.textContent('#afternoonAllClear'), '전체 이상 없음');
+    assert.equal(await page.textContent('#afternoonBadge'), '확인 전');
+    await page.fill('#afternoonNote', '오후 작업 순서 공유');
+    await page.route('**/rest/v1/rpc/tbm_afternoon_all_clear', route => route.abort());
+    await page.click('#afternoonAllClear');
+    await waitMsg(page, '서버에 연결하지 못했습니다');
+    assert.equal(await page.textContent('#afternoonBadge'), '확인 전');
+    await page.unroute('**/rest/v1/rpc/tbm_afternoon_all_clear');
+    let calls = 0; const count = r => { if (r.url().includes('tbm_afternoon_all_clear')) calls++; };
+    page.on('request', count);
+    await page.dblclick('#afternoonAllClear');
+    await waitMsg(page, '오후 TBM을 저장했습니다');
+    page.off('request', count);
+    assert.equal(calls, 1);
+    assert.match(await msg(page), /2건을 정상/);
+    assert.match(await page.textContent('#afternoonBadge'), /확인 \d\d:\d\d/);
+    assert.equal(await page.textContent('#afternoonAllClear'), '모든 작업 확인됨');
+    assert.equal(await page.locator('.task-tbm-card.saved').count(), 2);
+    const rows = await sql(env, `select afternoon_note, (select string_agg(alert, ',' order by task_no) from field_pilot_v1.report_tasks k where k.report_id = r.id and k.is_active) as alerts
+      from field_pilot_v1.daily_reports r where team_id = $1 and work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]);
+    assert.deepEqual(rows[0], { afternoon_note: '오후 작업 순서 공유', alerts: 'NORMAL,NORMAL' });
+  });
+
+  await step('오후 TBM: 위험은 내용 없이 저장 안 됨, 내용·조치 적으면 작업별 저장', async () => {
+    const { page } = leader;
+    let calls = 0; const count = r => { if (r.url().includes('tbm_task_alert')) calls++; };
+    page.on('request', count);
+    const card2 = page.locator('.task-tbm-card').nth(1);
+    await card2.locator('[data-alert=RISK]').click();
+    await card2.locator('[data-alert-save]').click();
+    await waitMsg(page, '2자 이상');
+    assert.equal(calls, 0);
+    await card2.locator('[data-aedit=note]').fill('옥상 끝단 추락 위험');
+    await card2.locator('[data-aedit=action]').fill('안전난간 추가 설치 요청');
+    await card2.locator('[data-alert-save]').click();
+    await waitMsg(page, "작업 2을(를) '위험'(으)로 저장했습니다");
+    page.off('request', count);
+    assert.equal(calls, 1);
+    assert.ok((await page.locator('.task-tbm-card').nth(1).getAttribute('class')).includes('is-risk'));
+    assert.match(await page.locator('.task-tbm-card').nth(1).textContent(), /옥상 끝단 추락 위험 · 조치: 안전난간 추가 설치 요청/);
+  });
+
+  await step('오후 TBM: 변경은 위치·인원까지 바꿔 저장, 다른 팀 배정 인원은 잠김, 이력에 전후 기록', async () => {
+    const { page } = leader;
+    const card1 = page.locator('.task-tbm-card').nth(0);
+    await card1.locator('[data-alert=CHANGED]').click();
+    const locked = page.locator('.task-tbm-card').nth(0).locator('.task-member', { hasText: '시험삼팀원' });
+    assert.ok(await locked.locator('input').isDisabled());
+    await page.locator('.task-tbm-card').nth(0).locator('[data-aedit=note]').fill('MDF실 선행공정 지연으로 위치 변경');
+    await page.locator('.task-tbm-card').nth(0).locator('[data-aedit=place]').fill('4층 EPS실');
+    await page.locator('.task-tbm-card').nth(0).locator('.task-member', { hasText: '시험팀원나' }).locator('input').uncheck();
+    await page.locator('.task-tbm-card').nth(0).locator('.task-member', { hasText: '시험이팀장' }).locator('input').check();
+    await page.locator('.task-tbm-card').nth(0).locator('.task-member', { hasText: '시험이팀장' }).locator('select').selectOption('작업지휘자');
+    await page.locator('.task-tbm-card').nth(0).locator('.task-member', { hasText: '시험팀원가' }).locator('select').selectOption('작업자');
+    await page.locator('.task-tbm-card').nth(0).locator('[data-alert-save]').click();
+    await waitMsg(page, "작업 1을(를) '변경'(으)로 저장했습니다");
+    const t = await sql(env, `select k.place, k.alert, (select string_agg(a.work_role || ':' || a.legacy_user_id, ',' order by a.legacy_user_id) from field_pilot_v1.task_assignments a where a.task_id = k.id) as members,
+      (select count(*)::int from field_pilot_v1.workflow_history h where h.entity_id = k.id and h.action = 'TASK_CHANGED' and h.before_data ->> 'place' = '3층 MDF실' and h.after_data ->> 'place' = '4층 EPS실') as hist
+      from field_pilot_v1.report_tasks k join field_pilot_v1.daily_reports r on r.id = k.report_id where r.team_id = $1 and k.task_no = 1 and k.is_active and r.work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]);
+    assert.deepEqual(t[0], { place: '4층 EPS실', alert: 'CHANGED', members: '작업지휘자:T-0025,작업자:T-0026', hist: 1 });
+    await page.click('.app-stage.active [data-go=stageHome]');
+    assert.match(await page.textContent('#openAfternoonSub'), /이상 2건/);
+  });
+
+  await step('소장 현황 v0.2: 오후 확인 시각, 위험·변경 수, 작업별 오후 내용', async () => {
+    const { page } = manager;
+    await page.fill('#dateInput', await page.evaluate(() => document.querySelector('#dateInput').max));
+    await page.dispatchEvent('#dateInput', 'change');
+    await page.waitForFunction(() => document.querySelector('#headerSub').textContent.includes('(오늘)'));
+    await page.click('#refreshBtn');
+    await waitMsg(page, '최신 현황');
+    const team2 = await page.locator('.team-card[data-team=공사2팀]').textContent();
+    assert.match(team2, /오후 \d\d:\d\d/); assert.match(team2, /위험 1/); assert.match(team2, /변경 1/);
+    assert.match(team2, /4층 EPS실/); assert.match(team2, /\[위험\]/);
+    await page.click('.team-card[data-team=공사2팀] [data-detail]');
+    await page.waitForSelector('#stageDetail.active');
+    const body = await page.textContent('#detailBody');
+    assert.match(body, /오후 작업 순서 공유/);
+    assert.match(body, /위험 · 옥상 끝단 추락 위험 · 조치: 안전난간 추가 설치 요청/);
+    assert.match(body, /변경 · MDF실 선행공정 지연으로 위치 변경/);
+    await page.click('.app-stage.active [data-go=stageList]');
+  });
+
   await step('팀 공용 팀장계정(2팀장팀)도 같은 보고를 이어서 봄', async () => {
     const { page } = await loginWork('2팀장팀');
     await page.waitForURL(/tbm_report_test\.html/);
@@ -412,6 +499,14 @@ try {
     await thumbsLoaded(page, 'MORNING');
     assert.ok(await noHorizontalScroll(page));
     await page.screenshot({ path: 'artifacts/s1_report_morning_mobile.png', fullPage: true });
+    await page.click('.app-stage.active [data-open=openAfternoon]');
+    await page.waitForSelector('#stageAfternoon.active');
+    await page.locator('.task-tbm-card').nth(0).locator('[data-alert=CHANGED]').click();
+    assert.ok(await noHorizontalScroll(page));
+    const riskButtons = await page.locator('.task-tbm-card.is-risk .task-status-buttons').boundingBox();
+    assert.ok(riskButtons.width > 280, `위험 카드 버튼 줄이 좁음: ${riskButtons.width}`);
+    await page.screenshot({ path: 'artifacts/s1_report_afternoon_mobile.png', fullPage: true });
+    await page.locator('.task-tbm-card').nth(0).locator('[data-alert-cancel]').click();
     assert.deepEqual(errors, []);
     const m = await loginWork('소장', 'tbm_manager_test.html', { mobile: true });
     await m.page.waitForSelector('#stageList.active .team-card');

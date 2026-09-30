@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.3: 오늘 작업계획 · 출근 TBM · TBM 사진)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.4: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
 import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.3';
+const PAGE_VERSION = '0.4';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -16,7 +16,8 @@ let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {} };
+const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
 const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'CARRY_NOT_AVAILABLE'];
 
 function tell(text, kind = '') { $('message').textContent = text; $('message').className = 'message' + (kind ? ' ' + kind : ''); }
@@ -123,11 +124,15 @@ function renderAll() {
   $('openPlanSub').textContent = r ? '보기 · 수정' : '먼저 작성';
   $('openMorningSub').textContent = r?.morning_at ? `보고 완료 ${kstTime(r.morning_at)}` : '작업계획 공유';
   $('openMorning').classList.toggle('done', !!r?.morning_at);
+  const flagged = (r?.tasks || []).filter(t => ['CHANGED', 'DELAYED', 'RISK'].includes(t.alert)).length;
+  $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}` : '정상 · 변경 · 지연 · 위험';
+  $('openAfternoon').classList.toggle('done', !!r?.afternoon_at);
   const hour = kstNowHour();
-  const recommended = !r ? 'openPlan' : !r.morning_at || hour < 11 ? 'openMorning' : null;
-  ['openPlan', 'openMorning'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
+  const recommended = !r ? 'openPlan' : !r.morning_at || hour < 11 ? 'openMorning' : !r.afternoon_at || hour < 15 ? 'openAfternoon' : null;
+  ['openPlan', 'openMorning', 'openAfternoon'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
   renderPlan();
   renderMorning();
+  renderAfternoon();
   renderPhotos();
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
@@ -419,6 +424,130 @@ async function removePhoto(id) {
 }
 document.addEventListener('change', e => { const kind = e.target.dataset?.photoInput; if (kind) addPhotos(kind, e.target); });
 document.addEventListener('click', e => { const id = e.target.closest('[data-photo-remove]')?.dataset.photoRemove; if (id) removePhoto(id); });
+
+// ---------- 오후 TBM (전체 이상 없음 한 번, 이상 있는 작업만 상세) ----------
+let alertEdit = null; // 열려 있는 작업 상세 입력 { taskId, alert, note, action, place, content, members }
+let afternoonNoteTouched = false;
+function membersLine(members) { return members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'; }
+function alertMemberPicker(edit) {
+  const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
+  return today.members.map(m => {
+    const chosen = edit.members.find(x => x.person_id === m.person_id);
+    const lock = lockMap.get(m.person_id);
+    return `<label class="task-member ${lock && !chosen ? 'locked' : ''}"><input type="checkbox" data-amember="${m.person_id}" ${chosen ? 'checked' : ''} ${lock && !chosen ? 'disabled' : ''}>
+      <span>${escapeHtml(m.name)}</span>${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
+      ${chosen ? `<select class="task-role-select" data-arole="${m.person_id}" aria-label="${escapeHtml(m.name)} 역할">${ROLES.map(r => `<option ${chosen.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>` : ''}</label>`;
+  }).join('');
+}
+function renderAfternoon() {
+  const r = report();
+  const ready = !!r?.morning_at && editable();
+  $('afternoonBlocked').hidden = ready;
+  $('afternoonBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '소장 확인이 끝난 보고라 수정할 수 없습니다.' : '';
+  $('afternoonBadge').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}` : '확인 전';
+  $('afternoonBadge').className = 'badge' + (r?.afternoon_at ? ' ok' : '');
+  if (r?.afternoon_note && !afternoonNoteTouched) $('afternoonNote').value = r.afternoon_note;
+  $('afternoonNote').disabled = !ready;
+  const open = (r?.tasks || []).filter(t => !t.result);
+  const untouched = open.filter(t => t.alert === 'NONE');
+  $('afternoonAllClear').disabled = !ready || !untouched.length;
+  $('afternoonAllClear').textContent = !open.length ? '확인할 작업이 없습니다' : !untouched.length ? '모든 작업 확인됨' : untouched.length === open.length ? '전체 이상 없음' : `나머지 ${untouched.length}건 이상 없음`;
+  $('afternoonTasks').innerHTML = (r?.tasks || []).map(t => {
+    const closed = !!t.result;
+    const editing = alertEdit?.taskId === t.id ? alertEdit : null;
+    const selected = editing ? editing.alert : t.alert;
+    const cls = t.alert === 'RISK' ? 'is-risk' : ['CHANGED', 'DELAYED'].includes(t.alert) ? 'is-alert' : t.alert === 'NORMAL' ? 'saved' : '';
+    const label = closed ? '퇴근 결과 입력됨' : ALERTS[t.alert] ? `${ALERTS[t.alert]} 저장됨` : '미확인';
+    const buttons = Object.entries(ALERTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'NORMAL' ? 'normal' : 'danger'} ${selected === code ? 'selected' : ''}"
+      data-alert="${code}" data-task-id="${t.id}" ${!ready || closed ? 'disabled' : ''}>${name}</button>`).join('');
+    const editor = editing && editing.alert !== 'NORMAL' ? `<div class="task-detail-editor">
+      <div class="field"><label class="label">${{ CHANGED: '변경 내용', DELAYED: '지연 사유', RISK: '위험 내용' }[editing.alert]} (필수)</label><textarea data-aedit="note" maxlength="500" placeholder="2자 이상">${escapeHtml(editing.note)}</textarea></div>
+      <div class="field"><label class="label">조치 / 요청사항 (선택)</label><textarea data-aedit="action" maxlength="500" placeholder="예: 자재 추가 요청, 작업 순서 변경">${escapeHtml(editing.action)}</textarea></div>
+      ${editing.alert === 'CHANGED' ? `<div class="field"><label class="label">작업 위치</label><input data-aedit="place" maxlength="120" value="${escapeHtml(editing.place)}"></div>
+      <div class="field"><label class="label">작업 내용</label><textarea data-aedit="content" maxlength="500">${escapeHtml(editing.content)}</textarea></div>
+      <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">${editing.members.length}명 선택</span></div>
+      <div class="task-members">${alertMemberPicker(editing)}</div>` : ''}
+      <div class="btn-row" style="margin-top:10px"><button type="button" class="task-save-btn" data-alert-save="${t.id}">이 작업 저장</button><button type="button" class="task-save-btn" style="background:#EEF4FA;color:var(--navy)" data-alert-cancel>취소</button></div>
+    </div>` : '';
+    return `<div class="task-tbm-card ${cls}" data-afternoon-task="${t.id}">
+      <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
+        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}</div>
+        ${t.alert_note ? `<div class="task-tbm-meta"><strong>${ALERTS[t.alert] || ''}</strong> ${escapeHtml(t.alert_note)}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}</div>` : ''}</div>
+        <span class="task-save-state">${label}</span></div>
+      <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
+  }).join('');
+  $('afternoonState').className = 'server-state' + (r?.afternoon_at ? ' ok' : '');
+  $('afternoonState').textContent = r?.afternoon_at ? `서버 저장됨 · ${kstTime(r.afternoon_at)} 첫 확인` : '아직 오후 TBM을 저장하지 않았습니다.';
+}
+async function saveAlert(taskId, alert) {
+  if (busy || planIsDirty()) return;
+  const task = report().tasks.find(t => t.id === taskId);
+  const edit = alertEdit?.taskId === taskId ? alertEdit : null;
+  const note = alert === 'NORMAL' ? null : (edit?.note || '').trim();
+  if (alert !== 'NORMAL' && note.length < 2) { tell('내용을 2자 이상 적어주세요.', 'error'); return; }
+  let change = null;
+  if (alert === 'CHANGED') {
+    if (!edit.place.trim() || !edit.content.trim()) { tell('변경 후 작업 위치와 작업 내용을 입력해주세요.', 'error'); return; }
+    if (!edit.members.length) { tell('투입 인원을 1명 이상 선택해주세요.', 'error'); return; }
+    change = { place: edit.place.trim(), content: edit.content.trim(), members: edit.members };
+  }
+  const args = { p_task_id: taskId, p_alert: alert, p_note: note, p_action: alert === 'NORMAL' ? null : (edit?.action || '').trim() || null, p_change: change };
+  args.p_request_id = requestIdFor(slots.alert, args);
+  setBusy(true, '오후 TBM 저장 중');
+  try {
+    const res = await rpc('tbm_task_alert', args);
+    slots.alert = {}; alertEdit = null;
+    applyReport(res.report);
+    tell(`작업 ${task.task_no}을(를) '${ALERTS[alert]}'(으)로 저장했습니다.`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+async function afternoonAllClear() {
+  const r = report();
+  if (busy || !r || planIsDirty()) return;
+  const note = $('afternoonNote').value.trim();
+  const count = r.tasks.filter(t => !t.result && t.alert === 'NONE').length;
+  const request_id = requestIdFor(slots.afternoon, { id: r.id, note });
+  setBusy(true, '오후 TBM 저장 중');
+  try {
+    const res = await rpc('tbm_afternoon_all_clear', { p_report_id: r.id, p_note: note || null, p_request_id: request_id });
+    slots.afternoon = {}; afternoonNoteTouched = false; alertEdit = null;
+    applyReport(res.report);
+    tell(`오후 TBM을 저장했습니다. 확인 안 한 작업 ${count}건을 정상으로 표시했습니다.`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+$('afternoonAllClear').addEventListener('click', afternoonAllClear);
+$('afternoonNote').addEventListener('input', () => { afternoonNoteTouched = true; });
+$('afternoonTasks').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn || busy) return;
+  if (btn.dataset.alert) {
+    const t = report().tasks.find(x => x.id === btn.dataset.taskId);
+    if (btn.dataset.alert === 'NORMAL') { if (alertEdit?.taskId === t.id) alertEdit = null; saveAlert(t.id, 'NORMAL'); return; }
+    alertEdit = { taskId: t.id, alert: btn.dataset.alert, note: t.alert === btn.dataset.alert ? t.alert_note || '' : '', action: t.alert === btn.dataset.alert ? t.alert_action || '' : '',
+      place: t.place, content: t.content, members: t.members.map(m => ({ person_id: m.person_id, role: m.role })) };
+    renderAfternoon();
+    document.querySelector(`[data-afternoon-task="${t.id}"] [data-aedit=note]`)?.focus();
+  } else if (btn.dataset.alertSave) saveAlert(btn.dataset.alertSave, alertEdit.alert);
+  else if (btn.hasAttribute('data-alert-cancel')) { alertEdit = null; renderAfternoon(); }
+});
+$('afternoonTasks').addEventListener('input', e => { const f = e.target.dataset.aedit; if (f && alertEdit) alertEdit[f] = e.target.value; });
+$('afternoonTasks').addEventListener('change', e => {
+  if (!alertEdit) return;
+  const id = e.target.dataset.amember;
+  if (id) {
+    if (e.target.checked) alertEdit.members.push({ person_id: id, role: '작업자' });
+    else alertEdit.members = alertEdit.members.filter(m => m.person_id !== id);
+    renderAfternoon(); return;
+  }
+  const rid = e.target.dataset.arole;
+  if (rid) { const m = alertEdit.members.find(x => x.person_id === rid); if (m) m.role = e.target.value; }
+});
+$('openAfternoon').addEventListener('click', async () => {
+  if (!dirty) await load({ quiet: true });
+  if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
+  showStage('stageAfternoon');
+});
 
 // ---------- 이동·기타 ----------
 document.addEventListener('click', e => {
