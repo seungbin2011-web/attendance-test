@@ -47,6 +47,7 @@ const MESSAGES = {
   UPLOAD_NOT_FOUND: '사진 파일 업로드가 확인되지 않았습니다. 다시 올려주세요.',
   PHOTO_NOT_FOUND: '사진을 찾을 수 없습니다. 새로고침해주세요.',
   UPLOAD_FAILED: '사진 파일을 올리지 못했습니다. 다시 시도해주세요.',
+  IMAGE_DECODE: '사진을 읽지 못했습니다. 다른 사진(JPG)으로 다시 선택해주세요.',
   NETWORK: '서버에 연결하지 못했습니다. 저장되지 않았을 수 있으니 연결을 확인한 뒤 다시 눌러주세요.',
   TIMEOUT: '서버 응답이 늦습니다. 저장 여부를 확인하려면 새로고침해주세요.',
 };
@@ -160,7 +161,7 @@ function loadImage(file) {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('IMAGE_DECODE')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new ApiError('IMAGE_DECODE')); };
     img.src = url;
   });
 }

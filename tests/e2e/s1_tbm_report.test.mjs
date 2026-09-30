@@ -3,7 +3,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.2 TEST';
+const REPORT_VERSION = 'v0.3 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -40,6 +40,19 @@ async function fillTask(page, index, place, content, members) {
     await label.locator('input[type=checkbox]').check();
     if (role) await page.locator('.task-card').nth(index).locator('.task-member', { hasText: name }).locator('select').selectOption(role);
   }
+}
+// 브라우저 캔버스로 서로 다른 가짜 JPEG 만들기 (1600x900, 줄이기 확인용)
+async function makeJpegs(page, colors) {
+  const arrays = await page.evaluate(async colors => Promise.all(colors.map(c => new Promise(res => {
+    const cv = document.createElement('canvas'); cv.width = 1600; cv.height = 900;
+    const g = cv.getContext('2d'); g.fillStyle = c; g.fillRect(0, 0, 1600, 900); g.fillStyle = '#fff'; g.font = '60px sans-serif'; g.fillText(c, 40, 120);
+    cv.toBlob(b => b.arrayBuffer().then(a => res(Array.from(new Uint8Array(a)))), 'image/jpeg', 0.9);
+  }))), colors);
+  return arrays.map((a, i) => ({ name: `photo${i}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.from(a) }));
+}
+async function thumbsLoaded(page, kind) {
+  await page.waitForFunction(k => [...document.querySelectorAll(`[data-photo-preview=${k}] img`)].every(i => i.complete && i.naturalWidth > 0), kind, { timeout: 8000 });
+  return page.locator(`[data-photo-preview=${kind}] .photo-thumb`).count();
 }
 async function rpcFromPage(page, name, args) {
   return page.evaluate(async ([name, args]) => {
@@ -244,6 +257,67 @@ try {
     assert.equal(await page.textContent('#homeStatus'), '출근 보고 완료');
   });
 
+  let photoFiles;
+  await step('출근 사진: 4장 고르면 3장만 저장·4번째 안내, 비공개 서명 링크로 미리보기, 입력 잠김', async () => {
+    const { page } = leader;
+    await page.click('#openMorning');
+    await page.waitForSelector('#stageMorning.active');
+    photoFiles = await makeJpegs(page, ['#c0392b', '#27ae60', '#2980b9', '#8e44ad', '#d35400']);
+    await page.setInputFiles('[data-photo-input=MORNING]', photoFiles.slice(0, 4));
+    await waitMsg(page, '사진 3장을 서버에 저장했습니다');
+    assert.match(await msg(page), /1장은 올리지 않았습니다/);
+    assert.equal(await thumbsLoaded(page, 'MORNING'), 3);
+    assert.match(await page.textContent('[data-photo-count=MORNING]'), /사진 3장 \/ 최대 3장/);
+    assert.ok(await page.isDisabled('[data-photo-input=MORNING]'));
+    const src = await page.getAttribute('[data-photo-preview=MORNING] img', 'src');
+    assert.match(src, /\/storage\/v1\/object\/sign\/tbm-photos\/.+\?token=/);
+    const rows = await sql(env, `select a.status, a.size_bytes, a.kind, o.name is not null as uploaded from field_pilot_v1.attachments a
+      join field_pilot_v1.daily_reports r on r.id = a.report_id left join storage.objects o on o.bucket_id = 'tbm-photos' and o.name = a.object_path
+      where r.team_id = $1 and r.work_date = (now() at time zone 'Asia/Seoul')::date`, [TEAM2]);
+    assert.equal(rows.length, 3);
+    assert.ok(rows.every(r => r.status === 'READY' && r.kind === 'MORNING' && r.uploaded && r.size_bytes <= 2097152));
+    const dims = await page.evaluate(() => { const i = document.querySelector('[data-photo-preview=MORNING] img'); return Math.max(i.naturalWidth, i.naturalHeight); });
+    assert.equal(dims, 1280);
+  });
+
+  await step('사진 빼기 → 같은 사진은 건너뜀, 연결 실패는 성공 표시 없음, 재시도는 같은 자리로 저장', async () => {
+    const { page } = leader;
+    await page.locator('[data-photo-preview=MORNING] [data-photo-remove]').first().click();
+    await waitMsg(page, '사진을 뺐습니다');
+    assert.equal(await page.locator('[data-photo-preview=MORNING] .photo-thumb').count(), 2);
+    await page.setInputFiles('[data-photo-input=MORNING]', [photoFiles[1]]);
+    await waitMsg(page, '이미 올라가 있어 건너뛰었습니다');
+    await page.route('**/storage/v1/object/tbm-photos/**', route => route.abort());
+    await page.setInputFiles('[data-photo-input=MORNING]', [photoFiles[4]]);
+    await waitMsg(page, '서버에 연결하지 못했습니다');
+    assert.ok(!(await msg(page)).includes('저장했습니다'));
+    assert.equal(await page.locator('[data-photo-preview=MORNING] .photo-thumb').count(), 2);
+    await page.unroute('**/storage/v1/object/tbm-photos/**');
+    await page.setInputFiles('[data-photo-input=MORNING]', [photoFiles[4]]);
+    await waitMsg(page, '사진 1장을 서버에 저장했습니다');
+    assert.equal(await thumbsLoaded(page, 'MORNING'), 3);
+    const rows = await sql(env, `select a.status, count(*)::int as n from field_pilot_v1.attachments a join field_pilot_v1.daily_reports r on r.id = a.report_id
+      where r.team_id = $1 and r.work_date = (now() at time zone 'Asia/Seoul')::date group by a.status order by a.status`, [TEAM2]);
+    assert.deepEqual(rows, [{ status: 'DELETED', n: 1 }, { status: 'READY', n: 3 }]);
+  });
+
+  await step('다른 팀장은 우리 팀 사진을 올리거나 볼 수 없음 (Storage 정책)', async () => {
+    const other = await loginPin('T-0050', '시험삼팀장', '613844');
+    const { page } = other;
+    await page.waitForSelector('#stageHome.active');
+    const [path] = (await sql(env, `select a.object_path from field_pilot_v1.attachments a join field_pilot_v1.daily_reports r on r.id = a.report_id
+      where r.team_id = $1 and a.status = 'READY' limit 1`, [TEAM2])).map(r => r.object_path);
+    const result = await page.evaluate(async path => {
+      const api = await import('/tbm_api_test.mjs');
+      const blob = new Blob([new Uint8Array([255, 216, 255, 217])], { type: 'image/jpeg' });
+      let upload = 'ok';
+      try { await api.uploadPhoto('tbm-photos', path.replace(/[^/]+$/, 'intruder.jpg'), blob); } catch (e) { upload = e.code; }
+      const urls = await api.signedUrls('tbm-photos', [path]);
+      return { upload, urls: Object.keys(urls).length };
+    }, path);
+    assert.deepEqual(result, { upload: 'UPLOAD_FAILED', urls: 0 });
+  });
+
   await step('팀 공용 팀장계정(2팀장팀)도 같은 보고를 이어서 봄', async () => {
     const { page } = await loginWork('2팀장팀');
     await page.waitForURL(/tbm_report_test\.html/);
@@ -273,6 +347,11 @@ try {
     await page.click('#openPlan');
     assert.ok(await noHorizontalScroll(page));
     await page.screenshot({ path: 'artifacts/s1_report_plan_mobile.png', fullPage: true });
+    await page.click('.app-stage.active [data-open=openMorning]');
+    await page.waitForSelector('#stageMorning.active');
+    await thumbsLoaded(page, 'MORNING');
+    assert.ok(await noHorizontalScroll(page));
+    await page.screenshot({ path: 'artifacts/s1_report_morning_mobile.png', fullPage: true });
     assert.deepEqual(errors, []);
   });
 } finally {

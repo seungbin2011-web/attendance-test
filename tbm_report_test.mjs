@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.2: 오늘 작업계획 · 출근 TBM)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.3: 오늘 작업계획 · 출근 TBM · TBM 사진)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour } from './tbm_api_test.mjs';
+import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.2';
+const PAGE_VERSION = '0.3';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -128,6 +128,7 @@ function renderAll() {
   ['openPlan', 'openMorning'].forEach(id => $(id).classList.toggle('recommended', id === recommended));
   renderPlan();
   renderMorning();
+  renderPhotos();
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
 
@@ -341,6 +342,83 @@ $('openMorning').addEventListener('click', async () => {
   if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
   showStage('stageMorning');
 });
+
+// ---------- TBM 사진 (회차마다 최대 3장, 비공개 버킷) ----------
+const PHOTO_LIMIT = 3;
+const signedCache = new Map(); // path -> { url, until }
+function photosOf(kind) { return (report()?.photos || []).filter(p => p.kind === kind); }
+function renderPhotos() {
+  document.querySelectorAll('[data-photo-kind]').forEach(box => {
+    const kind = box.dataset.photoKind;
+    const photos = photosOf(kind);
+    const canEdit = !!report() && editable();
+    const input = box.querySelector('[data-photo-input]');
+    input.disabled = !canEdit || photos.length >= PHOTO_LIMIT;
+    box.querySelector('[data-photo-count]').textContent = !report() ? '작업계획을 저장한 뒤 사진을 올릴 수 있습니다.'
+      : `사진 ${photos.length}장 / 최대 ${PHOTO_LIMIT}장${photos.length >= PHOTO_LIMIT ? ' · 더 올리려면 한 장을 빼주세요' : ''}`;
+    box.querySelector('[data-photo-preview]').innerHTML = photos.map(p => `<div class="photo-thumb" data-photo-id="${p.id}">
+      <img alt="${escapeHtml(kstTime(p.created_at))} 사진" data-photo-path="${escapeHtml(p.path)}">
+      <span class="photo-state">${escapeHtml(kstTime(p.created_at))}</span>
+      ${canEdit ? `<button class="photo-remove" type="button" data-photo-remove="${p.id}" aria-label="사진 빼기">×</button>` : ''}</div>`).join('');
+  });
+  loadPhotoUrls().catch(() => {});
+}
+async function loadPhotoUrls() {
+  const imgs = [...document.querySelectorAll('img[data-photo-path]')];
+  const now = Date.now();
+  const need = [...new Set(imgs.map(i => i.dataset.photoPath).filter(p => !(signedCache.get(p)?.until > now)))];
+  if (need.length) {
+    const urls = await signedUrls(PHOTO_BUCKET, need, 600);
+    for (const [path, url] of Object.entries(urls)) signedCache.set(path, { url, until: now + 540000 });
+  }
+  imgs.forEach(img => { const hit = signedCache.get(img.dataset.photoPath); if (hit && img.src !== hit.url) img.src = hit.url; });
+}
+async function addPhotos(kind, input) {
+  const r = report();
+  const files = [...(input.files || [])];
+  input.value = '';
+  if (busy || !r || !files.length) return;
+  const left = PHOTO_LIMIT - photosOf(kind).length;
+  if (left <= 0) { tell(`사진은 회차마다 최대 ${PHOTO_LIMIT}장입니다.`, 'error'); return; }
+  const list = files.slice(0, left);
+  let added = 0, duplicate = 0;
+  setBusy(true, '사진 올리는 중');
+  try {
+    for (const [i, file] of list.entries()) {
+      $('loadingTitle').textContent = `사진 올리는 중 (${i + 1}/${list.length})`;
+      const blob = await compressImage(file);
+      const sha = await sha256Hex(blob);
+      const slot = await rpc('tbm_photo_prepare', { p_report_id: r.id, p_kind: kind, p_size: blob.size, p_sha256: sha });
+      if (slot.duplicate) { duplicate++; continue; }
+      await uploadPhoto(slot.bucket, slot.path, blob);
+      const res = await rpc('tbm_photo_confirm', { p_attachment_id: slot.attachment_id });
+      today.report = res.report; added++;
+    }
+    const notes = [];
+    if (added) notes.push(`사진 ${added}장을 서버에 저장했습니다.`);
+    if (duplicate) notes.push(`같은 사진 ${duplicate}장은 이미 올라가 있어 건너뛰었습니다.`);
+    if (files.length > list.length) notes.push(`사진은 회차마다 최대 ${PHOTO_LIMIT}장이라 ${files.length - list.length}장은 올리지 않았습니다.`);
+    tell(notes.join(' '), files.length > list.length ? 'error' : 'ok');
+  } catch (e) {
+    tell(describeError(e) + (added ? ` (앞의 ${added}장은 저장됐습니다)` : ''), 'error');
+    if (RELOAD_CODES.includes(e.code)) await load({ quiet: true });
+  } finally {
+    setBusy(false);
+    applyReport(today.report);
+  }
+}
+async function removePhoto(id) {
+  if (busy || !confirm('이 사진을 뺄까요? 보고에서 보이지 않게 됩니다.')) return;
+  setBusy(true, '사진 빼는 중');
+  try {
+    const res = await rpc('tbm_photo_remove', { p_attachment_id: id });
+    applyReport(res.report);
+    tell('사진을 뺐습니다.', 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
+document.addEventListener('change', e => { const kind = e.target.dataset?.photoInput; if (kind) addPhotos(kind, e.target); });
+document.addEventListener('click', e => { const id = e.target.closest('[data-photo-remove]')?.dataset.photoRemove; if (id) removePhoto(id); });
 
 // ---------- 이동·기타 ----------
 document.addEventListener('click', e => {

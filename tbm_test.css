@@ -106,7 +106,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 .plan-view{display:flex;flex-direction:column;gap:8px}
 .plan-view-item{border:1px solid #DCE6F1;border-radius:10px;background:#fff;padding:10px}
 .plan-view-item strong{display:block;font-size:13px;color:var(--navy)}.plan-view-item span{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-top:2px}
-.kv{display:grid;grid-template-columns:92px 1fr;gap:6px 10px;font-size:13px;line-height:1.5}.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:700;word-break:break-word}
+.kv{margin:0;display:grid;grid-template-columns:92px 1fr;gap:6px 10px;font-size:13px;line-height:1.5}.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:700;word-break:break-word}
 @media(max-width:440px){.task-members,.risk-grid,.grid2,.tbm-home-menu,.btn-row{grid-template-columns:1fr}.task-status-buttons{grid-template-columns:1fr 1fr}.steps{grid-template-columns:repeat(2,1fr)}}
 /* 관리자(ADMIN) 계정은 초록 계열 */
 body.admin-mode .topbar{background:linear-gradient(135deg,#164936,#1e6b4f)}

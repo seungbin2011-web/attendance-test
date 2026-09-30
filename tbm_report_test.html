@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>팀장 TBM 보고 TEST</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.2">
+<link rel="stylesheet" href="tbm_test.css?v=0.3">
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.2 TEST</span></div>
+  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v0.3 TEST</span></div>
   <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
 </div></header>
 <main class="wrap">
@@ -84,12 +84,19 @@
       <div class="summary" id="morningSummary"></div>
       <div class="plan-view" id="morningTasks"></div>
       <div class="field" style="margin-top:14px"><label class="label" for="morningNote">출근 TBM 추가 전달사항</label><textarea id="morningNote" maxlength="1000" placeholder="작업 전 추가로 전달한 내용이 있으면 적어주세요. (선택)"></textarea></div>
+      <div class="photo-box" data-photo-kind="MORNING">
+        <div class="photo-title">출근 TBM 사진</div>
+        <div class="photo-help">회차마다 최대 3장. 사진은 비공개로 저장되며 우리 팀 팀장과 소장·관리자만 볼 수 있습니다.</div>
+        <input class="photo-input" type="file" accept="image/*" capture="environment" multiple data-photo-input="MORNING" aria-label="출근 TBM 사진 선택">
+        <div class="photo-preview" data-photo-preview="MORNING"></div>
+        <div class="photo-count" data-photo-count="MORNING">사진 0장</div>
+      </div>
       <button class="btn submit" id="submitMorning" type="button">출근 TBM 보고</button>
       <div class="server-state" id="morningState"></div>
     </section>
   </div>
 
-  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.2 TEST</span> · 시험 화면</div>
+  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v0.3 TEST</span> · 시험 화면</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -98,6 +105,6 @@
     <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
   </div>
 </div>
-<script type="module" src="tbm_report_test.mjs?v=0.2"></script>
+<script type="module" src="tbm_report_test.mjs?v=0.3"></script>
 </body>
 </html>
