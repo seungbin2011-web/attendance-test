@@ -4,7 +4,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 const env = await setup();
 const PASS = 'pilot-test-pass';
 const REPORT_VERSION = 'v0.6 TEST';
-const MANAGER_VERSION = 'v0.3 TEST';
+const MANAGER_VERSION = 'v0.4 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -536,6 +536,45 @@ try {
     assert.match(body, /퇴근: 미완료 · 안전난간 미설치로 중단 · 이월: 옥상 관로 나머지 구간/);
     assert.match(body, /공구 정리 완료, 내일 안전난간 먼저 설치/);
     await page.click('.app-stage.active [data-go=stageList]');
+  });
+
+  await step('소장 현황 v0.4: 요약 수치, 확인 필요 우선 정렬, 필터, 상세 변경 이력', async () => {
+    const { page } = manager;
+    const sums = await page.locator('#summaryGrid .sum').allTextContents();
+    assert.deepEqual(sums.map(x => x.trim()), ['2팀', '0미보고', '1/2출근 보고', '1소장 확인 필요', '1위험 작업', '1/2퇴근 마감']);
+    assert.equal(await page.locator('.team-card').first().getAttribute('data-team'), '공사2팀');
+    await page.click('[data-filter=attention]');
+    assert.deepEqual(await page.locator('.team-card').evaluateAll(els => els.map(e => e.dataset.team)), ['공사2팀']);
+    await page.click('[data-filter=missing]');
+    assert.match(await page.textContent('#teamList'), /미보고 팀이 없습니다/);
+    await page.click('[data-filter=all]');
+    assert.equal(await page.locator('.team-card').count(), 2);
+    await page.click('.team-card[data-team=공사2팀] [data-detail]');
+    await page.waitForSelector('#stageDetail.active');
+    const hist = await page.textContent('#detailBody .history');
+    for (const label of ['작업계획 저장', '출근 TBM 보고', '사진 추가', '사진 빼기', '오후 전체 이상 없음', '작업 위험', '작업 변경', '퇴근 결과 입력', '퇴근 TBM 마감']) assert.ok(hist.includes(label), label);
+    assert.match(hist, /시험이팀장 — 옥상 끝단 추락 위험/);
+    assert.match(await page.textContent('#detailBody'), /자재 요청은 다음 단계/);
+    await page.click('.app-stage.active [data-go=stageList]');
+  });
+
+  await step('소장 현황 v0.4: 자동 새로고침은 선택했을 때만 60초마다 (설정은 이 기기에 저장)', async () => {
+    const m = await newPage(env);
+    await m.page.clock.install();
+    await m.page.goto(`${env.base}/personnel_test.html?next=tbm_manager_test.html`);
+    await m.page.fill('#username', '소장'); await m.page.fill('#password', PASS); await m.page.click('#loginButton');
+    await m.page.waitForSelector('#stageList.active .team-card');
+    let calls = 0; m.page.on('request', r => { if (r.url().includes('tbm_site_overview')) calls++; });
+    await m.page.clock.runFor(61000);
+    await m.page.waitForTimeout(300);
+    assert.equal(calls, 0, '꺼져 있으면 자동 조회 없음');
+    await m.page.check('#autoRefresh');
+    await m.page.clock.runFor(61000);
+    for (let i = 0; i < 20 && calls === 0; i++) await m.page.waitForTimeout(100);
+    assert.equal(calls, 1, '켜면 60초마다 1번');
+    await m.page.reload();
+    await m.page.waitForSelector('#stageList.active .team-card');
+    assert.ok(await m.page.isChecked('#autoRefresh'));
   });
 
   await step('팀 공용 팀장계정(2팀장팀)도 같은 보고를 이어서 봄', async () => {

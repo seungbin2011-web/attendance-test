@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>현장 TBM 현황 TEST</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.5">
+<link rel="stylesheet" href="tbm_test.css?v=0.6">
 <style>
 .toolbar{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
 .toolbar input{height:44px}
@@ -27,11 +27,20 @@
 .history time{color:var(--muted);margin-right:6px}
 .alert-line{font-weight:800}.alert-line.RISK{color:var(--red)}.alert-line.CHANGED,.alert-line.DELAYED{color:#8A5600}
 body.admin-mode .team-name,body.admin-mode .stage-title{color:#164936}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.sum{border:1px solid #E4E7EC;border-radius:11px;padding:9px 6px;text-align:center;background:#F9FBFD}
+.sum b{display:block;font-size:18px;color:var(--navy)}.sum span{font-size:11px;color:var(--muted);font-weight:800}
+.sum.danger b{color:var(--red)}.sum.warn b{color:#8A5600}
+.filters{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.filter-btn{border:1px solid #CBD8E7;background:#fff;color:var(--navy);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:900;cursor:pointer}
+.filter-btn.selected{background:var(--navy);color:#fff;border-color:var(--navy)}
+.auto-line{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--navy)}.auto-line input{width:16px;height:16px}
+body.admin-mode .filter-btn.selected{background:#164936;border-color:#164936}
 </style>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand-row"><div class="brand">현장 TBM 현황</div><span class="version" id="pageVersion">v0.3 TEST</span></div>
+  <div class="brand-row"><div class="brand">현장 TBM 현황</div><span class="version" id="pageVersion">v0.4 TEST</span></div>
   <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
 </div></header>
 <main class="wrap">
@@ -53,8 +62,14 @@ body.admin-mode .team-name,body.admin-mode .stage-title{color:#164936}
         <div><label class="label" for="dateInput">날짜</label><input id="dateInput" type="date"></div>
         <button class="stage-small-btn" id="refreshBtn" type="button" style="height:44px">새로고침</button>
       </div>
-      <div class="refresh-line"><span id="loadedAt">-</span></div>
-      <div class="notice" style="margin:12px 0 0">이 화면은 조회만 합니다. 승인·반려와 자재 요청 처리는 다음 단계에서 추가됩니다.</div>
+      <div class="refresh-line"><span id="loadedAt">-</span><label class="auto-line"><input type="checkbox" id="autoRefresh">60초마다 자동 새로고침</label></div>
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="filters" id="filters">
+        <button class="filter-btn selected" type="button" data-filter="all">전체</button>
+        <button class="filter-btn" type="button" data-filter="attention">확인 필요</button>
+        <button class="filter-btn" type="button" data-filter="missing">미보고</button>
+      </div>
+      <div class="notice" style="margin:12px 0 0">이 화면은 조회만 합니다. 승인·반려와 자재 요청 처리는 다음 단계에서 추가됩니다. 확인 필요: 팀장이 "소장 확인 필요"를 표시했거나 위험 작업이 있는 팀.</div>
     </section>
     <div class="team-list" id="teamList"></div>
   </div>
@@ -67,11 +82,11 @@ body.admin-mode .team-name,body.admin-mode .stage-title{color:#164936}
     <section class="card" id="detailBody"></section>
   </div>
 
-  <div class="footer">© 2026 TBM Manager · <span id="footerVersion">v0.3 TEST</span> · 시험 화면</div>
+  <div class="footer">© 2026 TBM Manager · <span id="footerVersion">v0.4 TEST</span> · 시험 화면</div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card"><div class="loading-spinner"></div><div class="loading-title" id="loadingTitle">불러오는 중입니다</div><div class="loading-sub">서버 응답을 기다리는 중입니다.</div></div>
 </div>
-<script type="module" src="tbm_manager_test.mjs?v=0.3"></script>
+<script type="module" src="tbm_manager_test.mjs?v=0.4"></script>
 </body>
 </html>
