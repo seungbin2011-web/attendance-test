@@ -191,6 +191,10 @@ select jsonb_build_object('request_id', 'req-lock2', 'version', :'v3'::int,
 select test_util.expect_error('confirmed report locked', format('select public.tbm_save_plan(%L::jsonb)', :'lockedpayload'), 'REPORT_NOT_EDITABLE');
 reset role;
 
+-- 흉내 버킷 정리 (로컬 시험 DB만. 실제 버킷·정책은 field_sql_v02가 만든다)
+delete from storage.objects where bucket_id = 'tbm-photos';
+delete from storage.buckets where id = 'tbm-photos';
+
 -- 10. 기존 구조 불변
 select test_util.expect('pilot functions unchanged',
   (select md5(string_agg(p.proname || md5(p.prosrc), ',' order by p.proname)) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
