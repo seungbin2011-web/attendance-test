@@ -3,7 +3,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.61 TEST';
+const REPORT_VERSION = 'v0.62 TEST';
 const MANAGER_VERSION = 'v0.4 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
@@ -586,10 +586,10 @@ try {
 
   await step('역할이 맞지 않으면 차단: 소장 업무계정·일반 팀원 PIN', async () => {
     const mgr = await loginWork('소장', 'tbm_report_test.html');
-    await mgr.page.waitForURL(/admin_test\.html/);
+    await mgr.page.waitForURL(/tbm_manager_test\.html/);
     await mgr.page.goto(`${env.base}/tbm_report_test.html`);
     await mgr.page.waitForSelector('#blocked:not([hidden])');
-    assert.match(await mgr.page.textContent('#blockedText'), /팀장 계정만/);
+    assert.match(await mgr.page.textContent('#blockedText'), /팀장만 사용할 수 있는/);
     const member = await loginPin('T-0026', '시험팀원가', '482915');
     await member.page.waitForURL(/member_test\.html/);
     await member.page.goto(`${env.base}/tbm_report_test.html`);

@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.61: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.62: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
 import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_report_test.html';
-const PAGE_VERSION = '0.61';
+const PAGE_VERSION = '0.62';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -105,7 +105,7 @@ async function load({ quiet = false } = {}) {
     return true;
   } catch (e) {
     if (BLOCKING.includes(e.code)) {
-      block(e.code === 'FORBIDDEN' ? '팀장 계정만 사용할 수 있는 화면입니다. 팀장 개인 PIN 또는 팀 공용 팀장계정으로 로그인해주세요.' : describeError(e));
+      block(e.code === 'FORBIDDEN' ? '팀장만 사용할 수 있는 화면입니다. 팀장 본인의 이름과 휴대폰 번호 뒤 4자리로 로그인해주세요.' : describeError(e));
     } else tell(describeError(e), 'error');
     return false;
   } finally { if (!quiet) setBusy(false); }

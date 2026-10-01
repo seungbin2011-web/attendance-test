@@ -18,7 +18,7 @@ try {
   await step('관리자 업무계정: 통합 로그인 화면에 머물고 초록 관리 화면', async () => {
     const { page, errors } = await newPage(env);
     await page.goto(`${env.base}/personnel_test.html`);
-    assert.equal(await page.textContent('.login .version'), 'TEST v0.9');
+    assert.equal(await page.textContent('.login .version'), 'TEST v0.91');
     await login(page, '관리자', PASS);
     await page.waitForSelector('#directory:not([hidden])');
     assert.equal(await page.textContent('#roleLabel'), '관리자');
@@ -26,12 +26,12 @@ try {
     assert.deepEqual(errors, []);
   });
 
-  await step('소장 업무계정: 관리자 현황(admin_test)으로 이동하고 유지', async () => {
+  await step('소장 업무계정: TBM 현황(tbm_manager_test)으로 이동하고 유지', async () => {
     const { page } = await newPage(env);
     await page.goto(`${env.base}/personnel_test.html`);
     await login(page, '소장', PASS);
-    await page.waitForURL(/admin_test\.html/);
-    await stays(page, 'admin_test.html');
+    await page.waitForURL(/tbm_manager_test\.html/);
+    await stays(page, 'tbm_manager_test.html');
   });
 
   await step('팀 공용 팀장계정(2팀장팀): leader_test로 이동하고 유지', async () => {
@@ -73,15 +73,15 @@ try {
     await page.waitForURL(/member_test\.html/);
   });
 
-  await step('팀장 PIN 로그인(TEAM_LEADER): leader_test로 이동하고 유지', async () => {
+  await step('팀장 PIN 로그인(TEAM_LEADER): 팀장 TBM 보고(tbm_report_test)로 이동하고 유지', async () => {
     const temp = await issuePin(env, 'T-0025', '시험이팀장');
     const { page } = await newPage(env);
     await page.goto(`${env.base}/personnel_test.html`);
     await login(page, '시험이팀장', temp);
     await page.waitForSelector('#pinPanel:not([hidden])');
     await page.fill('#pinNew', '507318'); await page.fill('#pinConfirm', '507318'); await page.click('#pinButton');
-    await page.waitForURL(/leader_test\.html/);
-    await stays(page, 'leader_test.html');
+    await page.waitForURL(/tbm_report_test\.html/);
+    await stays(page, 'tbm_report_test.html');
     const user = await page.evaluate(() => JSON.parse(sessionStorage.getItem('tbmAuthUser')));
     assert.equal(user.appRole, 'LEADER'); assert.equal(user.role, '팀장'); assert.equal(user.team, '공사2팀');
   });
@@ -128,7 +128,7 @@ try {
     assert.ok(page.url().includes('admin_sql_test.html'));
   });
 
-  await step('전환 기간 기존 4자리 경로(Apps Script 흉내)는 그대로 동작', async () => {
+  await step('새 시스템 명부에 없는 인원: 4자리 로그인은 기존 경로(Apps Script 흉내)로 이어짐', async () => {
     const { page } = await newPage(env, { appsScript: q => q.action === 'attendanceLogin' && q.pin === '1234'
       ? { success: true, user: { name: '레거시인원', userId: 'T-9999', team: '공사2팀', rank: '팀원', role: '팀원', job: '' } }
       : { success: false, message: '시험 환경' } });

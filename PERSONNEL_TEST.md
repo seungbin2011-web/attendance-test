@@ -1,4 +1,14 @@
-# 인원DB 통합 로그인 시험 v0.9
+# 인원DB 통합 로그인 시험 v0.91
+
+## v0.91 (Season 2 현장 시연 준비)
+
+- 현장 인원·팀장: **이름 + 휴대폰 번호 뒤 4자리**로 로그인한다. 번호 확인은 기존 정식 인원DB(Apps Script)가 하고, 휴대폰 번호는 Supabase에 저장하지 않는다.
+  - Edge Function `member-login` v0.2가 서버에서 확인한 뒤 SQL `personnel_auth_v09.sql`의 `pilot_member_roster_login`으로 실패 한도·잠금을 적용하고 개인 세션을 발급한다.
+  - 새 시스템 명부(Supabase)에 없는 인원은 기존 4자리 경로(기존 화면)로 이어진다.
+  - 개인 PIN 6자리 로그인은 그대로 동작한다.
+- 로그인 후 이동: 개인 로그인 팀장 → `tbm_report_test.html`, 소장 업무계정 → `tbm_manager_test.html`, 관리자 → 명부 화면("TBM 현황 열기" 링크). 팀 공용 팀장계정과 팀원은 기존과 같다.
+- 적용 순서(사용자 작업): `personnel_auth_v09.sql` 단독 실행 → 별도 탭에서 `personnel_auth_v09_check.sql` → Edge Function `member-login` 코드를 v0.2로 바꿔 Deploy(Verify JWT 끈 상태 유지) → main 반영(GitHub Pages)
+
 
 진입점: `personnel_test.html`(일반 인원과 업무 계정 통합 로그인), `admin_sql_test.html`(관리자·소장 전용 인원 및 출결등급 관리). `index_test.html`·`leader_test.html`은 첫 화면으로, `admin_test.html`은 SQL 관리자 화면으로 연결한다. 기존 운영 페이지/Apps Script는 변경하지 않는다.
 

@@ -1,9 +1,11 @@
-// 현장 업무 통합 로그인 · Edge Function member-login v0.1 (전환 단계 S0-3, SQL personnel_auth v0.8 필요)
-// 이름 + 개인 PIN을 서버에서 검증한 뒤, 그 사람 전용 Supabase 세션을 발급한다.
+// 현장 업무 통합 로그인 · Edge Function member-login v0.2 (SQL personnel_auth v0.8 + v0.9 필요)
+// 1) 이름 + 휴대폰 번호 뒤 4자리: 기존 정식 인원DB(Apps Script)에 서버에서 확인 → 그 사람 전용 Supabase 세션 발급
+// 2) 이름 + 개인 PIN 6자리: v0.1과 같음 (DB에서 PIN 확인)
+// - 휴대폰 번호는 Supabase에 저장하지 않는다. 확인은 기존 정식 인원DB가 하고, 실패 한도·잠금은 DB 함수가 한다.
 // - 역할은 돌려주지 않는다. 화면은 받은 세션으로 pilot_whoami를 호출해 서버에서 역할을 다시 받는다.
 // - 비밀키는 Supabase가 함수 환경변수로 넣어 준다. 코드·저장소·화면에 키를 적지 않는다.
 // - 배포 설정: verify_jwt = false (로그인 전 사용자가 호출하므로 함수 안에서 직접 검증)
-// - 이름·PIN은 로그에 남기지 않는다.
+// - 이름·번호·PIN은 로그에 남기지 않는다.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 // 허용 출처: 기본은 GitHub Pages. 시험용으로 MEMBER_LOGIN_ALLOWED_ORIGINS(쉼표 구분)로 바꿀 수 있다.
@@ -12,9 +14,16 @@ const ALLOWED_ORIGINS = new Set(
     .split(',').map((origin) => origin.trim()).filter(Boolean),
 );
 
+// 기존 정식 인원DB(Apps Script, 이미 화면에서 쓰는 공개 주소). 시험 환경에서는 ROSTER_API_URL로 바꾼다.
+const ROSTER_API_URL = Deno.env.get('ROSTER_API_URL')
+  ?? 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
+
 const MESSAGES: Record<string, string> = {
-  INVALID_INPUT: '이름과 6자리 PIN을 입력해주세요.',
+  INVALID_INPUT: '이름과 휴대폰 번호 뒤 4자리를 입력해주세요.',
   INVALID_CREDENTIALS: '이름 또는 PIN이 일치하지 않습니다.',
+  INVALID_PHONE: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다. 명부에 휴대폰 번호가 없거나 다르면 관리자에게 문의해주세요.',
+  NOT_IN_PILOT: '새 시스템 명부에 아직 등록되지 않은 인원입니다. 관리자에게 문의해주세요.',
+  ROSTER_UNAVAILABLE: '명부 확인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.',
   LOCKED: '로그인 실패가 반복되어 30분간 잠겼습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.',
   RATE_LIMITED: '로그인 요청이 많습니다. 잠시 후 다시 시도해주세요.',
   AMBIGUOUS: '동일 이름 확인이 필요합니다. 관리자에게 문의해주세요.',
@@ -126,12 +135,26 @@ async function issueSession(admin: SupabaseClient, personId: string) {
   return verified.session;
 }
 
+// 기존 정식 인원DB에 이름 + 뒤 4자리를 묻는다 (화면의 기존 4자리 로그인과 같은 요청). 사용자ID만 받아 쓴다.
+async function rosterCheck(name: string, phone4: string): Promise<{ verified: boolean; userId: string | null }> {
+  const callback = 'memberLoginRoster';
+  const url = `${ROSTER_API_URL}?${new URLSearchParams({ action: 'attendanceLogin', name, pin: phone4, callback, _t: String(Date.now()) })}`;
+  const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new Error('ROSTER_HTTP');
+  const text = await response.text();
+  const start = text.indexOf(callback + '(');
+  const end = text.lastIndexOf(')');
+  const result = JSON.parse(start >= 0 && end > start ? text.slice(start + callback.length + 1, end) : text);
+  const userId = typeof result?.user?.userId === 'string' ? result.user.userId.trim() : '';
+  return { verified: result?.success === true && userId !== '', userId: userId || null };
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
   if (req.method !== 'POST' || !origin || !ALLOWED_ORIGINS.has(origin)) return fail(origin, 403, 'INVALID_INPUT');
 
-  let body: { name?: unknown; pin?: unknown };
+  let body: { name?: unknown; pin?: unknown; phone4?: unknown };
   try {
     body = await req.json();
   } catch (_) {
@@ -139,23 +162,36 @@ Deno.serve(async (req: Request) => {
   }
   const name = typeof body?.name === 'string' ? body.name.slice(0, 101) : '';
   const pin = typeof body?.pin === 'string' ? body.pin.replace(/\D/g, '').slice(0, 7) : '';
+  const phone4 = typeof body?.phone4 === 'string' ? body.phone4.replace(/\D/g, '').slice(0, 5) : '';
+  const byPhone = typeof body?.phone4 === 'string';
 
   const admin = createClient(SUPABASE_URL, SECRET_KEY, CLIENT_OPTIONS);
 
   // 입력 형식·실패 한도·잠금·재직 여부는 모두 DB 함수가 판단하고 기록한다.
-  const { data: result, error } = await admin.rpc('pilot_member_login_verify', {
-    p_name: name,
-    p_pin: pin,
-    p_client_ip: clientIp(req),
-  });
+  let rpcName = 'pilot_member_login_verify';
+  let args: Record<string, unknown> = { p_name: name, p_pin: pin, p_client_ip: clientIp(req) };
+  if (byPhone) {
+    if (!name.trim() || !/^[0-9]{4}$/.test(phone4)) return fail(origin, 400, 'INVALID_INPUT');
+    let roster;
+    try {
+      roster = await rosterCheck(name.trim(), phone4);
+    } catch (e) {
+      console.error('member-login roster error', e instanceof Error ? e.name : 'unknown');
+      return fail(origin, 503, 'ROSTER_UNAVAILABLE');
+    }
+    rpcName = 'pilot_member_roster_login';
+    args = { p_name: name, p_user_id: roster.userId, p_verified: roster.verified, p_client_ip: clientIp(req) };
+  }
+  const { data: result, error } = await admin.rpc(rpcName, args);
   if (error || !result) {
     console.error('member-login verify error', error?.code ?? 'unknown');
     return fail(origin, 500, 'SERVER_ERROR');
   }
   if (!result.ok) {
-    const status = result.code === 'LOCKED' || result.code === 'RATE_LIMITED' ? 429
-      : result.code === 'INVALID_INPUT' ? 400 : 401;
-    return fail(origin, status, String(result.code));
+    const code = byPhone && result.code === 'INVALID_CREDENTIALS' ? 'INVALID_PHONE' : String(result.code);
+    const status = code === 'LOCKED' || code === 'RATE_LIMITED' ? 429
+      : code === 'INVALID_INPUT' ? 400 : code === 'NOT_IN_PILOT' ? 404 : 401;
+    return fail(origin, status, code);
   }
 
   try {
