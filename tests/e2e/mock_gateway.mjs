@@ -31,6 +31,14 @@ const refreshTokens = new Map(); // refresh_token -> { user_id, session_id }
 const linkTokens = new Map();    // hashed_token -> { user_id, expires }
 const signTokens = new Map();    // token -> { bucket, name, expires }
 const fnCache = new Map();
+// 흉내 정식 인원DB(Apps Script attendanceLogin): 이름|뒤4자리 → 사용자 (가짜 데이터, 시험 중 /__test/roster로 추가)
+const roster = new Map([
+  ['시험이팀장|2525', { name: '시험이팀장', userId: 'T-0025', team: '공사2팀', rank: '팀장', role: '팀장', job: '전기' }],
+  ['시험중복가|3636', { name: '시험중복가', userId: 'T-0036', team: '공사2팀', rank: '팀원', role: '팀원', job: '전기' }],
+  ['시험중복나|1360', { name: '시험중복나', userId: 'T-0036', team: '', rank: '팀원', role: '팀원', job: '' }],
+  ['시험퇴사자|2828', { name: '시험퇴사자', userId: 'T-0028', team: '공사2팀', rank: '팀원', role: '팀원', job: '전기' }],
+  ['레거시인원|1234', { name: '레거시인원', userId: 'T-9999', team: '공사2팀', rank: '팀원', role: '팀원', job: '' }],
+]);
 let edgeHandler = null;
 
 function b64url(obj) { return Buffer.from(JSON.stringify(obj)).toString('base64url'); }
@@ -248,6 +256,7 @@ async function loadEdgeFunction() {
   process.env.SUPABASE_SECRET_KEYS = JSON.stringify({ default: SERVICE_KEY });
   process.env.SUPABASE_PUBLISHABLE_KEYS = JSON.stringify({ default: PUBLISHABLE_KEY });
   process.env.MEMBER_LOGIN_ALLOWED_ORIGINS = BASE;
+  process.env.ROSTER_API_URL = `${BASE}/__mock/roster`;
   globalThis.Deno = { env: { get: (k) => process.env[k] }, serve: (handler) => { edgeHandler = handler; return {}; } };
   await import(pathToFileURL(path.join(ROOT, 'supabase/functions/member-login/index.ts')).href);
 }
@@ -274,6 +283,11 @@ async function testApi(req, res, sub, url) {
     const { rows } = await asAdmin(body.sql, body.params || []);
     return send(res, 200, rows);
   }
+  if (sub === 'roster') { // 흉내 정식 인원DB에 가짜 인원 추가
+    const body = JSON.parse((await readBody(req)).toString());
+    for (const e of body.entries || []) roster.set(`${e.name}|${e.pin}`, e.user);
+    return send(res, 200, { ok: true });
+  }
   if (sub === 'expire_sessions') {
     await asAdmin(`update auth.sessions set created_at = now() - interval '17 hours' where user_id = $1`, [url.searchParams.get('user')]);
     return send(res, 200, { ok: true });
@@ -297,6 +311,12 @@ export async function startGateway() {
     try {
       if (req.method === 'OPTIONS') return send(res, 204, undefined, { 'Access-Control-Allow-Headers': req.headers['access-control-request-headers'] || 'apikey, authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' });
       if (url.pathname.startsWith('/__test/')) return await testApi(req, res, url.pathname.slice(8), url);
+      if (url.pathname === '/__mock/roster') { // Edge Function이 서버에서 부르는 정식 인원DB 흉내 (JSONP)
+        const q = url.searchParams; const user = roster.get(`${q.get('name')}|${q.get('pin')}`);
+        const payload = user ? { success: true, user } : { success: false, message: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다.' };
+        res.writeHead(200, { 'Content-Type': 'text/javascript' });
+        return res.end(`${q.get('callback')}(${JSON.stringify(payload)});`);
+      }
       if (url.pathname.startsWith('/sb/')) {
         const bodyBuf = await readBody(req);
         const rest = url.pathname.slice(4);
