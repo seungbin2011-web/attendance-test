@@ -18,7 +18,7 @@ try {
   await step('관리자 업무계정: 통합 로그인 화면에 머물고 초록 관리 화면', async () => {
     const { page, errors } = await newPage(env);
     await page.goto(`${env.base}/personnel_test.html`);
-    assert.equal(await page.textContent('.login .version'), 'TEST v0.91');
+    assert.equal(await page.textContent('.login .version'), 'TEST v0.92');
     await login(page, '관리자', PASS);
     await page.waitForSelector('#directory:not([hidden])');
     assert.equal(await page.textContent('#roleLabel'), '관리자');
@@ -86,14 +86,14 @@ try {
     assert.equal(user.appRole, 'LEADER'); assert.equal(user.role, '팀장'); assert.equal(user.team, '공사2팀');
   });
 
-  await step('소장 인원이 PIN으로 로그인해도 팀원 권한만 (소장 화면 불가)', async () => {
+  await step('소장 인원 개인 로그인(v0.10): 소장 현황으로, 인원 편집(업무계정 전용) 화면은 아님', async () => {
     const temp = await issuePin(env, 'T-0003', '시험소장');
     const { page } = await newPage(env);
     await page.goto(`${env.base}/personnel_test.html?next=admin_test.html`);
     await login(page, '시험소장', temp);
     await page.waitForSelector('#pinPanel:not([hidden])');
     await page.fill('#pinNew', '640271'); await page.fill('#pinConfirm', '640271'); await page.click('#pinButton');
-    await page.waitForURL(/member_test\.html/);
+    await page.waitForURL(/tbm_manager_test\.html/);
   });
 
   await step('next= 허용 목록: 팀장은 leader_test, 허용 안 된 조합은 기본 화면', async () => {

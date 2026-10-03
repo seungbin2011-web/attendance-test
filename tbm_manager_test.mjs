@@ -1,9 +1,9 @@
-// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.4: 소장·관리자 읽기 전용 · 하루 전체 흐름 · 요약·필터·자동 새로고침·변경 이력)
+// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.41: 소장(개인 로그인·업무계정)·관리자 읽기 전용 · 하루 전체 흐름 · 요약·필터·자동 새로고침·변경 이력)
 // 볼 수 있는 현장·팀은 서버(tbm_site_overview)가 정한다. 이 화면에는 저장 기능이 없다.
 import { rpc, requireLogin, logout, loginUrl, describeError, escapeHtml, kstTime, kstDateLabel, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
 const PAGE = 'tbm_manager_test.html';
-const PAGE_VERSION = '0.4';
+const PAGE_VERSION = '0.41';
 const AUTO_KEY = 'tbmManagerAutoRefresh_v1';
 const HISTORY_NAMES = { PLAN_SAVE: '작업계획 저장', MORNING_SUBMIT: '출근 TBM 보고', AFTERNOON_ALL_CLEAR: '오후 전체 이상 없음', TASK_NORMAL: '작업 정상', TASK_CHANGED: '작업 변경', TASK_DELAYED: '작업 지연', TASK_RISK: '작업 위험', TASK_RESULT: '퇴근 결과 입력', EVENING_CLOSE: '퇴근 TBM 마감', PHOTO_ADD: '사진 추가', PHOTO_REMOVE: '사진 빼기' };
 const BLOCKING = ['AUTH_REQUIRED', 'AUTH_EXPIRED', 'SESSION_EXPIRED', 'ACCOUNT_NOT_LINKED', 'ACCOUNT_INACTIVE', 'ACCOUNT_DISABLED', 'PIN_CHANGE_REQUIRED', 'FORBIDDEN'];
@@ -24,10 +24,10 @@ function showStage(id) { document.querySelectorAll('.app-stage').forEach(s => s.
 function block(text) {
   document.querySelectorAll('.app-stage').forEach(s => s.classList.remove('active'));
   $('blocked').hidden = false; $('blockedText').textContent = text; tell('');
-  $('headerSub').textContent = '소장·관리자 업무계정으로 로그인해야 사용할 수 있습니다.';
+  $('headerSub').textContent = '소장·관리자로 로그인해야 사용할 수 있습니다.';
 }
 function handleError(e) {
-  if (BLOCKING.includes(e.code)) block(e.code === 'FORBIDDEN' ? '소장·관리자 계정만 사용할 수 있는 화면입니다. 업무계정(소장·관리자)으로 로그인해주세요.' : describeError(e));
+  if (BLOCKING.includes(e.code)) block(e.code === 'FORBIDDEN' ? '소장·관리자만 사용할 수 있는 화면입니다. 소장은 본인 이름과 휴대폰 번호 뒤 4자리로, 관리자는 업무계정으로 로그인해주세요.' : describeError(e));
   else tell(describeError(e), 'error');
 }
 

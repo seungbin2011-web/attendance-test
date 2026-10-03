@@ -11,6 +11,7 @@ bash tests/run_sql_tests.sh
 - `sql/00_mock_supabase.sql`: 실제 work-status-test 조회 결과를 기준으로 만든 흉내 구조 (역할, auth, storage, personnel_pilot_v1, public.works 권한)
 - `sql/01_mock_seed.sql`: 가짜 인원·업무계정 (실제와 같은 형태만 흉내)
 - `sql/10_*`, `sql/2*_*`: 적용 후 동작·권한 시험. 실패하면 `TEST FAILED`로 중단
+- `sql/12_*`~`sql/16_*`: v0.10 역할 판정(팀원·팀장·소장), 소속·역할 변경 템플릿(실제 파일에 시험 명단만 넣어 실행, 잘못된 명단은 전체 취소), 점검 SQL, v0.10 롤백
 - 마지막에 롤백 → 재적용까지 확인
 
 ## e2e 시험 (Chromium)

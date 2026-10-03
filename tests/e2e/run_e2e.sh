@@ -14,6 +14,7 @@ run "$ROOT/personnel_auth_v08.sql"
 run "$ROOT/personnel_auth_v09.sql"
 run "$ROOT/tests/sql/02_fixture_e2e.sql"
 for f in "$ROOT"/field_sql_v0*.sql; do case "$f" in *_rollback.sql|*_check.sql) continue;; esac; [ -e "$f" ] && run "$f"; done
+run "$ROOT/personnel_auth_v10.sql"
 [ -d "$HERE/node_modules" ] || (cd "$HERE" && npm install --no-audit --no-fund > /dev/null)
 rm -rf "$HERE/artifacts"; mkdir -p "$HERE/artifacts"
 cd "$HERE"

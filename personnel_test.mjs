@@ -8,6 +8,8 @@ let session = null, roster = null, editing = null, gradeEditing = null, generati
 const LEGACY_ROSTER_LOGIN = true;
 // 로그인 후 ?next=로 이동할 수 있는 시험 화면과 허용 역할 (서버에서 받은 역할 기준)
 const NEXT_PAGES = { 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'] };
+// 개인 로그인(이름 + 휴대폰 뒤 4자리, 개인 PIN) 후 기본 화면
+const MEMBER_HOMES = { MANAGER: ['tbm_manager_test.html', '소장 TBM 현황'], LEADER: ['tbm_report_test.html', '팀장 TBM 보고 화면'], MEMBER: ['member_test.html', '팀원 화면'] };
 let pendingPin = '';
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
 const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.' };
@@ -66,9 +68,11 @@ async function loginRosterMember(name, pin) {
   tell(`${user.name}님 확인 완료 · ${destinationLabel}으로 이동합니다.`);
   setTimeout(() => { location.href = destination; }, 350);
 }
-function nextPage(appRole) {
+// 개인 로그인은 업무계정 전용 화면(인원 편집)으로 보내지 않는다.
+const WORK_ONLY_PAGES = ['admin_test.html'];
+function nextPage(appRole, personal = false) {
   const next = new URLSearchParams(location.search).get('next');
-  return next && NEXT_PAGES[next]?.includes(appRole) ? next : '';
+  return next && NEXT_PAGES[next]?.includes(appRole) && !(personal && WORK_ONLY_PAGES.includes(next)) ? next : '';
 }
 async function callMemberLogin(body) {
   let response;
@@ -112,8 +116,10 @@ async function continueMemberSession() {
   const user = memberSessionUser(actor);
   sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
-  const destination = nextPage(actor.app_role) || (actor.app_role === 'LEADER' ? 'tbm_report_test.html' : 'member_test.html');
-  tell(`${actor.name}님 확인 완료 · ${actor.app_role === 'LEADER' ? '팀장 TBM 보고' : '팀원 화면'}으로 이동합니다.`);
+  // 화면은 서버(pilot_whoami)가 정한 역할로만 고른다: 소장 → 현황, 팀장 → TBM 보고, 그 외 → 팀원 화면
+  const [home, label] = MEMBER_HOMES[actor.app_role] || MEMBER_HOMES.MEMBER;
+  const destination = nextPage(actor.app_role, true) || home;
+  tell(`${actor.name}님 확인 완료 · ${label}으로 이동합니다.`);
   setTimeout(() => { location.href = destination; }, 350);
 }
 function showPinChange(actor) {
