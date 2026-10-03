@@ -1,7 +1,11 @@
-// 현장 업무 통합 로그인 · Edge Function member-login v0.2 (SQL personnel_auth v0.8 + v0.9 필요)
-// 1) 이름 + 휴대폰 번호 뒤 4자리: 기존 정식 인원DB(Apps Script)에 서버에서 확인 → 그 사람 전용 Supabase 세션 발급
+// 현장 업무 통합 로그인 · Edge Function member-login v0.4 (SQL personnel_auth v0.8 ~ v0.12 필요)
+// 1) 이름 + 휴대폰 번호 뒤 4자리: Supabase 안에서 확인(pilot_member_login4, bcrypt 해시) → 그 사람 전용 Supabase 세션 발급
+//    로그인 번호가 있는 사람은 Apps Script를 부르지 않는다.
+//    v0.4: 아직 로그인 번호가 없는 현재 인원(FIRST_LOGIN_REQUIRED)만 최초 1회 정식 인원DB(Apps Script)로 확인하고
+//          pilot_member_login4_migrate가 번호를 해시로 저장한다. 다음 로그인부터는 Supabase만.
+//          끄기: Edge Function Secrets에 MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off
 // 2) 이름 + 개인 PIN 6자리: v0.1과 같음 (DB에서 PIN 확인)
-// - 휴대폰 번호는 Supabase에 저장하지 않는다. 확인은 기존 정식 인원DB가 하고, 실패 한도·잠금은 DB 함수가 한다.
+// - 전체 휴대폰 번호는 저장하지 않는다. 실패 한도·잠금·재직 여부·같은 이름 구분은 DB 함수가 한다.
 // - 역할은 돌려주지 않는다. 화면은 받은 세션으로 pilot_whoami를 호출해 서버에서 역할을 다시 받는다.
 // - 비밀키는 Supabase가 함수 환경변수로 넣어 준다. 코드·저장소·화면에 키를 적지 않는다.
 // - 배포 설정: verify_jwt = false (로그인 전 사용자가 호출하므로 함수 안에서 직접 검증)
@@ -14,14 +18,17 @@ const ALLOWED_ORIGINS = new Set(
     .split(',').map((origin) => origin.trim()).filter(Boolean),
 );
 
-// 기존 정식 인원DB(Apps Script, 이미 화면에서 쓰는 공개 주소). 시험 환경에서는 ROSTER_API_URL로 바꾼다.
+// 정식 인원DB(Apps Script) 주소: 로그인 번호가 없는 기존 인원의 최초 1회 확인에만 쓴다.
 const ROSTER_API_URL = Deno.env.get('ROSTER_API_URL')
   ?? 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
+
+// 최초 1회 이관 사용 여부 (기본 사용). 모든 현재 인원의 로그인 번호가 등록되면 off로 끈다.
+const FIRST_LOGIN_FALLBACK = (Deno.env.get('MEMBER_LOGIN_FIRST_LOGIN_FALLBACK') ?? 'on').trim().toLowerCase() !== 'off';
 
 const MESSAGES: Record<string, string> = {
   INVALID_INPUT: '이름과 휴대폰 번호 뒤 4자리를 입력해주세요.',
   INVALID_CREDENTIALS: '이름 또는 PIN이 일치하지 않습니다.',
-  INVALID_PHONE: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다. 명부에 휴대폰 번호가 없거나 다르면 관리자에게 문의해주세요.',
+  INVALID_PHONE: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다. 로그인 번호가 등록되지 않았거나 바뀌었으면 관리자에게 문의해주세요.',
   NOT_IN_PILOT: '새 시스템 명부에 아직 등록되지 않은 인원입니다. 관리자에게 문의해주세요.',
   ROSTER_UNAVAILABLE: '명부 확인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.',
   LOCKED: '로그인 실패가 반복되어 30분간 잠겼습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.',
@@ -135,7 +142,7 @@ async function issueSession(admin: SupabaseClient, personId: string) {
   return verified.session;
 }
 
-// 기존 정식 인원DB에 이름 + 뒤 4자리를 묻는다 (화면의 기존 4자리 로그인과 같은 요청). 사용자ID만 받아 쓴다.
+// 최초 1회 이관: 정식 인원DB에 이름 + 뒤 4자리를 묻는다. 사용자ID만 받아 쓰고 번호는 남기지 않는다.
 async function rosterCheck(name: string, phone4: string): Promise<{ verified: boolean; userId: string | null }> {
   const callback = 'memberLoginRoster';
   const url = `${ROSTER_API_URL}?${new URLSearchParams({ action: 'attendanceLogin', name, pin: phone4, callback, _t: String(Date.now()) })}`;
@@ -172,6 +179,13 @@ Deno.serve(async (req: Request) => {
   let args: Record<string, unknown> = { p_name: name, p_pin: pin, p_client_ip: clientIp(req) };
   if (byPhone) {
     if (!name.trim() || !/^[0-9]{4}$/.test(phone4)) return fail(origin, 400, 'INVALID_INPUT');
+    rpcName = 'pilot_member_login4';
+    args = { p_name: name, p_code: phone4, p_client_ip: clientIp(req) };
+  }
+  let { data: result, error } = await admin.rpc(rpcName, args);
+  // 로그인 번호가 아직 없는 현재 인원: 최초 1회만 정식 인원DB로 확인하고 번호를 해시로 이관
+  if (byPhone && !error && result?.code === 'FIRST_LOGIN_REQUIRED') {
+    if (!FIRST_LOGIN_FALLBACK) return fail(origin, 401, 'INVALID_PHONE');
     let roster;
     try {
       roster = await rosterCheck(name.trim(), phone4);
@@ -179,10 +193,10 @@ Deno.serve(async (req: Request) => {
       console.error('member-login roster error', e instanceof Error ? e.name : 'unknown');
       return fail(origin, 503, 'ROSTER_UNAVAILABLE');
     }
-    rpcName = 'pilot_member_roster_login';
-    args = { p_name: name, p_user_id: roster.userId, p_verified: roster.verified, p_client_ip: clientIp(req) };
+    ({ data: result, error } = await admin.rpc('pilot_member_login4_migrate', {
+      p_name: name, p_code: phone4, p_verified: roster.verified, p_user_id: roster.userId, p_client_ip: clientIp(req),
+    }));
   }
-  const { data: result, error } = await admin.rpc(rpcName, args);
   if (error || !result) {
     console.error('member-login verify error', error?.code ?? 'unknown');
     return fail(origin, 500, 'SERVER_ERROR');

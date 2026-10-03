@@ -1,16 +1,22 @@
-import { accounts, endpoint, publishableKey } from './personnel_accounts_test.mjs';
+import { accounts, endpoint, publishableKey, PROD, pageUrl } from './personnel_accounts_test.mjs?v=1.0';
 const $ = id => document.getElementById(id);
 const SESSION_KEY = 'personnelPilotSessionV2';
 const roleNames = { ADMIN: '관리자', MANAGER: '소장', LEADER: '팀장' };
 const organizationApiUrl = 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
 let session = null, roster = null, editing = null, gradeEditing = null, generation = 0;
-// 전환 기간: 기존 이름+휴대폰 뒤 4자리(Apps Script) 로그인을 함께 허용한다. 개인 PIN 발급이 끝나면 false로 바꾼다.
-const LEGACY_ROSTER_LOGIN = true;
-// 로그인 후 ?next=로 이동할 수 있는 시험 화면과 허용 역할 (서버에서 받은 역할 기준)
-const NEXT_PAGES = { 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'] };
+// Apps Script는 이름 + 휴대폰 뒤 4자리 본인 확인에만 쓴다. 직급 글자로 화면·권한을 정하던 기존 경로는 쓰지 않는다.
+// (새 시스템 명부에 없는 인원은 "등록되지 않은 인원" 안내로 끝난다)
+const LEGACY_ROSTER_LOGIN = false;
+// 로그인 후 ?next=로 이동할 수 있는 화면(운영·시험)과 허용 역할 (서버에서 받은 역할 기준)
+const NEXT_PAGES = { 'tbm_report.html': ['LEADER'], 'tbm_manager.html': ['ADMIN', 'MANAGER'], 'member.html': ['MEMBER', 'LEADER'], 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'], 'organization.html': ['ADMIN', 'MANAGER'] };
+const roleLabels = { MEMBER: '팀원', TEAM_LEADER: '팀장', SITE_MANAGER: '현장관리', ADMIN: '관리자' };
+// 개인 로그인(이름 + 휴대폰 뒤 4자리, 개인 PIN) 후 기본 화면
+const MEMBER_HOMES = { MANAGER: [pageUrl('tbm_manager'), '현장 TBM 현황'], LEADER: [pageUrl('tbm_report'), '팀장 TBM 보고 화면'], MEMBER: [pageUrl('member'), '팀원 화면'] };
+// 업무계정(팀 공용) 기본 화면: 운영은 TBM 화면, 시험은 기존 팀장 시험 화면
+const workHomeOf = appRole => appRole === 'LEADER' ? (PROD ? pageUrl('tbm_report') : 'leader_test.html') : pageUrl('tbm_manager');
 let pendingPin = '';
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
-const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.' };
+const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '계정 연결이 아직 준비되지 않았습니다. 관리자에게 문의해주세요.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.', TEAM_REQUIRED: '현재 팀을 선택해주세요.', TEAM_NOT_FOUND: '팀을 찾을 수 없습니다. 새로고침해주세요.', LOGIN_CODE_REQUIRED: '새 인원은 로그인 번호(휴대폰 뒤 4자리)가 필요합니다.', INVALID_LOGIN_CODE: '로그인 번호는 숫자 4자리입니다.', LOGIN_DUPLICATE: '같은 이름에 같은 로그인 번호를 쓰는 인원이 있습니다. 번호를 다시 확인해주세요.' };
 const pinMessages = { INVALID_CREDENTIALS: '현재 PIN이 맞지 않습니다.', PIN_NOT_ALLOWED: '사용할 수 없는 PIN입니다. 같은 숫자 반복·연속 숫자·현재 PIN은 쓸 수 없습니다.', LOCKED: 'PIN 변경 실패가 반복되어 잠시 잠겼습니다. 15분 뒤 다시 시도해주세요.', NOT_MEMBER_SESSION: '개인 로그인에서만 PIN을 바꿀 수 있습니다.' };
 function tell(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
 function saveSession() {
@@ -66,9 +72,11 @@ async function loginRosterMember(name, pin) {
   tell(`${user.name}님 확인 완료 · ${destinationLabel}으로 이동합니다.`);
   setTimeout(() => { location.href = destination; }, 350);
 }
-function nextPage(appRole) {
+// 개인 로그인은 업무계정 전용 화면(인원 편집)으로 보내지 않는다.
+const WORK_ONLY_PAGES = ['admin_test.html'];
+function nextPage(appRole, personal = false) {
   const next = new URLSearchParams(location.search).get('next');
-  return next && NEXT_PAGES[next]?.includes(appRole) ? next : '';
+  return next && NEXT_PAGES[next]?.includes(appRole) && !(personal && WORK_ONLY_PAGES.includes(next)) ? next : '';
 }
 async function callMemberLogin(body) {
   let response;
@@ -81,7 +89,7 @@ async function callMemberLogin(body) {
 }
 // 역할·팀은 로그인 결과가 아니라 서버의 pilot_whoami 결과로만 정한다.
 function memberSessionUser(actor) {
-  return { name: actor.name, userId: actor.user_id, personId: actor.person_id, team: actor.team || '', rank: actor.rank || '', role: actor.role_label, job: actor.job || '', attendanceGrade: actor.attendance_grade || 'A', appRole: actor.app_role, authSource: 'supabase-pin' };
+  return { name: actor.name, userId: actor.user_id || actor.person_id, personId: actor.person_id, team: actor.team || '', rank: actor.rank || '', role: actor.role_label, job: actor.job || '', attendanceGrade: actor.attendance_grade || 'A', appRole: actor.app_role, authSource: 'supabase-pin' };
 }
 async function startMemberSession(auth, pin) {
   session = { access_token: auth.access_token, refresh_token: auth.refresh_token, expires_in: auth.expires_in, expiresAt: Date.now() + auth.expires_in * 1000, kind: 'member' };
@@ -112,8 +120,11 @@ async function continueMemberSession() {
   const user = memberSessionUser(actor);
   sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
-  const destination = nextPage(actor.app_role) || (actor.app_role === 'LEADER' ? 'tbm_report_test.html' : 'member_test.html');
-  tell(`${actor.name}님 확인 완료 · ${actor.app_role === 'LEADER' ? '팀장 TBM 보고' : '팀원 화면'}으로 이동합니다.`);
+  // 화면은 서버(pilot_whoami)가 정한 역할로만 고른다: 관리자 → 명부(기존 관리자 화면), 현장관리 → 현황, 팀장 → TBM 보고, 그 외 → 팀원 화면
+  if (actor.app_role === 'ADMIN') { await loadRoster(); tell(`${actor.name}님 확인 완료 · 관리자 화면입니다.`); return; }
+  const [home, label] = MEMBER_HOMES[actor.app_role] || MEMBER_HOMES.MEMBER;
+  const destination = nextPage(actor.app_role, true) || home;
+  tell(`${actor.name}님 확인 완료 · ${label}으로 이동합니다.`);
   setTimeout(() => { location.href = destination; }, 350);
 }
 function showPinChange(actor) {
@@ -151,7 +162,7 @@ function syncRoleSession(result) {
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
   $('roleLabel').textContent = role;
   $('roleScope').textContent = result.team_scope || '용인 현장 전체';
-  $('workHome').href = result.app_role === 'LEADER' ? 'leader_test.html' : 'tbm_manager_test.html';
+  $('workHome').href = workHomeOf(result.app_role);
   $('workHome').textContent = result.app_role === 'LEADER' ? '팀장 TBM 열기' : 'TBM 현황 열기';
 }
 async function loadRoster() {
@@ -159,7 +170,7 @@ async function loadRoster() {
   try {
     const result = await rpc('pilot_roster');
     if (ticket !== generation) return;
-    if (document.body.dataset.adminOnly === 'true' && !result.can_edit) {
+    if (document.body.dataset.adminOnly === 'true' && !result.can_edit && !result.can_change_grade) {
       throw new Error('이 페이지는 관리자 또는 소장 계정만 사용할 수 있습니다.');
     }
     if (!roleNames[result.app_role]) throw new Error('팀장·소장·관리자 계정만 사용할 수 있습니다.');
@@ -168,18 +179,22 @@ async function loadRoster() {
     const next = document.body.dataset.adminOnly === 'true' ? '' : nextPage(result.app_role);
     if (next) { location.replace(next); return; }
     if (document.body.dataset.adminOnly !== 'true' && result.app_role !== 'ADMIN') {
-      location.replace(result.app_role === 'LEADER' ? 'leader_test.html' : 'tbm_manager_test.html');
+      location.replace(workHomeOf(result.app_role));
       return;
     }
     document.body.classList.toggle('admin-mode', result.app_role === 'ADMIN');
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
-    $('scopeTitle').textContent = result.team_scope || '전체 시험 인원';
+    $('scopeTitle').textContent = result.team_scope || (PROD ? '전체 인원' : '전체 시험 인원');
     $('count').textContent = result.people.length;
-    $('unassigned').textContent = result.people.filter(p => !p.team_name).length;
+    $('unassigned').textContent = result.people.filter(p => p.employment_status !== 'inactive' && !p.team).length;
+    $('addPerson').hidden = !result.can_edit;
     $('conflicts').textContent = result.people.filter(p => p.id_conflict).length;
+    // 현재 인원 중 로그인 번호가 등록된 수 (모두 등록되면 최초 이관(Apps Script)을 끌 수 있다)
+    const activePeople = result.people.filter(p => p.employment_status !== 'inactive');
+    $('loginReady').textContent = `${activePeople.filter(p => p.has_login).length} / ${activePeople.length}`;
     const previous = $('teamFilter').value;
     $('teamFilter').replaceChildren(new Option('전체', ''));
-    [...new Set(result.people.map(p => p.team_name || '미지정'))].sort().forEach(team => $('teamFilter').add(new Option(team, team)));
+    [...new Set(result.people.map(p => p.team || '미지정'))].sort().forEach(team => $('teamFilter').add(new Option(team, team)));
     if ([...$('teamFilter').options].some(o => o.value === previous)) $('teamFilter').value = previous;
     $('timing').textContent = `최근 조회 ${Math.round(performance.now() - started)}ms`;
     $('loginPanel').hidden = true; $('directory').hidden = false; render();
@@ -188,22 +203,23 @@ async function loadRoster() {
 function render() {
   if (!roster) return;
   const q = $('search').value.trim().toLowerCase(), team = $('teamFilter').value;
-  const people = roster.people.filter(p => (!q || `${p.display_name} ${p.legacy_user_id}`.toLowerCase().includes(q)) && (!team || (p.team_name || '미지정') === team));
+  const people = roster.people.filter(p => (!q || `${p.display_name} ${p.legacy_user_id || ''}`.toLowerCase().includes(q)) && (!team || (p.team || '미지정') === team));
   $('people').replaceChildren(); $('empty').hidden = people.length !== 0;
   for (const person of people) {
     const row = document.createElement('tr');
     function cell(text) { const el = document.createElement('td'); el.textContent = text; row.append(el); return el; }
-    const name = cell(person.display_name); const id = document.createElement('small'); id.textContent = person.legacy_user_id; name.append(id);
+    const name = cell(person.display_name); const id = document.createElement('small'); id.textContent = person.legacy_user_id || '-'; name.append(id);
+    if (roster.can_edit && person.employment_status !== 'inactive' && !person.has_login) { const flag = document.createElement('small'); flag.textContent = '로그인 번호 미등록'; flag.className = 'conflict'; name.append(flag); }
     if (person.id_conflict) { const flag = document.createElement('small'); flag.textContent = '기존 ID 중복 · 별도 인원으로 보존'; flag.className = 'conflict'; name.append(flag); }
-    cell(person.team_name || '미지정'); cell(`${person.rank_title || '-'} / ${person.job_title || '-'}`);
+    cell(person.team ? `${person.team} · ${roleLabels[person.role] || '팀원'}` : '미지정'); cell(`${person.rank_title || '-'} / ${person.job_title || '-'}`);
     const grade = cell(''); const gradePill = document.createElement('span'); gradePill.className = 'grade-pill'; gradePill.textContent = person.attendance_grade || 'A'; grade.append(gradePill);
     cell(statusNames[person.employment_status] || '미확인');
     const action = cell('');
-    if (roster.can_edit) {
+    if (roster.can_edit || roster.can_change_grade) {
       const buttons = document.createElement('div'); buttons.className = 'action-buttons';
-      const btn = document.createElement('button'); btn.className = 'secondary'; btn.textContent = '인원 편집'; btn.addEventListener('click', () => openEdit(person));
-      const gradeBtn = document.createElement('button'); gradeBtn.className = 'secondary'; gradeBtn.textContent = '등급 변경'; gradeBtn.addEventListener('click', () => openGrade(person));
-      buttons.append(btn, gradeBtn); action.append(buttons);
+      if (roster.can_edit) { const btn = document.createElement('button'); btn.className = 'secondary'; btn.textContent = '인원 편집'; btn.addEventListener('click', () => openEdit(person)); buttons.append(btn); }
+      if (roster.can_change_grade) { const gradeBtn = document.createElement('button'); gradeBtn.className = 'secondary'; gradeBtn.textContent = '등급 변경'; gradeBtn.addEventListener('click', () => openGrade(person)); buttons.append(gradeBtn); }
+      action.append(buttons);
     }
     else action.textContent = '조회 전용';
     $('people').append(row);
@@ -215,14 +231,22 @@ function openGrade(person) {
   $('attendanceGrade').value = person.attendance_grade || 'A';
   $('gradeReason').value = ''; $('gradeMessage').textContent = ''; $('gradeDialog').showModal();
 }
+// 인원 추가(person 없음)·수정. 팀 목록은 서버 teams 표에서 (새 팀도 코드 수정 없이 선택 가능)
 function openEdit(person) {
-  editing = person;
-  $('editingId').textContent = person.legacy_user_id + ' · 변경 이력이 저장됩니다';
-  $('editName').value = person.display_name; $('editTeam').value = person.team_name;
-  $('editRank').value = person.rank_title || ''; $('editJob').value = person.job_title || '';
-  $('editStatus').value = person.employment_status; $('editNote').value = person.note || '';
+  editing = person || { id: null, version: null };
+  $('editTitle').textContent = person ? '인원정보 편집' : '인원 추가';
+  $('editingId').textContent = person ? `${person.legacy_user_id || '사용자ID 없음'} · 변경 이력이 저장됩니다` : '새 인원 · 내부 ID로 등록됩니다';
+  $('editTeam').replaceChildren(new Option('선택', ''));
+  for (const team of roster.teams || []) $('editTeam').add(new Option(team.name, team.id));
+  $('editName').value = person?.display_name || ''; $('editTeam').value = person?.team_id || '';
+  $('editRole').value = person?.role || 'MEMBER';
+  $('editRank').value = person?.rank_title || ''; $('editJob').value = person?.job_title || '';
+  $('editStatus').value = person?.employment_status || 'active'; $('editNote').value = person?.note || '';
+  $('editLogin').value = '';
+  $('loginState').textContent = !person ? '새 인원은 로그인 번호가 필요합니다.' : person.has_login ? '로그인 번호 등록됨 (바꿀 때만 입력)' : '로그인 번호 미등록';
   $('editMessage').textContent = ''; $('editDialog').showModal();
 }
+$('addPerson').addEventListener('click', () => openEdit(null));
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault(); $('loginButton').disabled = true; tell('로그인 확인 중…');
   try {
@@ -280,7 +304,11 @@ $('editForm').addEventListener('submit', async event => {
   event.preventDefault(); if (!editing) return; $('saveButton').disabled = true; $('cancel').disabled = true; $('editMessage').textContent = '';
   let saved = false;
   try {
-    await rpc('pilot_update_person', { p_id: editing.id, p_version: editing.version, p_name: $('editName').value.trim(), p_team: $('editTeam').value, p_rank: $('editRank').value, p_job: $('editJob').value, p_status: $('editStatus').value, p_note: $('editNote').value });
+    const loginCode = $('editLogin').value.replace(/\D/g, '');
+    if ($('editLogin').value && loginCode.length !== 4) throw new Error('로그인 번호는 숫자 4자리입니다.');
+    await rpc('pilot_admin_save_person', { p_payload: { id: editing.id, version: editing.version, name: $('editName').value.trim(), team_id: $('editTeam').value, role: $('editRole').value,
+      rank: $('editRank').value, job: $('editJob').value, status: $('editStatus').value, note: $('editNote').value, login_code: loginCode } });
+    $('editLogin').value = '';
     saved = true; $('editDialog').close(); editing = null;
     await loadRoster(); tell('변경 내용과 편집 이력을 저장했습니다.');
   } catch(e) {

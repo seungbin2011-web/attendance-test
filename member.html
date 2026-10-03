@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- 운영 화면: tests/make_prod_pages.py가 member_test.html에서 만든다. 직접 고치지 말 것 -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>팀원 홈 TEST</title>
+<title>팀원 홈</title>
 <style>
 *{box-sizing:border-box}
 :root{
@@ -183,7 +184,7 @@ body{
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand">팀원 홈 <span class="ver">TEST v0.10</span></div>
+    <div class="brand">팀원 홈 <span class="ver">v1.0</span></div>
     <div style="display:flex;gap:6px">
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="goHome()">홈으로</button>
       <button class="btn ghost" style="min-height:auto;padding:8px 10px;font-size:11px" onclick="logout()">로그아웃</button>
@@ -262,7 +263,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.11</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 v1.0</div>
 </main>
 
 <script>
@@ -506,7 +507,7 @@ function isSeason2(){
   return !!authUser&&authUser.authSource==="supabase-pin";
 }
 async function teamFromSupabase(){
-  const api=await import("./tbm_api_test.mjs?v=0.12");
+  const api=await import("./tbm_api_test.mjs?v=1.0");
   try{
     const res=await api.rpc("pilot_my_team");
     return {success:true,team:res.team,leaders:res.leaders||[],members:res.members||[]};
@@ -566,7 +567,7 @@ function goHome(){
 async function logout(){
   if(isSeason2()){
     // Season 2 개인 세션은 서버 세션까지 끝내고 통합 로그인으로
-    try{const api=await import("./tbm_api_test.mjs?v=0.12");await api.logout();}catch(e){}
+    try{const api=await import("./tbm_api_test.mjs?v=1.0");await api.logout();}catch(e){}
     location.href=LOGIN_PAGE;
     return;
   }

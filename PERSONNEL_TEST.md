@@ -1,4 +1,77 @@
-# 인원DB 통합 로그인 시험 v0.91
+# 인원DB 통합 로그인 시험 v0.92 · 운영 v1.0
+
+## 운영 v1.0 (MAIN 승격) · SQL v0.12 · member-login v0.4 (최초 로그인 자동 이관)
+
+- 운영 주소 하나: `https://seungbin2011-web.github.io/attendance-test/` → `index.html`(통합 로그인) → 서버 역할대로
+  - 팀원 → `member.html` / 팀장 → `tbm_report.html` / 현장관리 → `tbm_manager.html` / 관리자 → `index.html` 관리자 명부
+  - 운영 화면에는 TEST·시험 화면 표시가 없다. 로그인 전 운영 화면을 열면 `index.html?next=...`로 간다.
+- 운영 화면 4개는 `python3 tests/make_prod_pages.py`가 시험 화면(`personnel_test.html`·`member_test.html`·`tbm_report_test.html`·`tbm_manager_test.html`)에서 표시만 바꿔 만든다. 직접 고치지 않는다. JS 모듈은 같고, 파일 이름에 `_test`가 없으면 운영 화면끼리 연결한다(`pageUrl`).
+- 기존 루트 출퇴근 앱(Season 1 `index.html`)은 내용 그대로 `index_season1.html`로 옮겼다. 운영 팀원 화면의 "출결 등록"이 여기로 연결된다. 시험 화면(`*_test.html`)은 지우지 않고 그대로 둔다.
+- 최초 로그인 자동 이관 (`personnel_auth_v12.sql`, member-login v0.4)
+  - 로그인 번호가 있는 사람: Supabase만 확인 (Apps Script 호출 없음)
+  - 번호가 없는 현재 인원(재직·현재 소속 있음): 첫 로그인 1회만 정식 인원DB(Apps Script)로 이름 + 뒤 4자리 확인 → 맞으면 뒤 4자리를 bcrypt 해시로 저장(`pilot_member_login4_migrate`, service_role 전용) → 다음부터 Supabase만
+  - 저장 조건: 정식 인원DB 확인 성공 + Supabase 현재 인원 + 비활성 아님 + 한 사람으로 정해짐. 같은 이름이 여럿이면 기존 사용자ID로만 고르고, 못 고르면 AMBIGUOUS로 막는다. 명단에 없는 사람은 Apps Script를 부르지 않고 거절
+  - 실패 한도·잠금은 v0.11과 같다. 확인 실패면 아무것도 저장하지 않는다.
+  - 관리자 명부 상단 "로그인 번호 등록 N / M" (현재 인원 중 등록 수). `personnel_auth_v12_check.sql`의 `login_registered` / `active_people`도 같은 숫자
+  - 모두 등록되면 Edge Functions → Secrets에 `MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off` → Apps Script를 전혀 부르지 않는다 (새 인원은 관리자 화면에서 번호까지 등록)
+- 적용 순서 (각 SQL은 새 탭 단독 실행, check는 별도 탭. 이미 적용한 단계는 check만 다시 보고 넘어간다)
+  1. `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql`
+  2. `personnel_auth_v11.sql` → `personnel_auth_v11_check.sql`
+  3. `personnel_auth_v12.sql` → `personnel_auth_v12_check.sql`
+  4. 명단을 넣은 `personnel_roster_v10_check.sql` → `personnel_roster_v10_sync.sql` → `personnel_roster_v10_verify.sql` (`ok = true`, 53 / 15·23·9·1·5 / 13·35·4·1)
+  5. Edge Function `member-login`을 v0.4로 Deploy (Verify JWT 끔)
+  6. main 반영 (GitHub Pages). 엑셀 번호 일괄 등록(`personnel_login4_import_template.sql`)은 하지 않아도 된다.
+- 되돌리기: main은 승격 전 태그 `pre-s2-main-20261003`으로 되돌린다. 서버는 member-login v0.3 → `personnel_auth_v12_rollback.sql` (이미 저장된 번호 해시는 그대로 남아 v0.11 로그인에 쓰인다)
+- 남은 Apps Script 사용: 최초 이관 확인(위), 팀원 화면 "오늘 작업"(기존 TBM DB 조회), Season 1 화면(`index_season1.html`·`leader.html`·일부 `*_test.html`). 정식 인원DB의 공개 조회(`personnelOrg`)는 이 저장소 밖에 있어 Apps Script에서 따로 막아야 한다.
+
+## SQL v0.11 · member-login v0.3 (Supabase 단독 로그인 + 관리자 인원 관리)
+
+- 로그인: 이름 + 휴대폰 뒤 4자리를 Supabase 안에서만 확인한다 (`pilot_member_login4`). Apps Script를 부르지 않는다.
+  - 뒤 4자리는 `member_pins.login4_hash`에 bcrypt 해시로만 저장. 전체 번호·평문은 저장하지 않는다.
+  - 같은 이름이면 번호까지 맞는 사람을 고르고, 같은 이름 + 같은 번호가 둘 이상이면 AMBIGUOUS로 막는다. 관리자 화면·일괄 등록은 이런 번호를 처음부터 거절한다.
+  - 실패 한도·잠금·세션 만료·비활성 차단은 v0.8 기준 그대로
+- 내부 식별은 인원 UUID. 기존 사용자ID(`legacy_user_id`)는 있으면 참고용으로 남기고, 새 인원은 없어도 된다 (임의 ID를 만들지 않음).
+- 인원 관리 (관리자만, 통합 로그인 명부 화면 `personnel_test.html` · `admin_sql_test.html`)
+  - "인원 추가": 이름·현재 팀·권한·로그인 번호(필수)·직급/직무 → 사람·소속·역할·로그인 번호를 한 번에 저장 (`pilot_admin_save_person`)
+  - "인원 편집": 이름·직급/직무·팀 이동·권한(팀원/팀장/현장관리/관리자)·로그인 번호 재설정(바꿀 때만 입력)
+  - 상태 "비활성": 로그인·현재 소속·권한 종료, 지난 TBM·사진·이월 기록 유지 / 다시 "재직"으로 저장하면 같은 사람(UUID)으로 재투입
+  - 팀 목록은 서버 teams 표에서 읽는다. 현장관리(소장 업무계정 포함)는 인원 편집 불가, 출결등급 변경만 가능
+- 조직도 `organization.html` v3.0: 로그인 필수, 현장관리·관리자만 (`pilot_org_chart` 서버 함수가 확인). 휴대폰 번호·로그인 번호 없음, 기기에 저장하지 않음
+- 팀원 화면 "우리 팀장·팀원", 팀장 작업 인원 후보, 로그인 후 표시 팀, TBM 권한이 모두 같은 현재 소속·역할을 쓴다.
+- 파일: `personnel_auth_v11.sql` / `personnel_auth_v11_check.sql` / `personnel_auth_v11_rollback.sql`, 처음 로그인 번호 일괄 등록 `personnel_login4_import_template.sql` (엑셀 식 포함, 실제 번호는 Git에 넣지 않음)
+- 적용 순서 (각 SQL은 새 탭 단독 실행, 순서 중요)
+  1. `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql`
+  2. `personnel_auth_v11.sql` → `personnel_auth_v11_check.sql`
+  3. 명단을 넣은 `personnel_roster_v10_check.sql` → `personnel_roster_v10_sync.sql` → `personnel_roster_v10_verify.sql`
+  4. 번호를 넣은 `personnel_login4_import_template.sql` → `personnel_auth_v11_check.sql`에서 `active_without_login = 0`
+  5. Edge Function `member-login`을 v0.3으로 Deploy (4번 전에 올리면 번호가 없는 사람은 로그인할 수 없음)
+  6. main 반영 (GitHub Pages)
+- 되돌리기: member-login v0.2 → `personnel_roster_v10_rollback.sql` → `personnel_auth_v11_rollback.sql` → (필요하면) `personnel_auth_v10_rollback.sql`
+- 남은 Apps Script: 정식 인원DB의 공개 조회(`personnelOrg`, 휴대폰 번호 포함)는 이 저장소 밖에 있어 따로 막아야 한다. Season 1 화면(운영 `index.html`·`leader.html`, `*_test.html` 일부)은 그대로
+
+## v0.92 (Season 2 현장 사용 준비: 2026-10 확정 명단 53명 기준 인원·소속·권한)
+
+- 기준: 본인 확인은 Apps Script(이름 + 휴대폰 뒤 4자리), 팀·권한·화면 이동은 Supabase 현재 소속(`memberships`)·현재 역할(`role_assignments`)만. 직급·직무 글자, 이름, 화면 값으로 권한을 정하지 않는다.
+  - `TEAM_LEADER` → 팀장 TBM(`tbm_report_test.html`) / `SITE_MANAGER` → 현장 TBM 현황(`tbm_manager_test.html`) / `ADMIN_DEPT`(기존 역할 코드) → 관리자 화면(통합 로그인 명부) / 그 외 → 팀원 화면(`member_test.html`)
+  - 새 시스템 명부에 없는 인원은 "등록되지 않은 인원" 안내로 끝난다. (Apps Script 직급 글자로 이동하던 기존 경로는 끔)
+  - 같은 팀 팀장이 여러 명이면 같은 팀 보고를 함께 작성·수정. 다른 팀 보고는 서버가 거절. 팀원 0명 팀(자재팀)도 팀장 화면 정상
+  - 현장관리 개인 로그인은 본인 현장 현황만, 인원 편집 없음. 관리자 개인 로그인은 기존 관리자 업무계정과 같은 명부 조회·편집·등급 변경 + TBM 현황
+  - 팀원 화면의 "우리 팀장·팀원", 로그인 후 표시 팀, 팀장 인원 후보, 소장 현황이 모두 같은 현재 소속을 쓴다.
+- SQL `personnel_auth_v10.sql` (함수만, 표·행 변경 없음): 역할 판정(`current_actor`), 명부 함수 3개의 사용자 확인(`roster_actor`), 내 팀 조회(`pilot_my_team`). 확인 `personnel_auth_v10_check.sql` / 되돌리기 `personnel_auth_v10_rollback.sql`
+- 명단 동기화 (2026-10 기준 숫자: 총 53 / 1팀 15·2팀 23·3팀 9·자재팀 1·현장·관리 5 / 팀장 13·팀원 35·현장관리 4·관리자 1)
+  - `personnel_roster_v10_check.sql`: 읽기 전용 미리보기 (기존 인원 연결, 사용자ID 필요, 팀 이름 변경, 이동·역할 변경·비활성 대상, 바뀌는 사람의 현재 상태)
+  - `personnel_roster_v10_sync.sql`: 한 트랜잭션, 하나라도 맞지 않으면 전체 취소, 다시 실행해도 중복 없음. DELETE 없음
+    - 사람은 기존 행(UUID) 재사용. 새 사람은 확인된 사용자ID가 있을 때만 추가 (없으면 `NEEDS_ID`로 중단)
+    - 팀은 기존 행 재사용·이름만 변경 (공사2팀 → 2팀, 지난 TBM 보고는 같은 팀 UUID로 연결), 없는 팀만 추가
+    - 명단에 없는 인원: 현재 소속 종료 + 재직 확인 inactive (로그인 차단, 행·지난 기록 유지)
+  - `personnel_roster_v10_verify.sql`: 읽기 전용, `ok = true`일 때만 성공 (숫자 + 명단을 넣으면 사람별 팀·역할)
+  - `personnel_roster_v10_rollback.sql`: 가장 최근 동기화 1회를 되돌림 (종료일 표시·변경 이력 기준, 삭제 없음)
+  - 세 파일의 "명단" 자리는 비어 있다. 실제 명단은 Git에 올리지 않고 적용할 때 따로 넣는다.
+- 이후 인원 변경: `personnel_roles_v10_change_template.sql` (한 줄 = 그 사람의 앞으로의 상태, 역할 `MEMBER`·`TEAM_LEADER`·`SITE_MANAGER`·`ADMIN`·`LEAVE`). 명부 팀 글자도 같이 맞춘다. 점검은 `personnel_roles_v10_inspect_readonly.sql` (직급 글자와 역할 차이는 참고 notes로만 표시)
+- 업무계정(관리자·소장·1팀장팀·2팀장팀)은 삭제하지 않고 비상용으로 둔다. 팀 공용 팀장계정은 옛 팀 이름(공사1팀·공사2팀)에 묶여 있어, 팀 이름이 바뀌면 TBM에서 "팀 정보 준비 안 됨"으로 막힌다.
+- 적용 순서(사용자 작업, 각각 새 탭 단독 실행): `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql` → 명단을 넣은 `personnel_roster_v10_check.sql` → 명단을 넣은 `personnel_roster_v10_sync.sql` → 명단을 넣은 `personnel_roster_v10_verify.sql` → main 반영(GitHub Pages)
+- 되돌리기: `personnel_roster_v10_rollback.sql` → (필요하면) `personnel_auth_v10_rollback.sql`
+- 알려진 한계: 인원 편집 화면 "명부상 팀"의 기본 목록과 서버 검사의 옛 팀 이름 목록은 그대로 두고, 현재 팀 이름(teams 표·명부)을 함께 허용한다.
 
 ## v0.91 (Season 2 현장 시연 준비)
 

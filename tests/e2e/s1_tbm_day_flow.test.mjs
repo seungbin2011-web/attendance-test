@@ -4,7 +4,7 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 const env = await setup();
 const PASS = 'pilot-test-pass';
 const REPORT_VERSION = 'v0.62 TEST';
-const MANAGER_VERSION = 'v0.4 TEST';
+const MANAGER_VERSION = 'v0.41 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -374,7 +374,7 @@ try {
     const { page } = leader;
     await page.goto(`${env.base}/tbm_manager_test.html`);
     await page.waitForSelector('#blocked:not([hidden])');
-    assert.match(await page.textContent('#blockedText'), /소장·관리자 계정만/);
+    assert.match(await page.textContent('#blockedText'), /현장관리·관리자 권한이 있는 사람만/);
     await page.goto(`${env.base}/tbm_report_test.html`);
     await page.waitForSelector('#stageHome.active');
   });
