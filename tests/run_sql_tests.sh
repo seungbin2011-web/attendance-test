@@ -74,6 +74,10 @@ run "$ROOT/personnel_auth_v11.sql"
 runtest "$ROOT/tests/sql/40_test_personnel_auth_v11.sql"
 run "$ROOT/personnel_auth_v11_check.sql" > /dev/null
 run "$ROOT/personnel_auth_v11.sql"   # 다시 실행해도 오류 없음
+# v0.12: 기존 인원 최초 로그인 자동 이관 (정식 인원DB 확인 결과 → 번호 해시)
+run "$ROOT/personnel_auth_v12.sql"
+runtest "$ROOT/tests/sql/42_test_personnel_auth_v12.sql"
+run "$ROOT/personnel_auth_v12_check.sql" > /dev/null
 # 2026-10 확정 명단 동기화: 실제 check·sync·verify 파일의 "명단" 자리에 가짜 명단 53명을 넣어 실행 (실제 명단은 Git에 넣지 않음)
 ROWS="$ROOT/tests/sql/fixture_roster_2026_10_fake.rows"
 fill() { local f; f="$(mktemp)"; awk -v rows="$2" '{print} /-- ▼ 명단/{while ((getline line < rows) > 0) print line; close(rows)}' "$1" > "$f"; echo "$f"; }
@@ -103,6 +107,8 @@ run "$SYNC" > /dev/null; select_to roster_verify2 "$VERIFY"
 echo "2026-10 roster: check/sync/verify/idempotent/rollback/resync ok"
 # 롤백은 적용의 역순
 run "$ROOT/tests/sql/18_snapshot_before_rollback.sql"
+run "$ROOT/personnel_auth_v12_rollback.sql"
+[ "$(q "select (to_regprocedure('public.pilot_member_login4_migrate(text,text,boolean,text,text)') is null and pg_get_functiondef('public.pilot_member_login4(text,text,text)'::regprocedure) not like '%FIRST_LOGIN_REQUIRED%')::text")" = "true" ] || { echo "V12 ROLLBACK FAILED"; exit 1; }
 run "$ROOT/personnel_auth_v11_rollback.sql"
 runtest "$ROOT/tests/sql/41_test_personnel_auth_v11_rollback.sql"
 run "$ROOT/personnel_auth_v10_rollback.sql"
@@ -114,4 +120,5 @@ run "$ROOT/personnel_auth_v08.sql"
 run "$ROOT/personnel_auth_v09.sql"
 run "$ROOT/personnel_auth_v10.sql"
 run "$ROOT/personnel_auth_v11.sql"
+run "$ROOT/personnel_auth_v12.sql"
 echo "ALL SQL TESTS PASSED"

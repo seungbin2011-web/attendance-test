@@ -41,6 +41,7 @@ const roster = new Map([
   ['레거시인원|1234', { name: '레거시인원', userId: 'T-9999', team: '공사2팀', rank: '팀원', role: '팀원', job: '' }],
 ]);
 let edgeHandler = null;
+let rosterCalls = 0; // Edge Function이 정식 인원DB(흉내)를 부른 횟수 (최초 로그인 이관 시험용)
 
 function b64url(obj) { return Buffer.from(JSON.stringify(obj)).toString('base64url'); }
 function makeAccessToken(userId, sessionId) {
@@ -303,8 +304,12 @@ async function testApi(req, res, sub, url) {
   if (sub === 'roster') { // 흉내 정식 인원DB에 가짜 인원 추가
     const body = JSON.parse((await readBody(req)).toString());
     for (const e of body.entries || []) roster.set(`${e.name}|${e.pin}`, e.user);
-    await seedLogin4((body.entries || []).map(e => [`${e.name}|${e.pin}`, e.user]));
+    // seed: false 이면 정식 인원DB(흉내)에만 넣고 DB 로그인 번호는 만들지 않는다 (최초 로그인 이관 시험)
+    if (body.seed !== false) await seedLogin4((body.entries || []).map(e => [`${e.name}|${e.pin}`, e.user]));
     return send(res, 200, { ok: true });
+  }
+  if (sub === 'roster_calls') {
+    return send(res, 200, { count: rosterCalls });
   }
   if (sub === 'expire_sessions') {
     await asAdmin(`update auth.sessions set created_at = now() - interval '17 hours' where user_id = $1`, [url.searchParams.get('user')]);
@@ -331,6 +336,7 @@ export async function startGateway() {
       if (req.method === 'OPTIONS') return send(res, 204, undefined, { 'Access-Control-Allow-Headers': req.headers['access-control-request-headers'] || 'apikey, authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' });
       if (url.pathname.startsWith('/__test/')) return await testApi(req, res, url.pathname.slice(8), url);
       if (url.pathname === '/__mock/roster') { // Edge Function이 서버에서 부르는 정식 인원DB 흉내 (JSONP)
+        rosterCalls++;
         const q = url.searchParams; const user = roster.get(`${q.get('name')}|${q.get('pin')}`);
         const payload = user ? { success: true, user } : { success: false, message: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다.' };
         res.writeHead(200, { 'Content-Type': 'text/javascript' });

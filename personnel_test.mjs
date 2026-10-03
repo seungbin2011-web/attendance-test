@@ -187,6 +187,9 @@ async function loadRoster() {
     $('unassigned').textContent = result.people.filter(p => p.employment_status !== 'inactive' && !p.team).length;
     $('addPerson').hidden = !result.can_edit;
     $('conflicts').textContent = result.people.filter(p => p.id_conflict).length;
+    // 현재 인원 중 로그인 번호가 등록된 수 (모두 등록되면 최초 이관(Apps Script)을 끌 수 있다)
+    const activePeople = result.people.filter(p => p.employment_status !== 'inactive');
+    $('loginReady').textContent = `${activePeople.filter(p => p.has_login).length} / ${activePeople.length}`;
     const previous = $('teamFilter').value;
     $('teamFilter').replaceChildren(new Option('전체', ''));
     [...new Set(result.people.map(p => p.team || '미지정'))].sort().forEach(team => $('teamFilter').add(new Option(team, team)));

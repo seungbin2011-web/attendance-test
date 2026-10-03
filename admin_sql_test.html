@@ -25,7 +25,7 @@
       <div class="titlebar"><div><p class="eyebrow">DB 인원 현황</p><h1 id="scopeTitle">전체 시험 인원</h1></div><div><button id="refresh" class="secondary">새로고침</button> <button id="logout" class="secondary">로그아웃</button></div></div>
       <div class="rolebar card"><div><span class="muted small">확인된 역할</span><strong id="roleLabel">-</strong><small id="roleScope">-</small></div><a id="workHome" class="button-link" href="admin_test.html">관리자 현황 열기</a></div>
       <p class="notice">인원은 Supabase 시험 DB에서 직접 조회합니다. 인원 추가·수정·팀 이동·권한·로그인 번호·비활성은 관리자만, 출결등급 변경은 소장·관리자가 할 수 있으며 모든 변경은 이력으로 저장됩니다.</p>
-      <div class="stats"><div class="card"><span>조회 가능 인원</span><strong id="count">0</strong></div><div class="card"><span>팀 미지정</span><strong id="unassigned">0</strong></div><div class="card"><span>중복 ID 확인 대상</span><strong id="conflicts">0</strong></div></div>
+      <div class="stats"><div class="card"><span>조회 가능 인원</span><strong id="count">0</strong></div><div class="card"><span>팀 미지정</span><strong id="unassigned">0</strong></div><div class="card"><span>중복 ID 확인 대상</span><strong id="conflicts">0</strong></div><div class="card"><span>로그인 번호 등록</span><strong id="loginReady">-</strong></div></div>
       <div class="toolbar"><label>검색<input id="search" placeholder="이름 또는 기존 ID"></label><label>팀<select id="teamFilter"><option value="">전체</option></select></label><button id="addPerson" type="button" hidden>인원 추가</button><p id="timing" class="muted small"></p></div>
       <div class="tablewrap card"><table><thead><tr><th>이름 / 기존 ID</th><th>현재 팀 / 권한</th><th>직급 / 직무</th><th>출결등급</th><th>재직 확인</th><th>관리</th></tr></thead><tbody id="people"></tbody></table></div>
       <p id="empty" class="muted" hidden>검색 조건에 해당하는 인원이 없습니다.</p>
