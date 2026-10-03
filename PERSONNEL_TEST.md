@@ -1,18 +1,28 @@
 # 인원DB 통합 로그인 시험 v0.92
 
-## v0.92 (Season 2 현장 사용 준비: 역할 판정 정리)
+## v0.92 (Season 2 현장 사용 준비: 2026-10 확정 명단 53명 기준 인원·소속·권한)
 
-- 원인: 로그인 역할은 Supabase 소속·역할 표(`memberships`·`role_assignments`)를 보고, 팀원 화면의 "우리 팀장"은 Apps Script 명부(`teamView`)를 본다. 역할 표에는 처음 반입한 일부 인원만 있어, 명부상 팀장이어도 역할 행이 없으면 팀원으로 판정됐다.
-- 기준은 하나: 화면 이동과 권한은 서버 표의 현재 소속·역할만 본다. 이름·팀·직급 글자로 정하지 않는다.
-  - `SITE_MANAGER` → 소장 현황 `tbm_manager_test.html` / `TEAM_LEADER` → 팀장 TBM `tbm_report_test.html` / 그 외 → 팀원 화면 `member_test.html`
-- SQL `personnel_auth_v10.sql`: 개인 로그인(이름 + 뒤 4자리, 개인 PIN)에서 `SITE_MANAGER`를 인정한다. 소장은 본인 현재 소속 현장만 본다. 인원 편집은 기존처럼 업무계정만. 롤백 `personnel_auth_v10_rollback.sql`.
-- 업무계정 "소장"은 비상용으로 그대로 쓸 수 있다.
-- 인원 변경은 코드 수정 없이 `personnel_roles_v10_change_template.sql`(한 줄 = 그 사람의 앞으로의 상태)로 한다. 점검은 `personnel_roles_v10_inspect_readonly.sql`(읽기 전용).
-  - 신규 투입·팀 이동: `MEMBER` + 팀 / 팀장 지정·교체: `TEAM_LEADER`·`MEMBER` / 소장 교체: `SITE_MANAGER`·`MEMBER` / 현장 이탈: `LEAVE` / 퇴사: 인원 편집에서 재직상태 "비활성"
-  - 이전 소속·역할은 종료일만 기록한다(삭제 없음). 지난 TBM 보고·배정·사진은 당시 팀 그대로 남는다.
-- 전환 기간에 같이 맞출 곳: 팀원 화면의 "우리 팀장·팀원"과 Season 1 화면은 Apps Script 명부를 본다. 팀 이동·팀장 변경은 명부 시트에도 반영한다.
-- 적용 순서(사용자 작업): 점검 SQL로 현재 상태 확인 → `personnel_auth_v10.sql` 단독 실행 → 별도 탭에서 `personnel_auth_v10_check.sql` → 필요한 인원만 변경 템플릿 → 점검 SQL 다시 → main 반영(GitHub Pages)
-- 알려진 한계: 인원 편집 화면의 "명부상 팀" 목록과 서버 검사(`pilot_update_person`), 팀 공용 팀장계정은 팀 이름이 고정 목록이다. 새 팀 이름이 생기면 이 표시용 목록만 따로 손봐야 한다. (권한·TBM 인원 후보에는 영향 없음)
+- 기준: 본인 확인은 Apps Script(이름 + 휴대폰 뒤 4자리), 팀·권한·화면 이동은 Supabase 현재 소속(`memberships`)·현재 역할(`role_assignments`)만. 직급·직무 글자, 이름, 화면 값으로 권한을 정하지 않는다.
+  - `TEAM_LEADER` → 팀장 TBM(`tbm_report_test.html`) / `SITE_MANAGER` → 현장 TBM 현황(`tbm_manager_test.html`) / `ADMIN_DEPT`(기존 역할 코드) → 관리자 화면(통합 로그인 명부) / 그 외 → 팀원 화면(`member_test.html`)
+  - 새 시스템 명부에 없는 인원은 "등록되지 않은 인원" 안내로 끝난다. (Apps Script 직급 글자로 이동하던 기존 경로는 끔)
+  - 같은 팀 팀장이 여러 명이면 같은 팀 보고를 함께 작성·수정. 다른 팀 보고는 서버가 거절. 팀원 0명 팀(자재팀)도 팀장 화면 정상
+  - 현장관리 개인 로그인은 본인 현장 현황만, 인원 편집 없음. 관리자 개인 로그인은 기존 관리자 업무계정과 같은 명부 조회·편집·등급 변경 + TBM 현황
+  - 팀원 화면의 "우리 팀장·팀원", 로그인 후 표시 팀, 팀장 인원 후보, 소장 현황이 모두 같은 현재 소속을 쓴다.
+- SQL `personnel_auth_v10.sql` (함수만, 표·행 변경 없음): 역할 판정(`current_actor`), 명부 함수 3개의 사용자 확인(`roster_actor`), 내 팀 조회(`pilot_my_team`). 확인 `personnel_auth_v10_check.sql` / 되돌리기 `personnel_auth_v10_rollback.sql`
+- 명단 동기화 (2026-10 기준 숫자: 총 53 / 1팀 15·2팀 23·3팀 9·자재팀 1·현장·관리 5 / 팀장 13·팀원 35·현장관리 4·관리자 1)
+  - `personnel_roster_v10_check.sql`: 읽기 전용 미리보기 (기존 인원 연결, 사용자ID 필요, 팀 이름 변경, 이동·역할 변경·비활성 대상, 바뀌는 사람의 현재 상태)
+  - `personnel_roster_v10_sync.sql`: 한 트랜잭션, 하나라도 맞지 않으면 전체 취소, 다시 실행해도 중복 없음. DELETE 없음
+    - 사람은 기존 행(UUID) 재사용. 새 사람은 확인된 사용자ID가 있을 때만 추가 (없으면 `NEEDS_ID`로 중단)
+    - 팀은 기존 행 재사용·이름만 변경 (공사2팀 → 2팀, 지난 TBM 보고는 같은 팀 UUID로 연결), 없는 팀만 추가
+    - 명단에 없는 인원: 현재 소속 종료 + 재직 확인 inactive (로그인 차단, 행·지난 기록 유지)
+  - `personnel_roster_v10_verify.sql`: 읽기 전용, `ok = true`일 때만 성공 (숫자 + 명단을 넣으면 사람별 팀·역할)
+  - `personnel_roster_v10_rollback.sql`: 가장 최근 동기화 1회를 되돌림 (종료일 표시·변경 이력 기준, 삭제 없음)
+  - 세 파일의 "명단" 자리는 비어 있다. 실제 명단은 Git에 올리지 않고 적용할 때 따로 넣는다.
+- 이후 인원 변경: `personnel_roles_v10_change_template.sql` (한 줄 = 그 사람의 앞으로의 상태, 역할 `MEMBER`·`TEAM_LEADER`·`SITE_MANAGER`·`ADMIN`·`LEAVE`). 명부 팀 글자도 같이 맞춘다. 점검은 `personnel_roles_v10_inspect_readonly.sql` (직급 글자와 역할 차이는 참고 notes로만 표시)
+- 업무계정(관리자·소장·1팀장팀·2팀장팀)은 삭제하지 않고 비상용으로 둔다. 팀 공용 팀장계정은 옛 팀 이름(공사1팀·공사2팀)에 묶여 있어, 팀 이름이 바뀌면 TBM에서 "팀 정보 준비 안 됨"으로 막힌다.
+- 적용 순서(사용자 작업, 각각 새 탭 단독 실행): `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql` → 명단을 넣은 `personnel_roster_v10_check.sql` → 명단을 넣은 `personnel_roster_v10_sync.sql` → 명단을 넣은 `personnel_roster_v10_verify.sql` → main 반영(GitHub Pages)
+- 되돌리기: `personnel_roster_v10_rollback.sql` → (필요하면) `personnel_auth_v10_rollback.sql`
+- 알려진 한계: 인원 편집 화면 "명부상 팀"의 기본 목록과 서버 검사의 옛 팀 이름 목록은 그대로 두고, 현재 팀 이름(teams 표·명부)을 함께 허용한다.
 
 ## v0.91 (Season 2 현장 시연 준비)
 

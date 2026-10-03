@@ -11,7 +11,8 @@ bash tests/run_sql_tests.sh
 - `sql/00_mock_supabase.sql`: 실제 work-status-test 조회 결과를 기준으로 만든 흉내 구조 (역할, auth, storage, personnel_pilot_v1, public.works 권한)
 - `sql/01_mock_seed.sql`: 가짜 인원·업무계정 (실제와 같은 형태만 흉내)
 - `sql/10_*`, `sql/2*_*`: 적용 후 동작·권한 시험. 실패하면 `TEST FAILED`로 중단
-- `sql/12_*`~`sql/16_*`: v0.10 역할 판정(팀원·팀장·소장), 소속·역할 변경 템플릿(실제 파일에 시험 명단만 넣어 실행, 잘못된 명단은 전체 취소), 점검 SQL, v0.10 롤백
+- `sql/12_*`~`sql/16_*`: v0.10 역할 판정(팀원·팀장·현장관리·관리자), 소속·역할 변경 템플릿(실제 파일에 시험 명단만 넣어 실행, 잘못된 명단은 전체 취소), 점검 SQL, v0.10 롤백
+- `sql/29_*`~`sql/32_*` + `sql/fixture_roster_2026_10_fake.rows`: 2026-10 명단 동기화 (가짜 53명, 실제 숫자와 같은 형태). 미리보기·실패 시 무변경·숫자·사람별 역할·같은 팀 팀장 공동 작성·다른 팀 차단·자재팀 0명·재실행 무변경·되돌리기·재동기화
 - 마지막에 롤백 → 재적용까지 확인
 
 ## e2e 시험 (Chromium)
@@ -24,4 +25,5 @@ bash tests/e2e/run_e2e.sh s0_login.test.mjs
 - `e2e/mock_gateway.mjs`: 정적 파일 + Supabase 흉내 API (RPC는 로컬 DB의 실제 SQL 함수를 해당 역할로 실행, Storage는 RLS 정책을 실제로 거침)
 - `supabase/functions/member-login/index.ts`를 Deno 흉내로 그대로 실행한다.
 - 브라우저의 실제 Supabase 주소 요청과 Apps Script 요청은 시험 안에서 로컬로 돌린다.
+- `e2e/s4_roster_2026_10.test.mjs`: 가짜 53명 명단을 실제 동기화 파일로 넣은 뒤 관리자·현장관리·팀장 여러 명·자재팀·팀원 화면, 화면 값 조작 차단, 팀원 로그아웃, 제외 인원 차단
 - 결과 화면 캡처는 `e2e/artifacts/` (Git 제외)

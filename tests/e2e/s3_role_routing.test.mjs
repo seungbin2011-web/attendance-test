@@ -52,7 +52,7 @@ try {
   await step('소장: 이름 + 뒤 4자리 → 소장 TBM 현황 (서버 SITE_MANAGER 기준), 새 팀도 목록에 보임', async () => {
     const { page, errors } = await loginTo('시험소장', '0303', /tbm_manager_test\.html/);
     await page.waitForSelector('#stageList.active .team-card');
-    assert.match(await page.textContent('#headerSub'), /^시험소장 소장 · /);
+    assert.match(await page.textContent('#headerSub'), /^시험소장 현장관리 · /);
     assert.match(await page.textContent('#stageList'), /공사1팀/);
     assert.match(await page.textContent('#stageList'), /공사2팀/);
     const u = await page.evaluate(() => JSON.parse(sessionStorage.getItem('attendanceAuthUser')));
@@ -78,7 +78,7 @@ try {
     });
     await page.goto(`${env.base}/tbm_manager_test.html`);
     await page.waitForSelector('#blocked:not([hidden])');
-    assert.match(await page.textContent('#blockedText'), /소장·관리자만 사용할 수 있는 화면/);
+    assert.match(await page.textContent('#blockedText'), /현장관리·관리자 권한이 있는 사람만/);
     assert.equal(await page.locator('#stageList .team-card').count(), 0);
   });
 

@@ -1,4 +1,4 @@
-// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.41: 소장(개인 로그인·업무계정)·관리자 읽기 전용 · 하루 전체 흐름 · 요약·필터·자동 새로고침·변경 이력)
+// 현장 TBM 현황 시험 화면 (tbm_manager_test v0.41: 현장관리·관리자(개인 로그인·업무계정) 읽기 전용 · 하루 전체 흐름 · 요약·필터·자동 새로고침·변경 이력)
 // 볼 수 있는 현장·팀은 서버(tbm_site_overview)가 정한다. 이 화면에는 저장 기능이 없다.
 import { rpc, requireLogin, logout, loginUrl, describeError, escapeHtml, kstTime, kstDateLabel, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
 
@@ -24,10 +24,10 @@ function showStage(id) { document.querySelectorAll('.app-stage').forEach(s => s.
 function block(text) {
   document.querySelectorAll('.app-stage').forEach(s => s.classList.remove('active'));
   $('blocked').hidden = false; $('blockedText').textContent = text; tell('');
-  $('headerSub').textContent = '소장·관리자로 로그인해야 사용할 수 있습니다.';
+  $('headerSub').textContent = '현장관리·관리자로 로그인해야 사용할 수 있습니다.';
 }
 function handleError(e) {
-  if (BLOCKING.includes(e.code)) block(e.code === 'FORBIDDEN' ? '소장·관리자만 사용할 수 있는 화면입니다. 소장은 본인 이름과 휴대폰 번호 뒤 4자리로, 관리자는 업무계정으로 로그인해주세요.' : describeError(e));
+  if (BLOCKING.includes(e.code)) block(e.code === 'FORBIDDEN' ? '현장관리·관리자 권한이 있는 사람만 사용할 수 있는 화면입니다. 본인 이름과 휴대폰 번호 뒤 4자리로 로그인해주세요.' : describeError(e));
   else tell(describeError(e), 'error');
 }
 

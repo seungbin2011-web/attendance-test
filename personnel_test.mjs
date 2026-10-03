@@ -4,12 +4,13 @@ const SESSION_KEY = 'personnelPilotSessionV2';
 const roleNames = { ADMIN: '관리자', MANAGER: '소장', LEADER: '팀장' };
 const organizationApiUrl = 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
 let session = null, roster = null, editing = null, gradeEditing = null, generation = 0;
-// 전환 기간: 기존 이름+휴대폰 뒤 4자리(Apps Script) 로그인을 함께 허용한다. 개인 PIN 발급이 끝나면 false로 바꾼다.
-const LEGACY_ROSTER_LOGIN = true;
+// Apps Script는 이름 + 휴대폰 뒤 4자리 본인 확인에만 쓴다. 직급 글자로 화면·권한을 정하던 기존 경로는 쓰지 않는다.
+// (새 시스템 명부에 없는 인원은 "등록되지 않은 인원" 안내로 끝난다)
+const LEGACY_ROSTER_LOGIN = false;
 // 로그인 후 ?next=로 이동할 수 있는 시험 화면과 허용 역할 (서버에서 받은 역할 기준)
 const NEXT_PAGES = { 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'] };
 // 개인 로그인(이름 + 휴대폰 뒤 4자리, 개인 PIN) 후 기본 화면
-const MEMBER_HOMES = { MANAGER: ['tbm_manager_test.html', '소장 TBM 현황'], LEADER: ['tbm_report_test.html', '팀장 TBM 보고 화면'], MEMBER: ['member_test.html', '팀원 화면'] };
+const MEMBER_HOMES = { MANAGER: ['tbm_manager_test.html', '현장 TBM 현황'], LEADER: ['tbm_report_test.html', '팀장 TBM 보고 화면'], MEMBER: ['member_test.html', '팀원 화면'] };
 let pendingPin = '';
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
 const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.' };
@@ -116,7 +117,8 @@ async function continueMemberSession() {
   const user = memberSessionUser(actor);
   sessionStorage.setItem('attendanceAuthUser', JSON.stringify(user));
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
-  // 화면은 서버(pilot_whoami)가 정한 역할로만 고른다: 소장 → 현황, 팀장 → TBM 보고, 그 외 → 팀원 화면
+  // 화면은 서버(pilot_whoami)가 정한 역할로만 고른다: 관리자 → 명부(기존 관리자 화면), 현장관리 → 현황, 팀장 → TBM 보고, 그 외 → 팀원 화면
+  if (actor.app_role === 'ADMIN') { await loadRoster(); tell(`${actor.name}님 확인 완료 · 관리자 화면입니다.`); return; }
   const [home, label] = MEMBER_HOMES[actor.app_role] || MEMBER_HOMES.MEMBER;
   const destination = nextPage(actor.app_role, true) || home;
   tell(`${actor.name}님 확인 완료 · ${label}으로 이동합니다.`);
@@ -224,6 +226,10 @@ function openGrade(person) {
 function openEdit(person) {
   editing = person;
   $('editingId').textContent = person.legacy_user_id + ' · 변경 이력이 저장됩니다';
+  // 팀 목록은 화면 고정 목록 + 현재 명부에 있는 팀 이름 (새 팀도 코드 수정 없이 선택 가능)
+  for (const team of new Set(roster.people.map(p => p.team_name).filter(Boolean))) {
+    if (![...$('editTeam').options].some(o => o.value === team)) $('editTeam').add(new Option(team, team));
+  }
   $('editName').value = person.display_name; $('editTeam').value = person.team_name;
   $('editRank').value = person.rank_title || ''; $('editJob').value = person.job_title || '';
   $('editStatus').value = person.employment_status; $('editNote').value = person.note || '';

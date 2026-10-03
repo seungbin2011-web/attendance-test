@@ -374,7 +374,7 @@ try {
     const { page } = leader;
     await page.goto(`${env.base}/tbm_manager_test.html`);
     await page.waitForSelector('#blocked:not([hidden])');
-    assert.match(await page.textContent('#blockedText'), /소장·관리자만 사용할 수 있는 화면/);
+    assert.match(await page.textContent('#blockedText'), /현장관리·관리자 권한이 있는 사람만/);
     await page.goto(`${env.base}/tbm_report_test.html`);
     await page.waitForSelector('#stageHome.active');
   });

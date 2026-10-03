@@ -262,7 +262,7 @@ body{
     로그인한 사용자의 팀 기준으로 최소한의 인원 정보만 표시합니다.
   </div>
 
-  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.10</div>
+  <div class="footer">© 2026 용인 현장 근태 · 팀원 홈 TEST v0.11</div>
 </main>
 
 <script>
@@ -309,7 +309,8 @@ function jsonp(params){
 }
 
 function personCard(p,kind){
-  const isMe=clean(p.userId)===clean(authUser.userId);
+  // 같은 사용자ID를 쓰는 다른 사람이 있어 Season 2는 인원 UUID로 본인을 구분
+  const isMe=p.personId&&authUser.personId?p.personId===authUser.personId:clean(p.userId)===clean(authUser.userId);
   return `<div class="person">
     <div class="person-name">
       ${esc(p.name)}
@@ -496,13 +497,27 @@ async function refreshAll(){
   }
 }
 
+// Season 2 개인 로그인은 우리 팀장·팀원을 Supabase 현재 소속으로 조회 (팀장 TBM 인원 후보와 같은 기준)
+function isSeason2(){
+  return !!authUser&&authUser.authSource==="supabase-pin";
+}
+async function teamFromSupabase(){
+  const api=await import("./tbm_api_test.mjs?v=0.11");
+  try{
+    const res=await api.rpc("pilot_my_team");
+    return {success:true,team:res.team,leaders:res.leaders||[],members:res.members||[]};
+  }catch(e){
+    throw new Error(api.describeError(e));
+  }
+}
+
 async function reloadTeam(){
   const notice=document.getElementById("notice");
   document.getElementById("leaders").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
   document.getElementById("members").innerHTML='<div class="status">팀 정보를 불러오는 중입니다.</div>';
 
   try{
-    const res=await jsonp({
+    const res=isSeason2()?await teamFromSupabase():await jsonp({
       action:"teamView",
       userId:authUser.userId
     });
@@ -544,7 +559,13 @@ function goHome(){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
-function logout(){
+async function logout(){
+  if(isSeason2()){
+    // Season 2 개인 세션은 서버 세션까지 끝내고 통합 로그인으로
+    try{const api=await import("./tbm_api_test.mjs?v=0.11");await api.logout();}catch(e){}
+    location.href="personnel_test.html";
+    return;
+  }
   sessionStorage.removeItem("attendanceAuthUser");
   sessionStorage.removeItem("tbmAuthUser");
   location.href="index_test.html";

@@ -59,13 +59,44 @@ expect_fail "insert into role_targets values ('T-0040','시험동명','CONSTRUCT
 expect_fail "insert into role_targets values ('T-0040','시험동명',null,null,'TEAM_LEADER');" TEAM_REQUIRED
 expect_fail "insert into role_targets values ('T-0028','시험퇴사자','CONSTRUCTION_2','공사2팀','MEMBER');" INACTIVE_PERSON
 expect_fail "insert into role_targets values ('T-0040','시험동명','CONSTRUCTION_2','다른이름','MEMBER');" TEAM_NAME_MISMATCH
-expect_fail "insert into role_targets values ('T-0040','시험동명','NEW_FAIL','새팀','ADMIN');" INVALID_ROLE
+expect_fail "insert into role_targets values ('T-0040','시험동명','NEW_FAIL','새팀','BOSS');" INVALID_ROLE
 expect_fail "insert into role_targets values ('T-0040','시험동명',null,null,'MEMBER'), ('T-0040','시험동명',null,null,'LEAVE');" DUPLICATE_TARGET
 apply_targets "insert into role_targets values ('T-0003','시험소장',null,null,'SITE_MANAGER'), ('T-0016','시험자재','MATERIAL','자재팀','MEMBER');"
 runtest "$ROOT/tests/sql/15_test_personnel_roles_v10_change3.sql"
+apply_targets "insert into role_targets values ('T-0040','시험동명',null,null,'ADMIN');"
+[ "$(q "select string_agg(r.role_code, ',') from personnel_pilot_v1.memberships m join personnel_pilot_v1.role_assignments r on r.membership_id = m.id and r.revoked_at is null join personnel_pilot_v1.people p on p.id = m.person_id where p.legacy_user_id = 'T-0040' and m.valid_to is null")" = "ADMIN_DEPT" ] || { echo "TEMPLATE ADMIN FAILED"; exit 1; }
+apply_targets "insert into role_targets values ('T-0040','시험동명',null,null,'LEAVE');"
 run "$ROOT/personnel_auth_v10_rollback.sql"
 runtest "$ROOT/tests/sql/16_test_personnel_auth_v10_rollback.sql"
 run "$ROOT/personnel_auth_v10.sql"
+# 2026-10 확정 명단 동기화: 실제 check·sync·verify 파일의 "명단" 자리에 가짜 명단 53명을 넣어 실행 (실제 명단은 Git에 넣지 않음)
+ROWS="$ROOT/tests/sql/fixture_roster_2026_10_fake.rows"
+fill() { local f; f="$(mktemp)"; awk -v rows="$2" '{print} /-- ▼ 명단/{while ((getline line < rows) > 0) print line; close(rows)}' "$1" > "$f"; echo "$f"; }
+select_to() { local f; f="$(mktemp)"; { echo "drop table if exists test_util.$1;"; echo "create table test_util.$1 as"; sed '$ s/;[[:space:]]*$//' "$2"; echo ";"; } > "$f"; run "$f" > /dev/null; rm -f "$f"; }
+run_fail() { local out; out="$(mktemp)"; if run "$1" > "$out" 2>&1; then cat "$out"; echo "SHOULD FAIL: $2"; exit 1; fi
+  if ! grep -q "$2" "$out"; then cat "$out"; echo "WRONG ERROR (want $2)"; exit 1; fi; rm -f "$out"; }
+variant() { local f; f="$(mktemp)"; sed "$1" "$ROWS" > "$f"; echo "$f"; }
+run "$ROOT/tests/sql/29_roster_snapshot.sql" > /dev/null
+select_to roster_check "$(fill "$ROOT/personnel_roster_v10_check.sql" "$ROWS")"
+MISSING="$(variant "s/'시험삼반장', 'T-1301'/'시험삼반장', null/")"
+select_to roster_check_missing "$(fill "$ROOT/personnel_roster_v10_check.sql" "$MISSING")"
+run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$MISSING")" "NEEDS_ID 시험삼반장"
+run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$(variant "s/'시험일반01', 'T-1101'/'시험일반01', 'T-0036'/")")" "ID_NAME_MISMATCH T-0036 시험일반01"
+run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$(variant "/시험일반12/d")")" "총원 52명"
+runtest "$ROOT/tests/sql/30_test_roster_v10_check.sql"
+SYNC="$(fill "$ROOT/personnel_roster_v10_sync.sql" "$ROWS")"; VERIFY="$(fill "$ROOT/personnel_roster_v10_verify.sql" "$ROWS")"
+run "$SYNC" > /dev/null
+select_to roster_verify "$VERIFY"
+fp="$(q "select test_util.roster_fp()")"; run "$SYNC" > /dev/null
+[ "$fp" = "$(q "select test_util.roster_fp()")" ] || { echo "ROSTER SYNC NOT IDEMPOTENT"; exit 1; }
+runtest "$ROOT/tests/sql/31_test_roster_v10_sync.sql"
+run "$ROOT/personnel_roster_v10_rollback.sql" > /dev/null
+runtest "$ROOT/tests/sql/32_test_roster_v10_rollback.sql"
+fp="$(q "select test_util.roster_fp()")"; run "$ROOT/personnel_roster_v10_rollback.sql" > /dev/null
+[ "$fp" = "$(q "select test_util.roster_fp()")" ] || { echo "ROSTER ROLLBACK NOT IDEMPOTENT"; exit 1; }
+run "$SYNC" > /dev/null; select_to roster_verify2 "$VERIFY"
+[ "$(q "select verify_roster::jsonb ->> 'ok' from test_util.roster_verify2")" = "true" ] || { echo "ROSTER RESYNC VERIFY FAILED"; exit 1; }
+echo "2026-10 roster: check/sync/verify/idempotent/rollback/resync ok"
 # 롤백은 적용의 역순
 run "$ROOT/tests/sql/18_snapshot_before_rollback.sql"
 run "$ROOT/personnel_auth_v10_rollback.sql"

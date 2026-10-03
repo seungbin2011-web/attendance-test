@@ -128,15 +128,15 @@ try {
     assert.ok(page.url().includes('admin_sql_test.html'));
   });
 
-  await step('새 시스템 명부에 없는 인원: 4자리 로그인은 기존 경로(Apps Script 흉내)로 이어짐', async () => {
+  await step('새 시스템 명부에 없는 인원: 본인 확인이 돼도 직급 글자로 화면·권한을 주지 않고 안내만', async () => {
     const { page } = await newPage(env, { appsScript: q => q.action === 'attendanceLogin' && q.pin === '1234'
-      ? { success: true, user: { name: '레거시인원', userId: 'T-9999', team: '공사2팀', rank: '팀원', role: '팀원', job: '' } }
+      ? { success: true, user: { name: '레거시인원', userId: 'T-9999', team: '공사2팀', rank: '소장', role: '소장', job: '' } }
       : { success: false, message: '시험 환경' } });
     await page.goto(`${env.base}/personnel_test.html`);
     await login(page, '레거시인원', '1234');
-    await page.waitForURL(/member_test\.html/);
-    const user = await page.evaluate(() => JSON.parse(sessionStorage.getItem('attendanceAuthUser')));
-    assert.equal(user.authSource, 'organization-api-v07');
+    await page.waitForFunction(() => document.querySelector('#message').textContent.includes('새 시스템 명부에 아직 등록되지 않은 인원'));
+    assert.ok(page.url().includes('personnel_test.html'));
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('attendanceAuthUser')), null);
   });
 
   await step('16시간이 지난 개인 세션은 다시 로그인 요구', async () => {

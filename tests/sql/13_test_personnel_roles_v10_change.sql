@@ -12,8 +12,8 @@
 select test_util.expect('inspect finds leader without role',
   (select p ->> 'expected_app_role' from test_util.inspect_before i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
    where p ->> 'user_id' = 'T-0008'), 'MEMBER');
-select test_util.expect('inspect issue text',
-  (select (p -> 'issues') ? '명부 팀장 · 팀장 역할 없음' from test_util.inspect_before i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
+select test_util.expect('inspect note text (참고, 권한 아님)',
+  (select (p -> 'notes') ? '명부 팀장 · 팀장 역할 없음' from test_util.inspect_before i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
    where p ->> 'user_id' = 'T-0008')::text, 'true');
 select test_util.expect('inspect finds missing team',
   (select (p -> 'issues') ? '명부팀이 팀 목록(teams)에 없음' from test_util.inspect_before i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
@@ -72,10 +72,12 @@ select test_util.expect('manager sees new team', (select count(*)::text from jso
   where t ->> 'team_name' = '공사1팀'), '1');
 reset role;
 
--- 4. 점검 SQL(보정 후): 팀장 문제는 사라지고, 명부 글자와 다른 이동은 계속 알려 준다
+-- 4. 점검 SQL(보정 후): 팀장 문제는 사라지고, 이동한 사람의 명부 팀 글자도 같이 바뀐다
 select test_util.expect('leader fixed in inspect', (select count(*)::text from test_util.inspect_after i,
   jsonb_array_elements_text(i.check_roles::jsonb -> 'ok') o where o = '시험일팀장 T-0008 · 공사1팀 · 팀장 → LEADER'), '1');
-select test_util.expect('moved member flagged until roster text updated',
-  (select (p -> 'issues') ? '명부팀과 현재 소속 다름' from test_util.inspect_after i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
-   where p ->> 'user_id' = 'T-0026')::text, 'true');
+select test_util.expect('moved member roster text follows',
+  (select count(*)::text from test_util.inspect_after i, jsonb_array_elements(i.check_roles::jsonb -> 'problems') p
+   where p ->> 'user_id' = 'T-0026'), '0');
+select test_util.expect('roster text updated with history', (select team_name || '/' || (select count(*) from personnel_pilot_v1.person_edits e
+  where e.person_id = p.id and e.actor_login = 'roles_change_template')::text from personnel_pilot_v1.people p where p.legacy_user_id = 'T-0026'), '공사1팀/1');
 select 'role change template test 1 passed';

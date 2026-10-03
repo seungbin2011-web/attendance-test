@@ -9,15 +9,17 @@
 --   3) 1)을 다시 별도 탭에서 실행해 결과 확인
 --
 -- 한 줄 = 그 사람의 "앞으로의 현재 상태"
---   role: MEMBER(팀원) / TEAM_LEADER(팀장, 팀 필수) / SITE_MANAGER(소장, 팀 생략 가능) / LEAVE(현장 이탈: 현재 소속 종료)
---   team_code·team_name: 현재 팀. 소장은 null 가능 (현장 소속만), LEAVE는 null
+--   role: MEMBER(팀원) / TEAM_LEADER(팀장, 팀 필수) / SITE_MANAGER(현장관리) / ADMIN(관리자) / LEAVE(현장 이탈: 현재 소속 종료)
+--   team_code·team_name: 현재 팀 (2026-10 기준 예: CONSTRUCTION_1 1팀, CONSTRUCTION_2 2팀, CONSTRUCTION_3 3팀, MATERIAL 자재팀,
+--                        SITE_MANAGEMENT 현장·관리). 현장관리·관리자는 null 가능 (현장 소속만), LEAVE는 null
+--   팀을 지정하면 명부 팀 글자(people.team_name)도 같은 이름으로 맞춘다 (변경 이력에 남김)
 --
 -- 지켜지는 것
 --   * 삭제 없음. 이전 소속·역할은 종료일(valid_to·revoked_at)만 기록해 이력으로 남는다.
 --   * 지난 TBM 보고·인원 배정·사진은 당시 팀 기준 그대로 남는다. (보고는 팀 ID·인원 ID로 저장됨)
 --   * 사용자ID와 이름이 모두 맞는 정확히 1명만 바꾼다. 한 줄이라도 맞지 않으면 전체 취소.
 --   * 명단이 비어 있으면 아무것도 바꾸지 않는다. 실제 명단은 Git에 올리지 않는다.
---   * 자재(MATERIAL_STAFF)·관리부서(ADMIN_DEPT) 역할은 유지 소속에서 건드리지 않는다.
+--   * 관리자는 기존 역할 코드 ADMIN_DEPT로 저장한다. 자재(MATERIAL_STAFF) 역할은 유지 소속에서 건드리지 않는다.
 --   * 퇴사는 기존 인원 편집 화면에서 재직상태를 "비활성"으로 바꾸면 로그인이 막힌다. (필요하면 LEAVE도 함께)
 begin;
 
@@ -26,7 +28,7 @@ create temp table role_targets (
   display_name text not null,     -- 이름 (정확히 일치)
   team_code text,                 -- 예: CONSTRUCTION_2 (teams.code)
   team_name text,                 -- 예: 공사2팀 (teams.name, 새 팀이면 이 이름으로 추가)
-  role text not null              -- MEMBER / TEAM_LEADER / SITE_MANAGER / LEAVE
+  role text not null              -- MEMBER / TEAM_LEADER / SITE_MANAGER / ADMIN / LEAVE
 ) on commit drop;
 
 -- ▼ 변경 대상 (예시는 주석 상태)
@@ -38,7 +40,9 @@ create temp table role_targets (
 do $change$
 declare
   c_site_code constant text := 'YONGIN_PILOT';
-  c_login_roles constant text[] := array['TEAM_LEADER', 'SITE_MANAGER'];
+  c_login_roles constant text[] := array['TEAM_LEADER', 'SITE_MANAGER', 'ADMIN_DEPT'];
+  v_code text;
+  pp record;
   v_site uuid;
   r record;
   m record;
@@ -61,7 +65,7 @@ begin
   end if;
 
   for r in select * from role_targets loop
-    if r.role not in ('MEMBER', 'TEAM_LEADER', 'SITE_MANAGER', 'LEAVE') then
+    if r.role not in ('MEMBER', 'TEAM_LEADER', 'SITE_MANAGER', 'ADMIN', 'LEAVE') then
       raise exception 'INVALID_ROLE: % %', r.legacy_user_id, r.role;
     end if;
     if r.role = 'TEAM_LEADER' and r.team_code is null then
@@ -115,22 +119,32 @@ begin
       end if;
     end loop;
     if r.role = 'LEAVE' then continue; end if;
+    -- 명부 팀 글자도 현재 팀 이름으로 (변경 이력)
+    if r.team_name is not null then
+      select * into pp from personnel_pilot_v1.people where id = v_person for update;
+      if pp.team_name is distinct from r.team_name then
+        insert into personnel_pilot_v1.person_edits (person_id, actor_id, actor_login, before_data, after_data)
+        select v_person, '00000000-0000-0000-0000-000000000000', 'roles_change_template', to_jsonb(pp), to_jsonb(pp) || jsonb_build_object('team_name', r.team_name);
+        update personnel_pilot_v1.people set team_name = r.team_name, version = version + 1, updated_at = clock_timestamp() where id = v_person;
+      end if;
+    end if;
     if v_keep is null then
       insert into personnel_pilot_v1.memberships (person_id, site_id, team_id)
       values (v_person, v_site, v_team) returning id into v_keep;
       v_new_memberships := v_new_memberships + 1;
     end if;
 
-    -- 역할: 로그인 역할(팀장·소장)은 지정한 것만 남긴다
+    -- 역할: 로그인 역할(팀장·현장관리·관리자)은 지정한 것만 남긴다
+    v_code := case r.role when 'ADMIN' then 'ADMIN_DEPT' else r.role end;
     update personnel_pilot_v1.role_assignments set revoked_at = clock_timestamp()
     where membership_id = v_keep and revoked_at is null
-      and role_code = any (c_login_roles) and role_code <> r.role;
+      and role_code = any (c_login_roles) and role_code <> v_code;
     get diagnostics v_rows = row_count;
     v_revoked_roles := v_revoked_roles + v_rows;
-    if r.role = any (c_login_roles) and not exists (
+    if v_code = any (c_login_roles) and not exists (
         select 1 from personnel_pilot_v1.role_assignments
-        where membership_id = v_keep and role_code = r.role and revoked_at is null) then
-      insert into personnel_pilot_v1.role_assignments (membership_id, role_code) values (v_keep, r.role);
+        where membership_id = v_keep and role_code = v_code and revoked_at is null) then
+      insert into personnel_pilot_v1.role_assignments (membership_id, role_code) values (v_keep, v_code);
       v_new_roles := v_new_roles + 1;
     end if;
   end loop;
