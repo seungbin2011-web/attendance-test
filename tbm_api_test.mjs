@@ -1,8 +1,9 @@
 // TBM 시험 화면 공통 API (tbm_api v0.1)
-// - 로그인 세션은 통합 로그인(personnel_test.html)이 저장한 것을 그대로 쓴다. 이 모듈은 비밀번호·PIN을 다루지 않는다.
+// - 로그인 세션은 통합 로그인(운영 index.html / 시험 personnel_test.html)이 저장한 것을 그대로 쓴다. 이 모듈은 비밀번호·PIN을 다루지 않는다.
 // - 서버 오류 메시지는 'CODE' 또는 'CODE: 상세' 형식이며, 화면에는 한국어 안내로 바꿔 보여준다.
 // - 브라우저에는 publishable 키만 있다. 권한 판단은 모두 서버 RPC가 한다.
-import { endpoint, publishableKey } from './personnel_accounts_test.mjs';
+import { endpoint, publishableKey, pageUrl } from './personnel_accounts_test.mjs?v=1.0';
+export { PROD, pageUrl } from './personnel_accounts_test.mjs?v=1.0';
 
 export const API_VERSION = '0.1';
 export const PHOTO_BUCKET = 'tbm-photos';
@@ -82,7 +83,7 @@ export function clearSession() {
   sessionStorage.removeItem('attendanceAuthUser');
   sessionStorage.removeItem('tbmAuthUser');
 }
-export function loginUrl(next) { return 'personnel_test.html?next=' + encodeURIComponent(next); }
+export function loginUrl(next) { return pageUrl('login') + '?next=' + encodeURIComponent(next); }
 // 세션이 없으면 통합 로그인으로 보낸다 (로그인 후 next 화면으로 돌아옴, 허용 역할은 로그인 화면이 서버 기준으로 확인)
 export function requireLogin(next) {
   const session = loadSession();

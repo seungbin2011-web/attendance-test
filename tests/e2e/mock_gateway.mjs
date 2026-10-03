@@ -321,7 +321,7 @@ async function testApi(req, res, sub, url) {
 // ---------- STATIC ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.jpg': 'image/jpeg', '.png': 'image/png' };
 async function serveStatic(res, pathname) {
-  const file = path.normalize(path.join(ROOT, decodeURIComponent(pathname === '/' ? '/personnel_test.html' : pathname)));
+  const file = path.normalize(path.join(ROOT, decodeURIComponent(pathname === '/' ? '/index.html' : pathname)));
   if (!file.startsWith(ROOT) || file.includes(`${path.sep}node_modules${path.sep}`) || file.includes(`${path.sep}.git`)) return send(res, 403, { message: 'forbidden' });
   try { res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(await readFile(file)); }
   catch { send(res, 404, { message: 'not found' }); }

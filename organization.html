@@ -209,7 +209,7 @@ const detailFields=[
   ["성명","성명"],["현재 팀","팀"],["시스템 권한","권한"],["직급","직급"],["직무","직무"],["기존 사용자ID","사용자ID"]
 ];
 const ROLE_LABELS={MEMBER:"팀원",TEAM_LEADER:"팀장",SITE_MANAGER:"현장관리",ADMIN:"관리자"};
-const API_MODULE="./tbm_api_test.mjs?v=3.0";
+const API_MODULE="./tbm_api_test.mjs?v=3.1";
 
 document.getElementById("search").addEventListener("input",render);
 document.getElementById("teamFilter").addEventListener("change",render);
@@ -221,7 +221,7 @@ function goOrgBack(){
   if(from==="admin"){
     location.href="admin_test.html";
   }else{
-    location.href="personnel_test.html";
+    location.href="index.html";
   }
 }
 

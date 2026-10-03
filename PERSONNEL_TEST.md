@@ -1,4 +1,28 @@
-# 인원DB 통합 로그인 시험 v0.92
+# 인원DB 통합 로그인 시험 v0.92 · 운영 v1.0
+
+## 운영 v1.0 (MAIN 승격) · SQL v0.12 · member-login v0.4 (최초 로그인 자동 이관)
+
+- 운영 주소 하나: `https://seungbin2011-web.github.io/attendance-test/` → `index.html`(통합 로그인) → 서버 역할대로
+  - 팀원 → `member.html` / 팀장 → `tbm_report.html` / 현장관리 → `tbm_manager.html` / 관리자 → `index.html` 관리자 명부
+  - 운영 화면에는 TEST·시험 화면 표시가 없다. 로그인 전 운영 화면을 열면 `index.html?next=...`로 간다.
+- 운영 화면 4개는 `python3 tests/make_prod_pages.py`가 시험 화면(`personnel_test.html`·`member_test.html`·`tbm_report_test.html`·`tbm_manager_test.html`)에서 표시만 바꿔 만든다. 직접 고치지 않는다. JS 모듈은 같고, 파일 이름에 `_test`가 없으면 운영 화면끼리 연결한다(`pageUrl`).
+- 기존 루트 출퇴근 앱(Season 1 `index.html`)은 내용 그대로 `index_season1.html`로 옮겼다. 운영 팀원 화면의 "출결 등록"이 여기로 연결된다. 시험 화면(`*_test.html`)은 지우지 않고 그대로 둔다.
+- 최초 로그인 자동 이관 (`personnel_auth_v12.sql`, member-login v0.4)
+  - 로그인 번호가 있는 사람: Supabase만 확인 (Apps Script 호출 없음)
+  - 번호가 없는 현재 인원(재직·현재 소속 있음): 첫 로그인 1회만 정식 인원DB(Apps Script)로 이름 + 뒤 4자리 확인 → 맞으면 뒤 4자리를 bcrypt 해시로 저장(`pilot_member_login4_migrate`, service_role 전용) → 다음부터 Supabase만
+  - 저장 조건: 정식 인원DB 확인 성공 + Supabase 현재 인원 + 비활성 아님 + 한 사람으로 정해짐. 같은 이름이 여럿이면 기존 사용자ID로만 고르고, 못 고르면 AMBIGUOUS로 막는다. 명단에 없는 사람은 Apps Script를 부르지 않고 거절
+  - 실패 한도·잠금은 v0.11과 같다. 확인 실패면 아무것도 저장하지 않는다.
+  - 관리자 명부 상단 "로그인 번호 등록 N / M" (현재 인원 중 등록 수). `personnel_auth_v12_check.sql`의 `login_registered` / `active_people`도 같은 숫자
+  - 모두 등록되면 Edge Functions → Secrets에 `MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off` → Apps Script를 전혀 부르지 않는다 (새 인원은 관리자 화면에서 번호까지 등록)
+- 적용 순서 (각 SQL은 새 탭 단독 실행, check는 별도 탭. 이미 적용한 단계는 check만 다시 보고 넘어간다)
+  1. `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql`
+  2. `personnel_auth_v11.sql` → `personnel_auth_v11_check.sql`
+  3. `personnel_auth_v12.sql` → `personnel_auth_v12_check.sql`
+  4. 명단을 넣은 `personnel_roster_v10_check.sql` → `personnel_roster_v10_sync.sql` → `personnel_roster_v10_verify.sql` (`ok = true`, 53 / 15·23·9·1·5 / 13·35·4·1)
+  5. Edge Function `member-login`을 v0.4로 Deploy (Verify JWT 끔)
+  6. main 반영 (GitHub Pages). 엑셀 번호 일괄 등록(`personnel_login4_import_template.sql`)은 하지 않아도 된다.
+- 되돌리기: main은 승격 전 태그 `pre-s2-main-20261003`으로 되돌린다. 서버는 member-login v0.3 → `personnel_auth_v12_rollback.sql` (이미 저장된 번호 해시는 그대로 남아 v0.11 로그인에 쓰인다)
+- 남은 Apps Script 사용: 최초 이관 확인(위), 팀원 화면 "오늘 작업"(기존 TBM DB 조회), Season 1 화면(`index_season1.html`·`leader.html`·일부 `*_test.html`). 정식 인원DB의 공개 조회(`personnelOrg`)는 이 저장소 밖에 있어 Apps Script에서 따로 막아야 한다.
 
 ## SQL v0.11 · member-login v0.3 (Supabase 단독 로그인 + 관리자 인원 관리)
 

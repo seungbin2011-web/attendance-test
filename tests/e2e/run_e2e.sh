@@ -3,6 +3,7 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 DB="${TEST_DB:-attendance_e2e}"; export TEST_DB="$DB"
+python3 "$ROOT/tests/make_prod_pages.py" --check  # 운영 화면 4개가 시험 화면과 일치하는지 먼저 확인
 as_pg() { if [ "$(id -un)" = postgres ]; then bash -c "$*"; else su postgres -c "$*"; fi; }
 run() { as_pg "psql -X -q -v ON_ERROR_STOP=1 -d $DB" < "$1" > /dev/null; }
 as_pg "psql -X -q -c \"do \\\$\\\$ begin if not exists (select 1 from pg_roles where rolname='e2e_gateway') then create role e2e_gateway login superuser password 'e2e-local-only'; end if; end \\\$\\\$\""

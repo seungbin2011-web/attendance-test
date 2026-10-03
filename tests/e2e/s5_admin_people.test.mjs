@@ -114,7 +114,7 @@ try {
   await step('조직도: 로그인 없이 열면 통합 로그인으로, 현장관리는 로그인 후 조직도 (휴대폰 번호 없음, 기기에 저장 없음)', async () => {
     const { page, errors } = await newPage(env);
     await page.goto(`${env.base}/organization.html`);
-    await page.waitForURL(/personnel_test\.html\?next=organization\.html/);
+    await page.waitForURL(/index\.html\?next=organization\.html/);
     await login(page, '시험현장관리1', '1401');
     await page.waitForURL(/organization\.html/);
     await page.waitForFunction(() => document.querySelectorAll('.person').length > 40, null, { timeout: 8000 });

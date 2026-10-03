@@ -1,4 +1,4 @@
-import { accounts, endpoint, publishableKey } from './personnel_accounts_test.mjs';
+import { accounts, endpoint, publishableKey, PROD, pageUrl } from './personnel_accounts_test.mjs?v=1.0';
 const $ = id => document.getElementById(id);
 const SESSION_KEY = 'personnelPilotSessionV2';
 const roleNames = { ADMIN: '관리자', MANAGER: '소장', LEADER: '팀장' };
@@ -7,14 +7,16 @@ let session = null, roster = null, editing = null, gradeEditing = null, generati
 // Apps Script는 이름 + 휴대폰 뒤 4자리 본인 확인에만 쓴다. 직급 글자로 화면·권한을 정하던 기존 경로는 쓰지 않는다.
 // (새 시스템 명부에 없는 인원은 "등록되지 않은 인원" 안내로 끝난다)
 const LEGACY_ROSTER_LOGIN = false;
-// 로그인 후 ?next=로 이동할 수 있는 시험 화면과 허용 역할 (서버에서 받은 역할 기준)
-const NEXT_PAGES = { 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'], 'organization.html': ['ADMIN', 'MANAGER'] };
+// 로그인 후 ?next=로 이동할 수 있는 화면(운영·시험)과 허용 역할 (서버에서 받은 역할 기준)
+const NEXT_PAGES = { 'tbm_report.html': ['LEADER'], 'tbm_manager.html': ['ADMIN', 'MANAGER'], 'member.html': ['MEMBER', 'LEADER'], 'tbm_report_test.html': ['LEADER'], 'tbm_manager_test.html': ['ADMIN', 'MANAGER'], 'leader_test.html': ['LEADER'], 'admin_test.html': ['ADMIN', 'MANAGER'], 'member_test.html': ['MEMBER', 'LEADER'], 'organization.html': ['ADMIN', 'MANAGER'] };
 const roleLabels = { MEMBER: '팀원', TEAM_LEADER: '팀장', SITE_MANAGER: '현장관리', ADMIN: '관리자' };
 // 개인 로그인(이름 + 휴대폰 뒤 4자리, 개인 PIN) 후 기본 화면
-const MEMBER_HOMES = { MANAGER: ['tbm_manager_test.html', '현장 TBM 현황'], LEADER: ['tbm_report_test.html', '팀장 TBM 보고 화면'], MEMBER: ['member_test.html', '팀원 화면'] };
+const MEMBER_HOMES = { MANAGER: [pageUrl('tbm_manager'), '현장 TBM 현황'], LEADER: [pageUrl('tbm_report'), '팀장 TBM 보고 화면'], MEMBER: [pageUrl('member'), '팀원 화면'] };
+// 업무계정(팀 공용) 기본 화면: 운영은 TBM 화면, 시험은 기존 팀장 시험 화면
+const workHomeOf = appRole => appRole === 'LEADER' ? (PROD ? pageUrl('tbm_report') : 'leader_test.html') : pageUrl('tbm_manager');
 let pendingPin = '';
 const statusNames = { unknown: '미확인', active: '재직', inactive: '비활성' };
-const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '시험 계정 연결이 아직 준비되지 않았습니다.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.', TEAM_REQUIRED: '현재 팀을 선택해주세요.', TEAM_NOT_FOUND: '팀을 찾을 수 없습니다. 새로고침해주세요.', LOGIN_CODE_REQUIRED: '새 인원은 로그인 번호(휴대폰 뒤 4자리)가 필요합니다.', INVALID_LOGIN_CODE: '로그인 번호는 숫자 4자리입니다.', LOGIN_DUPLICATE: '같은 이름에 같은 로그인 번호를 쓰는 인원이 있습니다. 번호를 다시 확인해주세요.' };
+const messages = { EDIT_FORBIDDEN: '이 계정에는 인원 편집 권한이 없습니다.', PILOT_ACCESS_DENIED: '계정 연결이 아직 준비되지 않았습니다. 관리자에게 문의해주세요.', VERSION_CONFLICT: '다른 사용자가 먼저 수정했습니다. 목록을 새로고침한 뒤 다시 편집하세요.', INVALID_INPUT: '입력값을 확인해주세요.', PERSON_NOT_FOUND: '인원을 찾을 수 없습니다.', SESSION_EXPIRED: '로그인 후 16시간이 지나 다시 로그인이 필요합니다.', ACCOUNT_NOT_LINKED: '개인 로그인 연결이 확인되지 않습니다. 관리자에게 문의해주세요.', ACCOUNT_INACTIVE: '로그인이 중지된 인원입니다. 관리자에게 문의해주세요.', ACCOUNT_DISABLED: '로그인이 중지된 계정입니다. 관리자에게 문의해주세요.', PIN_CHANGE_REQUIRED: '개인 PIN 변경이 필요합니다.', AUTH_REQUIRED: '로그인이 필요합니다.', TEAM_REQUIRED: '현재 팀을 선택해주세요.', TEAM_NOT_FOUND: '팀을 찾을 수 없습니다. 새로고침해주세요.', LOGIN_CODE_REQUIRED: '새 인원은 로그인 번호(휴대폰 뒤 4자리)가 필요합니다.', INVALID_LOGIN_CODE: '로그인 번호는 숫자 4자리입니다.', LOGIN_DUPLICATE: '같은 이름에 같은 로그인 번호를 쓰는 인원이 있습니다. 번호를 다시 확인해주세요.' };
 const pinMessages = { INVALID_CREDENTIALS: '현재 PIN이 맞지 않습니다.', PIN_NOT_ALLOWED: '사용할 수 없는 PIN입니다. 같은 숫자 반복·연속 숫자·현재 PIN은 쓸 수 없습니다.', LOCKED: 'PIN 변경 실패가 반복되어 잠시 잠겼습니다. 15분 뒤 다시 시도해주세요.', NOT_MEMBER_SESSION: '개인 로그인에서만 PIN을 바꿀 수 있습니다.' };
 function tell(text, error = false) { $('message').textContent = text; $('message').classList.toggle('error', error); }
 function saveSession() {
@@ -160,7 +162,7 @@ function syncRoleSession(result) {
   sessionStorage.setItem('tbmAuthUser', JSON.stringify(user));
   $('roleLabel').textContent = role;
   $('roleScope').textContent = result.team_scope || '용인 현장 전체';
-  $('workHome').href = result.app_role === 'LEADER' ? 'leader_test.html' : 'tbm_manager_test.html';
+  $('workHome').href = workHomeOf(result.app_role);
   $('workHome').textContent = result.app_role === 'LEADER' ? '팀장 TBM 열기' : 'TBM 현황 열기';
 }
 async function loadRoster() {
@@ -177,12 +179,12 @@ async function loadRoster() {
     const next = document.body.dataset.adminOnly === 'true' ? '' : nextPage(result.app_role);
     if (next) { location.replace(next); return; }
     if (document.body.dataset.adminOnly !== 'true' && result.app_role !== 'ADMIN') {
-      location.replace(result.app_role === 'LEADER' ? 'leader_test.html' : 'tbm_manager_test.html');
+      location.replace(workHomeOf(result.app_role));
       return;
     }
     document.body.classList.toggle('admin-mode', result.app_role === 'ADMIN');
     $('identity').textContent = result.login_name + (result.can_edit ? ' · 편집 가능' : ' · 조회 전용');
-    $('scopeTitle').textContent = result.team_scope || '전체 시험 인원';
+    $('scopeTitle').textContent = result.team_scope || (PROD ? '전체 인원' : '전체 시험 인원');
     $('count').textContent = result.people.length;
     $('unassigned').textContent = result.people.filter(p => p.employment_status !== 'inactive' && !p.team).length;
     $('addPerson').hidden = !result.can_edit;
