@@ -1,5 +1,30 @@
 # 인원DB 통합 로그인 시험 v0.92
 
+## SQL v0.11 · member-login v0.3 (Supabase 단독 로그인 + 관리자 인원 관리)
+
+- 로그인: 이름 + 휴대폰 뒤 4자리를 Supabase 안에서만 확인한다 (`pilot_member_login4`). Apps Script를 부르지 않는다.
+  - 뒤 4자리는 `member_pins.login4_hash`에 bcrypt 해시로만 저장. 전체 번호·평문은 저장하지 않는다.
+  - 같은 이름이면 번호까지 맞는 사람을 고르고, 같은 이름 + 같은 번호가 둘 이상이면 AMBIGUOUS로 막는다. 관리자 화면·일괄 등록은 이런 번호를 처음부터 거절한다.
+  - 실패 한도·잠금·세션 만료·비활성 차단은 v0.8 기준 그대로
+- 내부 식별은 인원 UUID. 기존 사용자ID(`legacy_user_id`)는 있으면 참고용으로 남기고, 새 인원은 없어도 된다 (임의 ID를 만들지 않음).
+- 인원 관리 (관리자만, 통합 로그인 명부 화면 `personnel_test.html` · `admin_sql_test.html`)
+  - "인원 추가": 이름·현재 팀·권한·로그인 번호(필수)·직급/직무 → 사람·소속·역할·로그인 번호를 한 번에 저장 (`pilot_admin_save_person`)
+  - "인원 편집": 이름·직급/직무·팀 이동·권한(팀원/팀장/현장관리/관리자)·로그인 번호 재설정(바꿀 때만 입력)
+  - 상태 "비활성": 로그인·현재 소속·권한 종료, 지난 TBM·사진·이월 기록 유지 / 다시 "재직"으로 저장하면 같은 사람(UUID)으로 재투입
+  - 팀 목록은 서버 teams 표에서 읽는다. 현장관리(소장 업무계정 포함)는 인원 편집 불가, 출결등급 변경만 가능
+- 조직도 `organization.html` v3.0: 로그인 필수, 현장관리·관리자만 (`pilot_org_chart` 서버 함수가 확인). 휴대폰 번호·로그인 번호 없음, 기기에 저장하지 않음
+- 팀원 화면 "우리 팀장·팀원", 팀장 작업 인원 후보, 로그인 후 표시 팀, TBM 권한이 모두 같은 현재 소속·역할을 쓴다.
+- 파일: `personnel_auth_v11.sql` / `personnel_auth_v11_check.sql` / `personnel_auth_v11_rollback.sql`, 처음 로그인 번호 일괄 등록 `personnel_login4_import_template.sql` (엑셀 식 포함, 실제 번호는 Git에 넣지 않음)
+- 적용 순서 (각 SQL은 새 탭 단독 실행, 순서 중요)
+  1. `personnel_auth_v10.sql` → `personnel_auth_v10_check.sql`
+  2. `personnel_auth_v11.sql` → `personnel_auth_v11_check.sql`
+  3. 명단을 넣은 `personnel_roster_v10_check.sql` → `personnel_roster_v10_sync.sql` → `personnel_roster_v10_verify.sql`
+  4. 번호를 넣은 `personnel_login4_import_template.sql` → `personnel_auth_v11_check.sql`에서 `active_without_login = 0`
+  5. Edge Function `member-login`을 v0.3으로 Deploy (4번 전에 올리면 번호가 없는 사람은 로그인할 수 없음)
+  6. main 반영 (GitHub Pages)
+- 되돌리기: member-login v0.2 → `personnel_roster_v10_rollback.sql` → `personnel_auth_v11_rollback.sql` → (필요하면) `personnel_auth_v10_rollback.sql`
+- 남은 Apps Script: 정식 인원DB의 공개 조회(`personnelOrg`, 휴대폰 번호 포함)는 이 저장소 밖에 있어 따로 막아야 한다. Season 1 화면(운영 `index.html`·`leader.html`, `*_test.html` 일부)은 그대로
+
 ## v0.92 (Season 2 현장 사용 준비: 2026-10 확정 명단 53명 기준 인원·소속·권한)
 
 - 기준: 본인 확인은 Apps Script(이름 + 휴대폰 뒤 4자리), 팀·권한·화면 이동은 Supabase 현재 소속(`memberships`)·현재 역할(`role_assignments`)만. 직급·직무 글자, 이름, 화면 값으로 권한을 정하지 않는다.

@@ -41,6 +41,10 @@ select test_util.expect('site manager', test_util.now_role('T-0003', '시험소�
 select test_util.expect('admin (ADMIN_DEPT)', test_util.now_role('T-1404', '시험관리자'), '현장·관리 ADMIN_DEPT');
 select test_util.expect('new team leader', test_util.now_role('T-1301', '시험삼반장'), '3팀 TEAM_LEADER');
 select test_util.expect('new person active', (select employment_status || '/' || source_system from personnel_pilot_v1.people where legacy_user_id = 'T-1301'), 'active/roster_sync_2026_10');
+select test_util.expect('new people without id (internal uuid only)', (select count(*)::text from personnel_pilot_v1.people
+  where source_system = 'roster_sync_2026_10' and legacy_user_id is null and employment_status = 'active'), '13');
+select test_util.expect('new person without id placed', (select t.name from personnel_pilot_v1.people p join personnel_pilot_v1.memberships m on m.person_id = p.id and m.valid_to is null
+  join personnel_pilot_v1.teams t on t.id = m.team_id where p.display_name = '시험현장관리1'), '현장·관리');
 select test_util.expect('history kept (ended rows)', (select count(*)::text from personnel_pilot_v1.memberships m
   join personnel_pilot_v1.people p on p.id = m.person_id where p.legacy_user_id = 'T-0026' and m.valid_to is not null), '2');
 

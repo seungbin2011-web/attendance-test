@@ -3,7 +3,7 @@
 -- 실행: 아래 "명단" 자리에 확정 명단을 넣은 파일을 Supabase SQL Editor 새 탭에서 실행 → 결과(check_roster) 전달
 -- 결과
 --   ready: 동기화를 실행해도 되는지 (입력 숫자·사람 찾기 모두 정상일 때 true)
---   input: 명단 숫자와 2026-10 기준 비교 / resolve: 기존 인원 연결, 새 인원, 사용자ID 필요, 충돌
+--   input: 명단 숫자와 2026-10 기준 비교 / resolve: 기존 인원 연결, 새 인원(사용자ID 있음·없음), 충돌
 --   teams_plan: 팀 이름 변경·추가 / changes: 팀 이동·역할 변경·비활성 대상
 --   before: 바뀌는 사람의 현재 상태 (되돌리기 확인용으로 보관)
 with roster as (
@@ -53,7 +53,7 @@ with roster as (
     when legacy_user_id is not null then 'NEW_WITH_ID'
     when n_name = 1 then 'MATCH'
     when n_name > 1 then 'AMBIGUOUS_NAME'
-    else 'NEEDS_ID' end as status
+    else 'NEW' end as status
   from res
 ), matched as (
   select r.display_name, r.legacy_user_id as roster_id, r.team_name as team_target, r.role, r.role_code,
@@ -80,7 +80,7 @@ with roster as (
   from expected e
 )
 select jsonb_pretty(jsonb_build_object(
-  'ready', (select cardinality(problems) = 0 from input_check) and not exists (select 1 from res2 where status not in ('MATCH', 'NEW_WITH_ID')),
+  'ready', (select cardinality(problems) = 0 from input_check) and not exists (select 1 from res2 where status not in ('MATCH', 'NEW_WITH_ID', 'NEW')),
   'input', jsonb_build_object(
     'total', (select count(*) from roster),
     'teams', (select coalesce(jsonb_object_agg(team_name, n), '{}'::jsonb) from (select team_name, count(*) n from roster group by 1) x),
@@ -89,7 +89,7 @@ select jsonb_pretty(jsonb_build_object(
   'resolve', jsonb_build_object(
     'matched', (select count(*) from res2 where status = 'MATCH'),
     'new_with_id', (select coalesce(jsonb_agg(display_name || ' ' || legacy_user_id || ' → ' || team_name order by team_name, display_name), '[]'::jsonb) from res2 where status = 'NEW_WITH_ID'),
-    'needs_id', (select coalesce(jsonb_agg(display_name || ' → ' || team_name order by team_name, display_name), '[]'::jsonb) from res2 where status = 'NEEDS_ID'),
+    'new_without_id', (select coalesce(jsonb_agg(display_name || ' → ' || team_name order by team_name, display_name), '[]'::jsonb) from res2 where status = 'NEW'),
     'conflicts', (select coalesce(jsonb_agg(status || ' ' || display_name || coalesce(' ' || legacy_user_id, '') order by display_name), '[]'::jsonb)
                   from res2 where status in ('AMBIGUOUS', 'AMBIGUOUS_NAME', 'ID_NAME_MISMATCH'))),
   'teams_plan', (select jsonb_agg(jsonb_build_object('code', s.code, 'name', s.name,

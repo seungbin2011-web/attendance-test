@@ -31,7 +31,8 @@ const refreshTokens = new Map(); // refresh_token -> { user_id, session_id }
 const linkTokens = new Map();    // hashed_token -> { user_id, expires }
 const signTokens = new Map();    // token -> { bucket, name, expires }
 const fnCache = new Map();
-// 흉내 정식 인원DB(Apps Script attendanceLogin): 이름|뒤4자리 → 사용자 (가짜 데이터, 시험 중 /__test/roster로 추가)
+// 시험 인원의 로그인 번호(휴대폰 뒤 4자리): 이름|뒤4자리 → 사용자 (가짜 데이터, 시험 중 /__test/roster로 추가)
+// member-login v0.3부터 로그인은 DB의 번호 해시로만 확인하므로, 이 목록은 시작할 때와 추가할 때 DB에 등록한다.
 const roster = new Map([
   ['시험이팀장|2525', { name: '시험이팀장', userId: 'T-0025', team: '공사2팀', rank: '팀장', role: '팀장', job: '전기' }],
   ['시험중복가|3636', { name: '시험중복가', userId: 'T-0036', team: '공사2팀', rank: '팀원', role: '팀원', job: '전기' }],
@@ -271,6 +272,22 @@ async function functions(req, res, name, bodyBuf) {
   res.end(out);
 }
 
+// 로그인 번호 등록: (사용자ID + 이름)으로, 없으면 이름이 1명일 때. 명부에 없는 사람은 건너뜀
+async function seedLogin4(entries) {
+  for (const [key, user] of entries) {
+    const [name, pin] = key.split('|');
+    try {
+      await asAdmin(`select personnel_pilot_v1.set_login4(p.id, $2, 'e2e')
+        from personnel_pilot_v1.people p
+        where p.display_name = $1
+          and (p.legacy_user_id = $3 or (select count(*) from personnel_pilot_v1.people x where x.display_name = $1) = 1)
+        limit 1`, [name, pin, user.userId || null]);
+    } catch (e) {
+      if (!/does not exist|LOGIN_DUPLICATE/.test(e.message)) throw e;
+    }
+  }
+}
+
 // ---------- TEST HELPERS ----------
 async function testApi(req, res, sub, url) {
   if (sub === 'issue_pin') {
@@ -286,6 +303,7 @@ async function testApi(req, res, sub, url) {
   if (sub === 'roster') { // 흉내 정식 인원DB에 가짜 인원 추가
     const body = JSON.parse((await readBody(req)).toString());
     for (const e of body.entries || []) roster.set(`${e.name}|${e.pin}`, e.user);
+    await seedLogin4((body.entries || []).map(e => [`${e.name}|${e.pin}`, e.user]));
     return send(res, 200, { ok: true });
   }
   if (sub === 'expire_sessions') {
@@ -306,6 +324,7 @@ async function serveStatic(res, pathname) {
 
 export async function startGateway() {
   await loadEdgeFunction();
+  await seedLogin4([...roster]);
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, BASE);
     try {

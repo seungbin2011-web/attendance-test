@@ -69,6 +69,11 @@ apply_targets "insert into role_targets values ('T-0040','시험동명',null,nul
 run "$ROOT/personnel_auth_v10_rollback.sql"
 runtest "$ROOT/tests/sql/16_test_personnel_auth_v10_rollback.sql"
 run "$ROOT/personnel_auth_v10.sql"
+# v0.11: Supabase 단독 로그인(이름 + 뒤 4자리 해시), 관리자 인원 관리, 조직도 권한
+run "$ROOT/personnel_auth_v11.sql"
+runtest "$ROOT/tests/sql/40_test_personnel_auth_v11.sql"
+run "$ROOT/personnel_auth_v11_check.sql" > /dev/null
+run "$ROOT/personnel_auth_v11.sql"   # 다시 실행해도 오류 없음
 # 2026-10 확정 명단 동기화: 실제 check·sync·verify 파일의 "명단" 자리에 가짜 명단 53명을 넣어 실행 (실제 명단은 Git에 넣지 않음)
 ROWS="$ROOT/tests/sql/fixture_roster_2026_10_fake.rows"
 fill() { local f; f="$(mktemp)"; awk -v rows="$2" '{print} /-- ▼ 명단/{while ((getline line < rows) > 0) print line; close(rows)}' "$1" > "$f"; echo "$f"; }
@@ -80,7 +85,6 @@ run "$ROOT/tests/sql/29_roster_snapshot.sql" > /dev/null
 select_to roster_check "$(fill "$ROOT/personnel_roster_v10_check.sql" "$ROWS")"
 MISSING="$(variant "s/'시험삼반장', 'T-1301'/'시험삼반장', null/")"
 select_to roster_check_missing "$(fill "$ROOT/personnel_roster_v10_check.sql" "$MISSING")"
-run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$MISSING")" "NEEDS_ID 시험삼반장"
 run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$(variant "s/'시험일반01', 'T-1101'/'시험일반01', 'T-0036'/")")" "ID_NAME_MISMATCH T-0036 시험일반01"
 run_fail "$(fill "$ROOT/personnel_roster_v10_sync.sql" "$(variant "/시험일반12/d")")" "총원 52명"
 runtest "$ROOT/tests/sql/30_test_roster_v10_check.sql"
@@ -99,6 +103,8 @@ run "$SYNC" > /dev/null; select_to roster_verify2 "$VERIFY"
 echo "2026-10 roster: check/sync/verify/idempotent/rollback/resync ok"
 # 롤백은 적용의 역순
 run "$ROOT/tests/sql/18_snapshot_before_rollback.sql"
+run "$ROOT/personnel_auth_v11_rollback.sql"
+runtest "$ROOT/tests/sql/41_test_personnel_auth_v11_rollback.sql"
 run "$ROOT/personnel_auth_v10_rollback.sql"
 for f in $(ls "$ROOT"/field_sql_v0*_rollback.sql 2>/dev/null | sort -r); do run "$f"; done
 run "$ROOT/personnel_auth_v09_rollback.sql"
@@ -107,4 +113,5 @@ runtest "$ROOT/tests/sql/19_test_personnel_auth_v08_rollback.sql"
 run "$ROOT/personnel_auth_v08.sql"
 run "$ROOT/personnel_auth_v09.sql"
 run "$ROOT/personnel_auth_v10.sql"
+run "$ROOT/personnel_auth_v11.sql"
 echo "ALL SQL TESTS PASSED"

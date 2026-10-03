@@ -1,13 +1,14 @@
 -- 2026년 10월 확정 명단으로 현재 소속·역할 맞추기 (동기화)
 -- SQL 버전: personnel_auth v0.10 부속 / 작성 2026-10-03
--- 선행: personnel_auth_v10.sql 적용 → personnel_roster_v10_check.sql로 미리보기 확인
+-- 선행: personnel_auth_v10.sql, personnel_auth_v11.sql 적용 → personnel_roster_v10_check.sql로 미리보기 확인
 -- 실행: 아래 "명단" 자리에 확정 명단을 넣은 파일만 Supabase SQL Editor 새 탭에서 단독 실행
 --       → 별도 탭에서 personnel_roster_v10_verify.sql
 --
 -- 하는 일 (한 트랜잭션, 한 줄이라도 맞지 않으면 전체 취소, 다시 실행해도 중복 없음)
 --   1) 입력 확인: 역할·팀 이름, 2026-10 기준 숫자(총 53, 팀별, 역할별), 사람 찾기
 --      사람은 사용자ID + 이름이 모두 같은 기존 행을 쓴다. 사용자ID를 모르면 이름이 정확히 1명일 때만 쓴다.
---      새 사람은 확인된 사용자ID가 있을 때만 만든다. 없으면 NEEDS_ID로 전체 중단 (임의 ID를 만들지 않음)
+--      기존 행이 없으면 새 사람으로 만든다 (내부 UUID. 사용자ID는 있으면 참고로 넣고, 없으면 비워 둔다. 임의 ID를 만들지 않음)
+--      로그인 번호(휴대폰 뒤 4자리)는 이 파일에서 다루지 않는다 → personnel_login4_import_template.sql 또는 관리자 화면
 --   2) 팀: 코드로 찾고, 없으면 같은 이름(또는 이전 이름)의 팀을 재사용, 그래도 없으면 추가. 표시 이름만 바꾼다.
 --   3) 명단 인원: 재직 확인 = active, 명부 팀 글자 = 현재 팀, 현재 소속 1개, 로그인 역할 1개(팀원은 없음)
 --      이전 소속·역할은 종료일(valid_to · revoked_at)만 기록한다.
@@ -106,9 +107,10 @@ begin
       if v_n = 1 then
         select id into v_person from personnel_pilot_v1.people where display_name = r.display_name;
       elsif v_n > 1 then
-        v_errors := v_errors || format('AMBIGUOUS_NAME %s (사용자ID 필요)', r.display_name);
-      else
-        v_errors := v_errors || format('NEEDS_ID %s', r.display_name);
+        v_errors := v_errors || format('AMBIGUOUS_NAME %s (같은 이름이 여러 명, 사용자ID로 구분 필요)', r.display_name);
+      elsif (select is_nullable from information_schema.columns
+             where table_schema = 'personnel_pilot_v1' and table_name = 'people' and column_name = 'legacy_user_id') <> 'YES' then
+        v_errors := v_errors || format('사용자ID 없는 새 인원 %s: personnel_auth_v11.sql을 먼저 적용', r.display_name);
       end if;
     end if;
     insert into roster_resolved values (r.display_name, r.legacy_user_id, r.team_name, r.role, r.rank_title, r.job_title,

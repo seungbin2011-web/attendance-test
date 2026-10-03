@@ -140,7 +140,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 </head>
 <body>
 <div class="topbar">
-  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v2.2</span></div>
+  <div class="brandline"><div class="brand">용인 현장 조직도</div><span class="ver">v3.0</span></div>
   <div class="controls">
     <span class="file-name" id="loginUser">조직도</span>
     <button class="btn" type="button" id="orgBackBtn" onclick="goOrgBack()">메인으로</button>
@@ -150,7 +150,7 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
 <div class="page">
   <div class="notice">
     <b>용인 현장 조직도</b><br>
-    인원정보는 조직도 전용 Google Sheet에서 불러옵니다.
+    현장관리·관리자만 볼 수 있습니다. 인원·팀·팀장은 Supabase 현재 소속·권한 기준이며, 휴대폰 번호와 로그인 번호는 표시하지 않습니다.
   </div>
 
   <div class="summary">
@@ -196,20 +196,20 @@ input,select{width:100%;border:1px solid #d7e0ea;border-radius:8px;padding:10px;
     <div class="detail-grid" id="detailGrid"></div>
   </div>
 
-  <div class="footer">© 2026 Yongin Site Organization · v2.2</div>
+  <div class="footer">© 2026 Yongin Site Organization · v3.0</div>
 </div>
 
 <script>
+// v2.x 데이터 원본(Apps Script personnelOrg). v3.0부터 쓰지 않는다 (저장소 정리 단계에서 삭제 예정)
 const API_URL="https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec";
 let people=[];
 
+// 상세에 보이는 항목 (휴대폰 번호·출입증 번호·로그인 번호 등 민감정보는 서버가 돌려주지 않고 화면에도 없음)
 const detailFields=[
-  ["사용자ID","사용자ID"],["성명","성명"],["직급","직급"],["권한","권한"],["팀","팀"],
-  ["팀 구성 원본","팀구성원본"],["팀 역할 원본","팀역할원본"],["현장원본","현장원본"],["TBM현장","TBM현장"],
-  ["직무","직무"],["H/P","H/P"],["소속","소속"],["투입가능일","투입가능일"],["등록여부","등록여부"],
-  ["상시출입증번호","상시출입증번호"],["능력","능력"],["경력특이사항","경력특이사항"],["진행상황","진행상황"],
-  ["비고","비고"],["검토필요","검토필요"]
+  ["성명","성명"],["현재 팀","팀"],["시스템 권한","권한"],["직급","직급"],["직무","직무"],["기존 사용자ID","사용자ID"]
 ];
+const ROLE_LABELS={MEMBER:"팀원",TEAM_LEADER:"팀장",SITE_MANAGER:"현장관리",ADMIN:"관리자"};
+const API_MODULE="./tbm_api_test.mjs?v=3.0";
 
 document.getElementById("search").addEventListener("input",render);
 document.getElementById("teamFilter").addEventListener("change",render);
@@ -221,7 +221,7 @@ function goOrgBack(){
   if(from==="admin"){
     location.href="admin_test.html";
   }else{
-    location.href="index_test.html";
+    location.href="personnel_test.html";
   }
 }
 
@@ -304,55 +304,48 @@ function applyPeople(nextPeople,fromCache){
   render();
 }
 
+// Supabase 현재 소속·권한 기준 사람 → 화면 기존 항목 이름으로 맞춤 (팀장 표시는 직급 글자가 아니라 시스템 권한)
+function fromServer(p){
+  return {
+    "사용여부":"Y",
+    "사용자ID":p.legacy_user_id||"",
+    "성명":p.name||"",
+    "직급":p.rank||"",
+    "직무":p.job||"",
+    "팀":p.team||"",
+    "권한":ROLE_LABELS[p.role]||"팀원",
+    "_leader":p.role==="TEAM_LEADER",
+    "_management":p.role==="SITE_MANAGER"||p.role==="ADMIN"
+  };
+}
+
+function showBlocked(text){
+  people=[];
+  document.getElementById("loginUser").textContent="조직도";
+  document.getElementById("officeLevel").innerHTML=`<div class="group management-box"><div class="empty">${esc(text)}</div></div>`;
+  document.getElementById("managerLevel").innerHTML="";
+  document.getElementById("teams").innerHTML="";
+}
+
 async function init(){
-  try{localStorage.removeItem("organization_people_cache_v2")}catch(e){}
-  let hadCache=false;
+  // 예전 버전이 이 기기에 저장한 인원 목록은 지운다 (조직도는 저장하지 않음)
+  try{localStorage.removeItem("organization_people_cache_v2");localStorage.removeItem(ORG_CACHE_KEY)}catch(e){}
+  const login=document.getElementById("loginUser");
+  if(login) login.textContent="인원 정보 확인 중";
+  let api;
   try{
-    const raw=localStorage.getItem(ORG_CACHE_KEY);
-    if(raw){
-      const cached=JSON.parse(raw);
-      if(cached&&Array.isArray(cached.people)&&cached.people.length){
-        const age=Date.now()-Number(cached.savedAt||0);
-        applyPeople(cached.people,true);
-        hadCache=true;
-        const login=document.getElementById("loginUser");
-        if(login && age>ORG_CACHE_FRESH_MS){
-          login.innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 · DB 확인 중</span>`;
-        }
-      }
-    }
-  }catch(e){}
-
-  if(!hadCache){
-    const login=document.getElementById("loginUser");
-    if(login) login.textContent="인원DB 확인 중";
+    api=await import(API_MODULE);
+  }catch(e){
+    showBlocked("화면을 불러오지 못했습니다. 새로고침해주세요.");
+    return;
   }
-
+  if(!api.requireLogin("organization.html")) return;
   try{
-    const res=await jsonp({action:"personnelOrg"});
-    if(!(res&&res.success)) throw new Error(res?.message||"인원DB를 불러오지 못했습니다.");
-    const fresh=(res.people||[]).filter(p=>clean(p["성명"]));
-    try{
-      const compact=fresh.map(minimalOrgPerson);
-      localStorage.setItem(ORG_CACHE_KEY,JSON.stringify({savedAt:Date.now(),people:compact}));
-      localStorage.removeItem("organization_people_cache_v2");
-    }catch(e){}
-    applyPeople(fresh,false);
+    const res=await api.rpc("pilot_org_chart");
+    applyPeople((res.people||[]).map(fromServer),false);
+    if(login&&res.viewer) login.innerHTML=`조직도 · ${people.length}명<span class="cache-note">${esc(res.viewer.name)} ${esc(res.viewer.role_label)}</span>`;
   }catch(err){
-    console.error(err);
-    const login=document.getElementById("loginUser");
-    if(hadCache){
-      if(login) login.innerHTML=`조직도 · ${people.length}명<span class="cache-note">저장된 정보 표시 중</span>`;
-      return;
-    }
-    if(login) login.textContent="조직도 DB 연결 확인";
-
-    const office=document.getElementById("officeLevel");
-    const manager=document.getElementById("managerLevel");
-    const teams=document.getElementById("teams");
-    if(office) office.innerHTML=`<div class="group management-box"><div class="empty">${esc(err.message)}</div></div>`;
-    if(manager) manager.innerHTML="";
-    if(teams) teams.innerHTML="";
+    showBlocked(err.code==="FORBIDDEN"?"현장관리·관리자만 볼 수 있는 화면입니다.":api.describeError(err));
   }
 }
 
@@ -375,24 +368,23 @@ function filtered(){
 function render(){
   const rows=filtered();
 
-  const allUnassigned=people.filter(p=>!clean(p["팀"]) || !["용인사무실","현장소장","자재팀","공사1팀","공사2팀","공사3팀","공사4팀"].includes(clean(p["팀"])));
+  const allUnassigned=people.filter(p=>!clean(p["팀"]));
 
   document.getElementById("totalCount").textContent=people.length;
-  document.getElementById("leaderCount").textContent=people.filter(p=>clean(p["직급"])==="팀장").length;
+  document.getElementById("leaderCount").textContent=people.filter(p=>p._leader).length;
   document.getElementById("teamCount").textContent=new Set(people.map(p=>clean(p["팀"])).filter(Boolean)).size;
   document.getElementById("reviewCount").textContent=allUnassigned.length;
 
   document.getElementById("unassignedFab").textContent=`미지정 ${allUnassigned.length}명`;
 
-  const office=rows.filter(p=>clean(p["팀"])==="용인사무실");
-  const manager=rows.filter(p=>clean(p["팀"])==="현장소장");
+  // 현장관리·관리자 권한자는 위, 나머지는 서버의 현재 팀별 (팀 이름을 코드에 고정하지 않음)
+  const manager=rows.filter(p=>p._management);
+  document.getElementById("officeLevel").innerHTML="";
+  document.getElementById("managerLevel").innerHTML=group("현장관리 · 관리자",manager,true);
 
-  document.getElementById("officeLevel").innerHTML=group("용인 사무실",office,true);
-  document.getElementById("managerLevel").innerHTML=group("현장 소장",manager,true);
-
-  const order=["자재팀","공사1팀","공사2팀","공사3팀","공사4팀"];
+  const order=[...new Set(people.filter(p=>!p._management).map(p=>clean(p["팀"])).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko"));
   document.getElementById("teams").innerHTML=
-    order.map(t=>teamGroup(t,rows.filter(p=>clean(p["팀"])===t))).join("");
+    order.map(t=>teamGroup(t,rows.filter(p=>!p._management&&clean(p["팀"])===t))).join("");
 
   renderUnassigned(allUnassigned);
   closeDetail();
@@ -400,8 +392,8 @@ function render(){
 
 
 function teamGroup(title,members){
-  const leaders=[...members].filter(p=>clean(p["직급"])==="팀장").sort(sortPerson);
-  const workers=[...members].filter(p=>clean(p["직급"])!=="팀장").sort(sortPerson);
+  const leaders=[...members].filter(p=>p._leader).sort(sortPerson);
+  const workers=[...members].filter(p=>!p._leader).sort(sortPerson);
 
   return `<div class="group">
     <div class="group-title team-title-main"><span>${esc(title)}</span><span>${members.length}명</span></div>
@@ -445,18 +437,18 @@ function group(title,members,management){
 }
 
 function sortPerson(a,b){
-  const ra=clean(a["직급"])==="팀장"?0:1;
-  const rb=clean(b["직급"])==="팀장"?0:1;
+  const ra=a._leader?0:1;
+  const rb=b._leader?0:1;
   return ra-rb || clean(a["성명"]).localeCompare(clean(b["성명"]),"ko");
 }
 
 function personCard(p){
   const idx=people.indexOf(p);
-  const leader=clean(p["직급"])==="팀장";
+  const leader=!!p._leader;
   return `<div class="person" onclick="showDetail(${idx})">
     ${leader?'<span class="leader-badge">팀장</span>':''}
     <div class="name">${esc(p["성명"])}</div>
-    <div class="meta">${esc(clean(p["직무"])||clean(p["직급"])||"-")}<br>${esc(clean(p["팀역할원본"])||clean(p["현장원본"])||"-")}</div>
+    <div class="meta">${esc(clean(p["직무"])||clean(p["직급"])||"-")}<br>${esc(clean(p["권한"])||"-")}</div>
   </div>`;
 }
 
