@@ -1,6 +1,7 @@
 -- 2026년 10월 확정 명단 적용 후 검증 (읽기 전용: SELECT만, 별도 탭에서 실행)
 -- SQL 버전: personnel_auth v0.10 부속 / 작성 2026-10-03
 -- ok = true 일 때만 성공. 숫자(총 53, 팀별, 역할별, 미지정 0)와, 명단을 넣었으면 사람별 팀·역할까지 비교한다.
+-- 비활성 인원은 현재 소속·현재 역할이 없어야 하고, 명단을 넣었으면 명단 밖 현재 인원이 0명이어야 한다.
 -- 역할 판정은 로그인과 같은 기준: 현재 소속(valid_to 없음) + 현재 역할(revoked_at 없음). 관리자 = ADMIN_DEPT
 with roster as (
   select * from (values
@@ -35,6 +36,14 @@ with roster as (
     'multi_role', (select count(*) from act2 where role = 'MULTI'),
     'inactive_with_membership', (select count(*) from personnel_pilot_v1.people p where p.employment_status = 'inactive'
         and exists (select 1 from personnel_pilot_v1.memberships m where m.person_id = p.id and m.valid_to is null)),
+    'inactive_with_role', (select count(*) from personnel_pilot_v1.people p where p.employment_status = 'inactive'
+        and exists (select 1 from personnel_pilot_v1.memberships m join personnel_pilot_v1.role_assignments r on r.membership_id = m.id
+                    where m.person_id = p.id and r.revoked_at is null)),
+    -- 명단을 넣었을 때만: 명단에 없는데 현재 인원(비활성 아님)으로 남은 사람 수
+    'active_not_in_roster', (select count(*) from act2 a where exists (select 1 from roster)
+        and not exists (select 1 from roster r where r.display_name = a.display_name
+                        and (r.legacy_user_id is null or a.legacy_user_id = r.legacy_user_id))),
+    'inactive', (select count(*) from personnel_pilot_v1.people where employment_status = 'inactive'),
     'duplicate_team_names', (select count(*) from (select name from personnel_pilot_v1.teams group by site_id, name having count(*) > 1) d)) as c
 ), cmp as (
   select r.display_name, r.team_name as want_team, r.role as want_role, a.team, a.role
@@ -46,7 +55,8 @@ select jsonb_pretty(jsonb_build_object(
   'ok', (c ->> 'total')::int = (e.j ->> 'total')::int
         and (c -> 'teams') = (e.j -> 'teams') and (c -> 'roles') = (e.j -> 'roles')
         and (c ->> 'unassigned')::int = 0 and (c ->> 'multi_membership')::int = 0 and (c ->> 'multi_role')::int = 0
-        and (c ->> 'inactive_with_membership')::int = 0 and (c ->> 'duplicate_team_names')::int = 0
+        and (c ->> 'inactive_with_membership')::int = 0 and (c ->> 'inactive_with_role')::int = 0
+        and (c ->> 'active_not_in_roster')::int = 0 and (c ->> 'duplicate_team_names')::int = 0
         and not exists (select 1 from cmp),
   'counts', c,
   'expected', e.j,
