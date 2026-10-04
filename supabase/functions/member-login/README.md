@@ -3,10 +3,8 @@
 Season 2. `personnel_auth_v08.sql` ~ `personnel_auth_v12.sql`이 먼저 적용돼 있어야 한다.
 
 v0.4: 이름 + 휴대폰 번호 뒤 4자리를 Supabase 안에서 확인한다 (`pilot_member_login4`, 번호는 bcrypt 해시로만 저장).
-- 로그인 번호가 있는 사람: Apps Script를 부르지 않는다.
-- 아직 번호가 없는 현재 인원(53명 명단의 기존 인원): 최초 1회만 정식 인원DB(Apps Script)로 확인하고 `pilot_member_login4_migrate`가 번호를 해시로 저장한다. 다음부터는 Supabase만.
-- 새 인원은 관리자 화면에서 번호를 함께 등록하므로 Apps Script와 무관하다.
-- 최초 이관 끄기: Edge Functions → Secrets에 `MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off` (모든 현재 인원 등록 후, `personnel_auth_v12_check.sql`의 등록 수로 확인)
+- 최초 로그인 외부 이관은 항상 비활성화되어 있다(`MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off` 기준). Apps Script URL과 호출 경로를 제거했으므로 환경변수로 다시 켤 수 없다.
+- 신규 인원은 관리자 인원관리 화면에서 Supabase 로그인 번호를 함께 등록한다. 미등록 번호는 관리자 등록 안내로 거부한다.
 - 개인 PIN 6자리 로그인은 그대로 동작한다.
 
 v0.3(이전): Supabase만 확인 (번호가 없으면 로그인 불가).
@@ -16,7 +14,7 @@ v0.2(이전): 번호 확인을 정식 인원DB(Apps Script)가 했다.
 ## 하는 일
 
 1. 브라우저에서 `{ name, phone4 }` 또는 `{ name, pin }`을 받는다. (허용 출처만)
-2. 휴대폰 뒤 4자리면 `pilot_member_login4`로, PIN이면 `pilot_member_login_verify`로 번호 확인·실패 한도·잠금·재직 여부·같은 이름 구분을 DB에서 판단한다. 번호가 없는 현재 인원이면 정식 인원DB 확인 후 `pilot_member_login4_migrate`로 이관한다.
+2. 휴대폰 뒤 4자리면 `pilot_member_login4`로, PIN이면 `pilot_member_login_verify`로 번호 확인·실패 한도·잠금·재직 여부·같은 이름 구분을 DB에서 판단한다. 번호가 없는 현재 인원은 거부하며 외부로 전송하지 않는다.
 3. 첫 로그인이면 개인 Auth 사용자(`member-<people.id>@example.com`)를 만들고 `pilot_member_link_account`로 연결한다.
 4. 서버에서만 일회용 토큰을 만들어 세션으로 바꾸고 `access_token`, `refresh_token`을 돌려준다. (메일 발송 없음)
 5. 역할은 돌려주지 않는다. 화면이 `pilot_whoami`로 서버에서 다시 받는다.
