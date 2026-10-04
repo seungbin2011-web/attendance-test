@@ -1,6 +1,6 @@
 // 팀장 TBM 보고 시험 화면 (tbm_report_test v0.62: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.0';
+import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.1';
 
 const PAGE = pageUrl('tbm_report');
 const PAGE_VERSION = '0.62';
@@ -39,7 +39,7 @@ function block(text) {
   $('headerSub').textContent = '팀장 계정으로 로그인해야 사용할 수 있습니다.';
 }
 const report = () => today?.report || null;
-const editable = () => !report() || report().status !== 'CONFIRMED';
+const editable = () => !report() || (!report().evening_at && report().status !== 'CONFIRMED');
 
 // ---------- 서버 → 입력 상태 ----------
 function formFromReport(r) {
@@ -62,7 +62,7 @@ function formFromReport(r) {
 function emptyTask() { return { key: 't' + (++taskSeq), id: null, task_no: null, place: '', content: '', closed: false, carried_from_task_id: null, members: [] }; }
 
 // ---------- 이 기기 임시저장 (서버 저장과 구분) ----------
-function draftOwner() { return today ? `${today.team.id}|${today.today}|${today.actor.person_id || today.actor.name}` : ''; }
+function draftOwner() { return today ? `${today.team.id}|${today.today}|${report()?.id || 'new'}|${today.actor.person_id || today.actor.name}` : ''; }
 function saveDraftSoon() {
   dirty = true; renderServerState();
   clearTimeout(draftTimer);
@@ -81,6 +81,7 @@ function clearDraft() {
 function restoreDraft() {
   let draft = null;
   try { draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) {}
+  if (!editable()) { clearDraft(); return false; }
   if (!draft || draft.owner !== draftOwner()) { if (draft) clearDraft(); return false; }
   if (draft.base_version !== (report()?.version ?? null)) {
     clearDraft();
@@ -97,7 +98,13 @@ function restoreDraft() {
 async function load({ quiet = false } = {}) {
   if (!quiet) setBusy(true, '불러오는 중입니다');
   try {
+    const previousId = report()?.id;
     today = await rpc('tbm_today', {});
+    if (previousId !== report()?.id) {
+      alertEdit = null; resultEdit = null; afternoonNoteTouched = false; eveningNoteTouched = false;
+      for (const id of ['morningNote', 'afternoonNote', 'eveningNote']) $(id).value = '';
+      for (const key of Object.keys(slots)) slots[key] = {};
+    }
     form = formFromReport(report()); dirty = false;
     const restored = restoreDraft();
     renderAll();
@@ -116,14 +123,20 @@ function renderAll() {
   $('blocked').hidden = true;
   const r = report();
   $('headerSub').textContent = `${today.team.name} · ${today.site.name || today.site.code} · ${kstDateLabel(today.today)} · ${today.actor.name} ${today.actor.role_label || ''}`.trim();
-  $('homeTitle').textContent = `${kstDateLabel(today.today)} ${today.team.name}`;
+  for (const [stage, label] of [['stagePlan','작업계획'],['stageMorning','출근 TBM'],['stageAfternoon','오후 TBM'],['stageEvening','퇴근 TBM']]) {
+    document.querySelector(`#${stage} .stage-title`).textContent = `작업 ${r?.session_no || 1} · ${label}`;
+  }
+  $('homeTitle').textContent = `${kstDateLabel(today.today)} ${today.team.name} · 작업 ${r?.session_no || 1}${r?.evening_at ? ' · 완료' : ' · 진행 중'}`;
   $('homeSub').textContent = r ? `보고자 ${r.reporter_label} · 작업 ${r.tasks.length}건 · 최근 저장 ${kstTime(r.updated_at)}` : '아직 오늘 작업계획이 없습니다. 작업계획부터 저장해주세요.';
-  $('homeStatus').textContent = !r ? '미작성' : r.status === 'CONFIRMED' ? '소장 확인 완료' : r.evening_at ? '퇴근 마감' : r.morning_at ? '출근 보고 완료' : '계획 저장';
+  $('homeStatus').textContent = !r?.tasks?.length ? '계획 작성 전' : r.status === 'CONFIRMED' ? '소장 확인 완료' : r.evening_at ? '퇴근 마감' : r.morning_at ? '출근 보고 완료' : '계획 저장';
   $('homeStatus').className = 'badge' + (!r ? ' gray' : r.status === 'CONFIRMED' || r.evening_at ? ' ok' : '');
-  const steps = [['계획', !!r], ['출근', !!r?.morning_at], ['오후', !!r?.afternoon_at], ['퇴근', !!r?.evening_at]];
+  const steps = [['계획', !!r?.tasks?.length], ['출근', !!r?.morning_at], ['오후', !!r?.afternoon_at], ['퇴근', !!r?.evening_at]];
   const now = steps.findIndex(s => !s[1]);
   $('homeSteps').innerHTML = steps.map(([label, done], i) => `<div class="step ${done ? 'done' : i === now ? 'now' : ''}">${label}${done ? ' ✓' : ''}</div>`).join('');
-  $('openPlanSub').textContent = r ? '보기 · 수정' : '먼저 작성';
+  $('openPlanSub').textContent = r?.evening_at ? '내용 보기' : r ? '보기 · 수정' : '먼저 작성';
+  $('currentActions').hidden = !!r?.evening_at;
+  $('openNextSession').hidden = !r?.evening_at;
+  renderSessions();
   $('openMorningSub').textContent = r?.morning_at ? `보고 완료 ${kstTime(r.morning_at)}` : '작업계획 공유';
   $('openMorning').classList.toggle('done', !!r?.morning_at);
   const flagged = (r?.tasks || []).filter(t => ['CHANGED', 'DELAYED', 'RISK'].includes(t.alert)).length;
@@ -148,16 +161,18 @@ function memberName(personId) { return today.members.find(m => m.person_id === p
 function renderPlan() {
   const locked = !editable();
   $('planLocked').hidden = !locked;
-  $('planLocked').textContent = locked ? '소장 확인이 끝난 보고라 수정할 수 없습니다.' : '';
+  $('planLocked').textContent = locked ? '완료된 작업은 내용 보기만 가능합니다.' : '';
   $('endTime').value = form.end_time;
   $('riskGrid').innerHTML = RISKS.map(r => `<label class="risk"><input type="checkbox" value="${r}" ${form.risks.includes(r) ? 'checked' : ''}>${r}</label>`).join('');
   $('riskOtherField').hidden = !form.risks.includes('기타');
   $('riskOther').value = form.risk_other; $('safetyNote').value = form.safety_note; $('issueNote').value = form.issue_note;
   $('needsCheck').checked = form.needs_manager_check;
+  document.querySelectorAll('#stagePlan input, #stagePlan textarea, #stagePlan select').forEach(el => { el.disabled = locked; });
   renderCarry();
   renderTasks();
   document.querySelectorAll('#stagePlan input, #stagePlan textarea, #stagePlan select').forEach(el => { if (locked) el.disabled = true; });
   $('addTask').disabled = locked; $('savePlan').disabled = locked;
+  $('addTask').hidden = locked; $('savePlan').hidden = locked; $('draftClear').hidden = locked;
   renderServerState();
 }
 function otherTaskNos(task, personId) {
@@ -186,7 +201,7 @@ function renderTasks() {
     return `<div class="task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}">
       <div class="task-head">
         <div class="task-title">작업 ${i + 1}${task.carried_from_task_id ? '<span class="task-tag">이월</span>' : ''}${task.closed ? '<span class="task-tag">결과 입력됨</span>' : ''}</div>
-        ${task.closed ? '' : `<button class="task-remove" type="button" data-remove="${task.key}">삭제</button>`}
+        ${task.closed || !editable() ? '' : `<button class="task-remove" type="button" data-remove="${task.key}">삭제</button>`}
       </div>
       <div class="field"><label class="label">작업 위치</label><input data-tfield="place" maxlength="120" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(task.place)}" ${task.closed ? 'disabled' : ''}></div>
       <div class="field"><label class="label">작업 내용</label><textarea data-tfield="content" maxlength="500" placeholder="예: 배선 작업 / 관로 작업" ${task.closed ? 'disabled' : ''}>${escapeHtml(task.content)}</textarea></div>
@@ -304,6 +319,7 @@ function validatePlan() {
 function buildPayload() {
   return {
     team_id: today.team.id,
+    report_id: report()?.id || null,
     version: form.base_version,
     end_time: form.end_time || null,
     risks: form.risks, risk_other: form.risks.includes('기타') ? form.risk_other.trim() : '',
@@ -314,7 +330,7 @@ function buildPayload() {
   };
 }
 async function savePlan() {
-  if (busy) return;
+  if (busy || !editable()) return;
   const problem = validatePlan();
   if (problem) { tell(problem, 'error'); return; }
   const dup = [...new Set(form.tasks.flatMap(t => t.members.map(m => m.person_id)).filter((id, i, all) => all.indexOf(id) !== i))];
@@ -325,6 +341,7 @@ async function savePlan() {
   try {
     const result = await rpc('tbm_save_plan', { p_payload: { ...payload, request_id } });
     slots.plan = {};
+    today.reports = [result.report, ...(today.reports || []).filter(x => x.id !== result.report.id)];
     today.report = result.report; form = formFromReport(result.report); dirty = false; clearDraft();
     renderAll();
     const carried = result.report.tasks.filter(t => t.carried_from_task_id).length;
@@ -353,7 +370,7 @@ function renderMorning() {
   const done = !!r?.morning_at;
   $('morningBadge').textContent = done ? `보고 완료 ${kstTime(r.morning_at)}` : '보고 전';
   $('morningBadge').className = 'badge' + (done ? ' ok' : '');
-  if (!r) {
+  if (!r?.tasks?.length) {
     $('morningSummary').textContent = '오늘 작업계획이 아직 없습니다. 작업계획을 먼저 저장해주세요.';
     $('morningTasks').innerHTML = ''; $('submitMorning').disabled = true; $('morningState').textContent = ''; return;
   }
@@ -376,6 +393,7 @@ function planIsDirty() {
 }
 function applyReport(r) {
   today.report = r;
+  today.reports = [r, ...(today.reports || []).filter(x => x.id !== r.id)];
   if (!dirty) form = formFromReport(r);
   renderAll();
 }
@@ -500,7 +518,7 @@ function renderAfternoon() {
   const r = report();
   const ready = !!r?.morning_at && editable();
   $('afternoonBlocked').hidden = ready;
-  $('afternoonBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '소장 확인이 끝난 보고라 수정할 수 없습니다.' : '';
+  $('afternoonBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '완료된 작업은 내용 보기만 가능합니다.' : '';
   $('afternoonBadge').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}` : '확인 전';
   $('afternoonBadge').className = 'badge' + (r?.afternoon_at ? ' ok' : '');
   if (r?.afternoon_note && !afternoonNoteTouched) $('afternoonNote').value = r.afternoon_note;
@@ -613,14 +631,15 @@ function renderEvening() {
   const r = report();
   const ready = !!r?.morning_at && editable();
   $('eveningBlocked').hidden = ready;
-  $('eveningBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '소장 확인이 끝난 보고라 수정할 수 없습니다.' : '';
+  $('eveningBlocked').textContent = !r ? '오늘 작업계획을 먼저 저장해주세요.' : !r.morning_at ? '출근 TBM을 먼저 보고해주세요.' : !editable() ? '완료된 작업은 내용 보기만 가능합니다.' : '';
   $('eveningBadge').textContent = r?.evening_at ? `마감 ${kstTime(r.evening_at)}` : '마감 전';
   $('eveningBadge').className = 'badge' + (r?.evening_at ? ' ok' : '');
   if (r?.evening_note && !eveningNoteTouched) $('eveningNote').value = r.evening_note;
   $('eveningNote').disabled = !ready;
   const open = (r?.tasks || []).filter(t => !t.result);
   $('eveningClose').disabled = !ready;
-  $('eveningClose').textContent = r?.evening_at ? (open.length ? `나머지 ${open.length}건 완료로 다시 마감` : '퇴근 마감 내용 다시 저장') : open.length ? `나머지 ${open.length}건 완료로 하고 퇴근 마감` : '퇴근 TBM 마감';
+  $('eveningClose').hidden = !!r?.evening_at;
+  $('eveningClose').textContent = r?.evening_at ? '퇴근 마감 완료' : open.length ? `나머지 ${open.length}건 완료로 하고 퇴근 마감` : '퇴근 TBM 마감';
   $('eveningTasks').innerHTML = (r?.tasks || []).map(t => {
     const editing = resultEdit?.taskId === t.id ? resultEdit : null;
     const selected = editing ? editing.result : t.result;
@@ -702,6 +721,51 @@ $('openEvening').addEventListener('click', async () => {
   if (!dirty) await load({ quiet: true }); // 오후 변경 사항을 최신으로
   if (!report()) { tell('오늘 작업계획을 먼저 저장해주세요.', 'error'); showStage('stagePlan'); return; }
   showStage('stageEvening');
+});
+
+
+// Same-day sessions. Completed sessions are shown in a separate read-only view.
+function renderSessions() {
+  const completed = (today.reports || []).filter(r => r.evening_at);
+  $('completedSessions').hidden = !completed.length;
+  $('sessionList').innerHTML = completed.map(r => `<div class="session-row">
+    <div><strong>작업 ${r.session_no} · 완료</strong><div class="team-meta">${r.tasks.map(t => escapeHtml(t.place)).join(' · ') || '작업계획'} · ${kstTime(r.evening_at)} 마감</div></div>
+    <button class="stage-small-btn" type="button" data-session-view="${r.id}">내용 보기</button></div>`).join('');
+}
+async function openCompleted(id) {
+  if (busy) return;
+  setBusy(true, '완료 작업 불러오는 중');
+  try {
+    const d = await rpc('tbm_report_detail', { p_report_id: id });
+    const r = d.report;
+    $('sessionDetailTitle').textContent = `작업 ${r.session_no} · ${r.evening_at ? '완료' : '내용'}`;
+    $('sessionDetailBody').innerHTML = `<p class="notice">완료된 기록은 읽기 전용입니다.</p>
+      <dl class="kv"><dt>보고자</dt><dd>${escapeHtml(r.reporter_label)}</dd>
+      <dt>저장</dt><dd>${kstTime(r.updated_at)}</dd><dt>예상 종료</dt><dd>${escapeHtml(r.end_time || '-')}</dd>
+      <dt>위험요인</dt><dd>${escapeHtml(risksText(r))}</dd><dt>안전조치</dt><dd>${escapeHtml(r.safety_note || '-')}</dd>
+      <dt>특이사항</dt><dd>${escapeHtml(r.issue_note || '-')}</dd>
+      <dt>소장 확인 필요</dt><dd>${r.needs_manager_check ? '필요' : '-'}</dd>
+      ${[['출근',r.morning_at,r.morning_note],['오후',r.afternoon_at,r.afternoon_note],['퇴근 마감',r.evening_at,r.evening_note]].map(([label,at,note]) => `<dt>${label}</dt><dd>${at ? kstTime(at) : '-'} ${escapeHtml(note || '')}</dd>`).join('')}</dl>
+      <div class="plan-view">${r.tasks.map(t => `<div class="plan-view-item"><strong>세부 작업 ${t.task_no} · ${escapeHtml(t.place)}</strong><span>${escapeHtml(t.content)}</span>
+        <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERTS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
+        <span>퇴근: ${RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
+      ${['MORNING','AFTERNOON','EVENING'].map((kind,i) => `<h3>${['출근','오후','퇴근'][i]} 사진</h3><div class="photo-preview">${r.photos.filter(p => p.kind===kind).map(p => `<div class="photo-thumb"><img alt="${['출근','오후','퇴근'][i]} 사진" data-photo-path="${escapeHtml(p.path)}"><span class="photo-state">${kstTime(p.created_at)}</span></div>`).join('') || '사진 없음'}</div>`).join('')}
+      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
+    await loadPhotoUrls(); showStage('stageSessionDetail');
+  } catch(e) { tell(describeError(e),'error'); } finally { setBusy(false); }
+}
+$('sessionList').addEventListener('click', e => { const id=e.target.closest('[data-session-view]')?.dataset.sessionView; if(id) openCompleted(id); });
+$('openNextSession').addEventListener('click', async () => {
+  if(busy || !report()?.evening_at) return;
+  const previous=report().id;
+  setBusy(true,'새 작업 여는 중');
+  try {
+    await rpc('tbm_open_next',{p_previous_report_id:previous});
+    dirty=false; clearDraft(); alertEdit=null; resultEdit=null; afternoonNoteTouched=false; eveningNoteTouched=false;
+    for(const id of ['morningNote','afternoonNote','eveningNote']) $(id).value='';
+    for(const key of Object.keys(slots)) slots[key]={};
+    if(await load({quiet:true})) { showStage('stagePlan'); tell(`작업 ${report().session_no}을 열었습니다. 새 작업계획을 작성해주세요.`,'ok'); }
+  } catch(e) { await handleActionError(e); } finally {setBusy(false);}
 });
 
 // ---------- 이동·기타 ----------

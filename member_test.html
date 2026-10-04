@@ -413,12 +413,15 @@ function tbmJsonp(params){
 async function loadMyTodayTasks(){
   const wrap=document.getElementById("myTasks");
   try{
-    const res=await tbmJsonp({
-      action:"memberTodayTasks",
-      userId:authUser.userId,
-      date:todayDate()
-    });
-    if(!(res&&res.success)) throw new Error(res?.message||"오늘 작업 조회 실패");
+    let res;
+    if(String(authUser?.authSource||'').startsWith('supabase')){
+      const api=await import("./tbm_api_test.mjs?v=0.12");
+      res=await api.rpc("tbm_my_today");
+      if(!res?.ok) throw new Error("오늘 작업 조회 실패");
+    }else{
+      res=await tbmJsonp({action:"memberTodayTasks",userId:authUser.userId,date:todayDate()});
+      if(!res?.success) throw new Error(res?.message||"오늘 작업 조회 실패");
+    }
 
     const tasks=res.tasks||[];
     const tbm=(res.tbm||[]).filter(x=>x.note||x.extra);
@@ -434,7 +437,7 @@ async function loadMyTodayTasks(){
     wrap.innerHTML=tasks.map(t=>{
       const body=`
         <div class="my-task-title">
-          작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}
+          작업 ${esc(t.sessionNo || 1)} · 세부 ${esc(t.taskNo)} · ${esc(t.place||"-")}
           <span class="my-task-role">${esc(t.role||"작업자")}</span>
         </div>
         <div class="my-task-meta">
@@ -455,7 +458,7 @@ async function loadMyTodayTasks(){
         return `
           <details class="my-task-completed">
             <summary>
-              <span>✓ 작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}</span>
+              <span>✓ 작업 ${esc(t.sessionNo || 1)} · 세부 ${esc(t.taskNo)} · ${esc(t.place||"-")}</span>
               <span class="complete-pill">퇴근 완료</span>
             </summary>
             <div class="my-task-completed-body">${body}</div>

@@ -20,19 +20,19 @@ PAGES = {
         ('<title>팀원 홈 TEST</title>', '<title>팀원 홈</title>', 1),
         ('<span class="ver">TEST v0.10</span>', '<span class="ver">v1.0</span>', 1),
         ('팀원 홈 TEST v0.11', '팀원 홈 v1.0', 1),
-        ('tbm_api_test.mjs?v=0.12', 'tbm_api_test.mjs?v=1.0', 2),
+        ('tbm_api_test.mjs?v=0.12', 'tbm_api_test.mjs?v=1.1', 3),
     ]),
     'tbm_report.html': ('tbm_report_test.html', [
         ('<title>팀장 TBM 보고 TEST</title>', '<title>팀장 TBM 보고</title>', 1),
         ('v0.62 TEST', 'v1.0', 2),
         (' · 시험 화면</div>', '</div>', 1),
-        ('tbm_report_test.mjs?v=0.62.1', 'tbm_report_test.mjs?v=1.0', 1),
+        ('tbm_report_test.mjs?v=0.62.1', 'tbm_report_test.mjs?v=1.1', 1),
     ]),
     'tbm_manager.html': ('tbm_manager_test.html', [
         ('<title>현장 TBM 현황 TEST</title>', '<title>현장 TBM 현황</title>', 1),
         ('v0.41 TEST', 'v1.0', 2),
         (' · 시험 화면</div>', '</div>', 1),
-        ('tbm_manager_test.mjs?v=0.41.1', 'tbm_manager_test.mjs?v=1.0', 1),
+        ('tbm_manager_test.mjs?v=0.41.1', 'tbm_manager_test.mjs?v=1.1', 1),
     ]),
 }
 

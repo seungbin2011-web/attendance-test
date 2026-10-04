@@ -34,7 +34,7 @@ run "$ROOT/personnel_auth_v09.sql"
 runtest "$ROOT/tests/sql/11_test_personnel_auth_v09.sql"
 run "$ROOT/personnel_auth_v09_check.sql" > /dev/null
 run "$ROOT/tests/sql/02_fixture_e2e.sql"
-for f in "$ROOT"/field_sql_v0*.sql; do
+for f in "$ROOT"/field_sql_v01.sql "$ROOT"/field_sql_v02.sql; do
   case "$f" in *_rollback.sql|*_check.sql) continue;; esac
   [ -e "$f" ] || continue
   run "$f"

@@ -414,12 +414,15 @@ function tbmJsonp(params){
 async function loadMyTodayTasks(){
   const wrap=document.getElementById("myTasks");
   try{
-    const res=await tbmJsonp({
-      action:"memberTodayTasks",
-      userId:authUser.userId,
-      date:todayDate()
-    });
-    if(!(res&&res.success)) throw new Error(res?.message||"오늘 작업 조회 실패");
+    let res;
+    if(String(authUser?.authSource||'').startsWith('supabase')){
+      const api=await import("./tbm_api_test.mjs?v=1.1");
+      res=await api.rpc("tbm_my_today");
+      if(!res?.ok) throw new Error("오늘 작업 조회 실패");
+    }else{
+      res=await tbmJsonp({action:"memberTodayTasks",userId:authUser.userId,date:todayDate()});
+      if(!res?.success) throw new Error(res?.message||"오늘 작업 조회 실패");
+    }
 
     const tasks=res.tasks||[];
     const tbm=(res.tbm||[]).filter(x=>x.note||x.extra);
@@ -435,7 +438,7 @@ async function loadMyTodayTasks(){
     wrap.innerHTML=tasks.map(t=>{
       const body=`
         <div class="my-task-title">
-          작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}
+          작업 ${esc(t.sessionNo || 1)} · 세부 ${esc(t.taskNo)} · ${esc(t.place||"-")}
           <span class="my-task-role">${esc(t.role||"작업자")}</span>
         </div>
         <div class="my-task-meta">
@@ -456,7 +459,7 @@ async function loadMyTodayTasks(){
         return `
           <details class="my-task-completed">
             <summary>
-              <span>✓ 작업 ${esc(t.taskNo)} · ${esc(t.place||"-")}</span>
+              <span>✓ 작업 ${esc(t.sessionNo || 1)} · 세부 ${esc(t.taskNo)} · ${esc(t.place||"-")}</span>
               <span class="complete-pill">퇴근 완료</span>
             </summary>
             <div class="my-task-completed-body">${body}</div>
@@ -507,7 +510,7 @@ function isSeason2(){
   return !!authUser&&authUser.authSource==="supabase-pin";
 }
 async function teamFromSupabase(){
-  const api=await import("./tbm_api_test.mjs?v=1.0");
+  const api=await import("./tbm_api_test.mjs?v=1.1");
   try{
     const res=await api.rpc("pilot_my_team");
     return {success:true,team:res.team,leaders:res.leaders||[],members:res.members||[]};
@@ -567,7 +570,7 @@ function goHome(){
 async function logout(){
   if(isSeason2()){
     // Season 2 개인 세션은 서버 세션까지 끝내고 통합 로그인으로
-    try{const api=await import("./tbm_api_test.mjs?v=1.0");await api.logout();}catch(e){}
+    try{const api=await import("./tbm_api_test.mjs?v=1.1");await api.logout();}catch(e){}
     location.href=LOGIN_PAGE;
     return;
   }
