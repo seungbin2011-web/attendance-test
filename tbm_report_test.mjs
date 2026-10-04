@@ -1,8 +1,8 @@
 // 팀장 TBM 보고 시험 화면 (tbm_report_test v0.62: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs';
+import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.0';
 
-const PAGE = 'tbm_report_test.html';
+const PAGE = pageUrl('tbm_report');
 const PAGE_VERSION = '0.62';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
@@ -721,10 +721,12 @@ $('refreshBtn').addEventListener('click', async () => {
 $('logoutBtn').addEventListener('click', async () => {
   if (!confirm(dirty ? '서버에 저장하지 않은 작업계획 변경이 있습니다. 로그아웃하면 이 기기의 임시저장도 지워집니다. 로그아웃할까요?' : '로그아웃할까요?')) return;
   dirty = false; clearDraft();
-  await logout(); location.replace('personnel_test.html');
+  await logout(); location.replace(pageUrl('login'));
 });
 $('goLogin').addEventListener('click', async () => { await logout(); location.replace(loginUrl(PAGE)); });
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-$('pageVersion').textContent = `v${PAGE_VERSION} TEST`; $('footerVersion').textContent = `v${PAGE_VERSION} TEST`;
+// 운영 화면에는 TEST 표시를 하지 않는다
+const VERSION_LABEL = PROD ? 'v1.0' : `v${PAGE_VERSION} TEST`;
+$('pageVersion').textContent = VERSION_LABEL; $('footerVersion').textContent = VERSION_LABEL;
 if (requireLogin(PAGE)) load();

@@ -5,13 +5,15 @@
 ## 화면
 
 - `tbm_report_test.html` TEST v0.62 — 팀장 TBM 보고 (작업계획 · 출근 · 오후 · 퇴근 · 사진 · 이월)
-- `tbm_manager_test.html` TEST v0.4 — 소장·관리자 현황 (읽기 전용)
+- `tbm_manager_test.html` TEST v0.41 — 소장·관리자 현황 (읽기 전용)
 - 공통: `tbm_api_test.mjs` (tbm_api v0.1), `tbm_test.css`
 
 진입: `personnel_test.html` 하나로 로그인하면 역할에 맞는 화면으로 바로 이동
 
 - 팀장: 이름 + 휴대폰 번호 뒤 4자리 → `tbm_report_test.html` (팀원은 `member_test.html`)
-- 소장: 업무계정 → `tbm_manager_test.html` / 관리자: 업무계정 → 명부 화면의 "TBM 현황 열기"
+- 현장관리(SITE_MANAGER): 이름 + 휴대폰 번호 뒤 4자리 → `tbm_manager_test.html` / 관리자(ADMIN): 이름 + 뒤 4자리 → 명부 화면의 "TBM 현황 열기" (업무계정 "소장"·"관리자"는 비상용)
+- 역할은 서버의 현재 소속·역할(`memberships`·`role_assignments`)로만 정한다. 2026-10 명단은 `personnel_roster_v10_*.sql`, 이후 인원 추가·팀 이동·권한·비활성은 관리자 화면 (`PERSONNEL_TEST.md` SQL v0.11 참고)
+- 작업 인원 후보·배정은 인원 UUID 기준이라 기존 사용자ID가 없는 새 인원도 그대로 쓸 수 있다.
 
 로그인하지 않고 열면 통합 로그인으로 보내고, 로그인 후 원래 화면으로 돌아온다. 역할이 맞지 않으면 "이 화면을 열 수 없습니다"만 보인다.
 
