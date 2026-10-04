@@ -1,0 +1,10 @@
+# 민감정보·실제 명단이 들어가는 로컬 파일 (Git에 올리지 않음, CLAUDE.md 참고)
+*.xlsx
+*.xls
+*.csv
+*_filled.sql
+*login4*import*.sql
+!personnel_login4_import_template.sql
+season2_apply_*/
+season2_apply_*.zip
+private/
