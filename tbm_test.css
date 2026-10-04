@@ -111,3 +111,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 @media(max-width:440px){.task-members,.risk-grid,.grid2,.tbm-home-menu,.btn-row{grid-template-columns:1fr}.task-status-buttons{grid-template-columns:1fr 1fr}.steps{grid-template-columns:repeat(2,1fr)}}
 /* 관리자(ADMIN) 계정은 초록 계열 */
 body.admin-mode .topbar{background:linear-gradient(135deg,#164936,#1e6b4f)}
+
+/* 완료 작업 목록은 휴대폰에서 간결하게 표시 */
+.session-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e1e8ef}.session-row:last-child{border-bottom:0}.session-row>div{min-width:0}.session-row button{flex-shrink:0} [hidden]{display:none!important}

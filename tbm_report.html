@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>팀장 TBM 보고</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.6">
+<link rel="stylesheet" href="tbm_test.css?v=0.7">
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
@@ -36,16 +36,21 @@
         <div class="tbm-home-sub" id="homeSub"></div>
         <div class="steps" id="homeSteps"></div>
       </div>
-      <div class="tbm-home-menu">
+      <div class="tbm-home-menu" id="currentActions">
         <button class="tbm-home-btn plan" id="openPlan" type="button">오늘 작업계획<small id="openPlanSub">작성 · 수정</small></button>
         <button class="tbm-home-btn morning" id="openMorning" type="button">출근 TBM<small id="openMorningSub">작업계획 공유</small></button>
         <button class="tbm-home-btn lunch" id="openAfternoon" type="button">오후 TBM<small id="openAfternoonSub">정상 · 변경 · 지연 · 위험</small></button>
         <button class="tbm-home-btn evening" id="openEvening" type="button">퇴근 TBM<small id="openEveningSub">작업별 완료 · 이월</small></button>
       </div>
+      <button class="btn save" id="openNextSession" type="button" hidden>+ 새 작업 열기</button>
       <div class="stage-note">모든 저장은 서버 확인 후에만 “저장됨”으로 표시됩니다. 작성 중인 내용은 이 기기에만 임시로 남습니다.</div>
     </section>
+    <section class="card" id="completedSessions" hidden><h2 class="section-title">오늘 완료 작업</h2><div id="sessionList"></div></section>
   </div>
-
+  <div class="app-stage" id="stageSessionDetail">
+    <div class="stage-nav"><div class="stage-nav-inner"><div class="stage-title" id="sessionDetailTitle">완료 작업</div><button class="stage-small-btn" data-go="stageHome" type="button">홈</button></div></div>
+    <section class="card" id="sessionDetailBody"></section>
+  </div>
   <div class="app-stage" id="stagePlan">
     <div class="stage-nav"><div class="stage-nav-inner">
       <div class="stage-title">오늘 작업계획</div>
@@ -157,6 +162,6 @@
     <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
   </div>
 </div>
-<script type="module" src="tbm_report_test.mjs?v=1.0"></script>
+<script type="module" src="tbm_report_test.mjs?v=1.1"></script>
 </body>
 </html>
