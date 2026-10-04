@@ -1,9 +1,7 @@
 // 현장 업무 통합 로그인 · Edge Function member-login v0.4 (SQL personnel_auth v0.8 ~ v0.12 필요)
 // 1) 이름 + 휴대폰 번호 뒤 4자리: Supabase 안에서 확인(pilot_member_login4, bcrypt 해시) → 그 사람 전용 Supabase 세션 발급
-//    로그인 번호가 있는 사람은 Apps Script를 부르지 않는다.
-//    v0.4: 아직 로그인 번호가 없는 현재 인원(FIRST_LOGIN_REQUIRED)만 최초 1회 정식 인원DB(Apps Script)로 확인하고
-//          pilot_member_login4_migrate가 번호를 해시로 저장한다. 다음 로그인부터는 Supabase만.
-//          끄기: Edge Function Secrets에 MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off
+//    최초 로그인 외부 이관은 비활성화됨(MEMBER_LOGIN_FIRST_LOGIN_FALLBACK=off).
+//    미등록 번호는 관리자 인원관리에서 Supabase credential을 직접 등록한다.
 // 2) 이름 + 개인 PIN 6자리: v0.1과 같음 (DB에서 PIN 확인)
 // - 전체 휴대폰 번호는 저장하지 않는다. 실패 한도·잠금·재직 여부·같은 이름 구분은 DB 함수가 한다.
 // - 역할은 돌려주지 않는다. 화면은 받은 세션으로 pilot_whoami를 호출해 서버에서 역할을 다시 받는다.
@@ -18,19 +16,12 @@ const ALLOWED_ORIGINS = new Set(
     .split(',').map((origin) => origin.trim()).filter(Boolean),
 );
 
-// 정식 인원DB(Apps Script) 주소: 로그인 번호가 없는 기존 인원의 최초 1회 확인에만 쓴다.
-const ROSTER_API_URL = Deno.env.get('ROSTER_API_URL')
-  ?? 'https://script.google.com/macros/s/AKfycbydU13x0H55aSMcn6pC3MBah9ZWx-wKvyjizpx2hr7oRHkpZpBdf0Bbb56nLQdovj-5/exec';
-
-// 최초 1회 이관 사용 여부 (기본 사용). 모든 현재 인원의 로그인 번호가 등록되면 off로 끈다.
-const FIRST_LOGIN_FALLBACK = (Deno.env.get('MEMBER_LOGIN_FIRST_LOGIN_FALLBACK') ?? 'on').trim().toLowerCase() !== 'off';
-
+// 외부 최초 로그인 fallback은 항상 off. URL과 호출 경로를 두지 않는다.
 const MESSAGES: Record<string, string> = {
   INVALID_INPUT: '이름과 휴대폰 번호 뒤 4자리를 입력해주세요.',
   INVALID_CREDENTIALS: '이름 또는 PIN이 일치하지 않습니다.',
   INVALID_PHONE: '이름 또는 휴대폰 번호 뒤 4자리가 일치하지 않습니다. 로그인 번호가 등록되지 않았거나 바뀌었으면 관리자에게 문의해주세요.',
   NOT_IN_PILOT: '새 시스템 명부에 아직 등록되지 않은 인원입니다. 관리자에게 문의해주세요.',
-  ROSTER_UNAVAILABLE: '명부 확인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.',
   LOCKED: '로그인 실패가 반복되어 30분간 잠겼습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.',
   RATE_LIMITED: '로그인 요청이 많습니다. 잠시 후 다시 시도해주세요.',
   AMBIGUOUS: '동일 이름 확인이 필요합니다. 관리자에게 문의해주세요.',
@@ -142,20 +133,6 @@ async function issueSession(admin: SupabaseClient, personId: string) {
   return verified.session;
 }
 
-// 최초 1회 이관: 정식 인원DB에 이름 + 뒤 4자리를 묻는다. 사용자ID만 받아 쓰고 번호는 남기지 않는다.
-async function rosterCheck(name: string, phone4: string): Promise<{ verified: boolean; userId: string | null }> {
-  const callback = 'memberLoginRoster';
-  const url = `${ROSTER_API_URL}?${new URLSearchParams({ action: 'attendanceLogin', name, pin: phone4, callback, _t: String(Date.now()) })}`;
-  const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(12000) });
-  if (!response.ok) throw new Error('ROSTER_HTTP');
-  const text = await response.text();
-  const start = text.indexOf(callback + '(');
-  const end = text.lastIndexOf(')');
-  const result = JSON.parse(start >= 0 && end > start ? text.slice(start + callback.length + 1, end) : text);
-  const userId = typeof result?.user?.userId === 'string' ? result.user.userId.trim() : '';
-  return { verified: result?.success === true && userId !== '', userId: userId || null };
-}
-
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -183,19 +160,9 @@ Deno.serve(async (req: Request) => {
     args = { p_name: name, p_code: phone4, p_client_ip: clientIp(req) };
   }
   let { data: result, error } = await admin.rpc(rpcName, args);
-  // 로그인 번호가 아직 없는 현재 인원: 최초 1회만 정식 인원DB로 확인하고 번호를 해시로 이관
+  // 미등록 번호는 관리자에게 등록을 요청한다. 외부로 전송하지 않는다.
   if (byPhone && !error && result?.code === 'FIRST_LOGIN_REQUIRED') {
-    if (!FIRST_LOGIN_FALLBACK) return fail(origin, 401, 'INVALID_PHONE');
-    let roster;
-    try {
-      roster = await rosterCheck(name.trim(), phone4);
-    } catch (e) {
-      console.error('member-login roster error', e instanceof Error ? e.name : 'unknown');
-      return fail(origin, 503, 'ROSTER_UNAVAILABLE');
-    }
-    ({ data: result, error } = await admin.rpc('pilot_member_login4_migrate', {
-      p_name: name, p_code: phone4, p_verified: roster.verified, p_user_id: roster.userId, p_client_ip: clientIp(req),
-    }));
+    return fail(origin, 401, 'INVALID_PHONE');
   }
   if (error || !result) {
     console.error('member-login verify error', error?.code ?? 'unknown');
