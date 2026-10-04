@@ -19,9 +19,11 @@
   2. `personnel_auth_v11.sql` → `personnel_auth_v11_check.sql`
   3. `personnel_auth_v12.sql` → `personnel_auth_v12_check.sql`
   4. 명단을 넣은 `personnel_roster_v10_check.sql` → `personnel_roster_v10_sync.sql` → `personnel_roster_v10_verify.sql` (`ok = true`, 53 / 15·23·9·1·5 / 13·35·4·1)
-  5. Edge Function `member-login`을 v0.4로 Deploy (Verify JWT 끔)
-  6. main 반영 (GitHub Pages). 엑셀 번호 일괄 등록(`personnel_login4_import_template.sql`)은 하지 않아도 된다.
-- 되돌리기: main은 승격 전 태그 `pre-s2-main-20261003`으로 되돌린다. 서버는 member-login v0.3 → `personnel_auth_v12_rollback.sql` (이미 저장된 번호 해시는 그대로 남아 v0.11 로그인에 쓰인다)
+  5. (선택) 로그인 번호 선등록: 인원DB 엑셀의 뒤 4자리를 작업 PC에서 bcrypt 해시로 바꾼 SQL(Git 밖 파일, 해시만, 번호 없는 사람만 등록) → `personnel_auth_v12_check.sql`에서 `login_registered` 확인. 안 하면 최초 로그인 이관으로 등록된다.
+  6. Edge Function `member-login`을 v0.4로 Deploy (Verify JWT 끔)
+  7. main 반영 (GitHub Pages). 엑셀 번호 일괄 등록(`personnel_login4_import_template.sql`)은 하지 않아도 된다.
+- `personnel_auth_v10.sql` 사전 점검은 SQL Editor 붙여넣기로 생긴 Windows 줄바꿈(CR)을 무시하고 명부 함수 내용을 비교한다.
+- 되돌리기: main은 승격 전 상태 `d50f56a`(브랜치 `rollback/pre-s2-main-20261003`)로 되돌린다. 서버는 member-login v0.3 → `personnel_auth_v12_rollback.sql` (이미 저장된 번호 해시는 그대로 남아 v0.11 로그인에 쓰인다)
 - 남은 Apps Script 사용: 최초 이관 확인(위), 팀원 화면 "오늘 작업"(기존 TBM DB 조회), Season 1 화면(`index_season1.html`·`leader.html`·일부 `*_test.html`). 정식 인원DB의 공개 조회(`personnelOrg`)는 이 저장소 밖에 있어 Apps Script에서 따로 막아야 한다.
 
 ## SQL v0.11 · member-login v0.3 (Supabase 단독 로그인 + 관리자 인원 관리)

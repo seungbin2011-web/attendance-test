@@ -27,11 +27,12 @@ begin
     raise exception 'PRECHECK: personnel_auth_v02·v08·v09가 먼저 적용돼 있어야 함';
   end if;
   -- 롤백이 원래 함수를 그대로 되돌릴 수 있도록, 바꾸기 전 함수가 저장소 사본과 같은지 확인 (재실행이면 통과)
+  -- SQL Editor에 붙여 넣을 때 들어간 Windows 줄바꿈(CR)은 내용 차이가 아니므로 빼고 비교한다
   if exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.proname in ('pilot_roster', 'pilot_update_person', 'pilot_set_attendance_grade')
-      and md5(p.prosrc) not in ('f209c18fb12b4f1691626541a9545ffb', '22a7ae3c8749ad75b3144ecfc321c7b8', 'fbf8dc9df6eb4d68cbc5a3145326422d')
+      and md5(replace(p.prosrc, chr(13), '')) not in ('f209c18fb12b4f1691626541a9545ffb', '22a7ae3c8749ad75b3144ecfc321c7b8', 'fbf8dc9df6eb4d68cbc5a3145326422d')
       and p.prosrc not like '%roster_actor()%') then
     raise exception 'PRECHECK: 명부 함수가 저장소 사본과 다름. 적용 중단 (현재 함수 내용 확인 필요)';
   end if;
