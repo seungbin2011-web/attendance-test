@@ -7,6 +7,7 @@
 - `tbm_report_test.html` TEST v0.62 — 팀장 TBM 보고 (작업계획 · 출근 · 오후 · 퇴근 · 사진 · 이월)
 - `tbm_manager_test.html` TEST v0.41 — 소장·관리자 현황 (읽기 전용)
 - 공통: `tbm_api_test.mjs` (tbm_api v0.1), `tbm_test.css`
+- 사용 가이드: 팀장 화면 홈 「새로고침 / 사용 가이드 / 로그아웃」, 소장 목록 「사용 가이드 / 로그아웃」 → 역할별 PDF 새 탭 (`guides/team-leader-tbm-guide.pdf`, `guides/site-manager-tbm-guide.pdf`, 원본·다시 만들기는 `guides/source/README.md`)
 
 진입: `personnel_test.html` 하나로 로그인하면 역할에 맞는 화면으로 바로 이동
 

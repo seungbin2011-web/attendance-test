@@ -8,3 +8,6 @@
 season2_apply_*/
 season2_apply_*.zip
 private/
+
+# 사용 가이드 PDF용 글꼴 (build_pdf.sh가 받아 둠, Git에 넣지 않음)
+guides/source/fonts/

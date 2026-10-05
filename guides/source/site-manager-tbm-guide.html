@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>소장 TBM 사용 가이드 v1.0</title>
+<style>
+@font-face { font-family: "NSKR"; font-weight: 500; src: url("fonts/NotoSansKR-500.ttf"); }
+@font-face { font-family: "NSKR"; font-weight: 700; src: url("fonts/NotoSansKR-700.ttf"); }
+@font-face { font-family: "NSKR"; font-weight: 900; src: url("fonts/NotoSansKR-900.ttf"); }
+:root {
+  --navy: #1B3A63; --blue: #2F7FF5; --orange: #D98200; --night: #12294A;
+  --red: #E5322D; --green: #16965A; --ink: #16202E; --sub: #4A5568; --line: #D5DEEA;
+}
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #fff; color: var(--ink); font-family: "NSKR", sans-serif; font-weight: 500; word-break: keep-all;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; height: 297mm; padding: 11mm 11mm 9mm; position: relative; overflow: hidden;
+  page-break-after: always; display: flex; flex-direction: column; }
+.page:last-child { page-break-after: auto; }
+
+/* 단계 헤더 */
+.head { display: flex; align-items: center; gap: 5mm; color: #fff; border-radius: 5mm;
+  padding: 5mm 7mm; background: var(--c); }
+.head .no { flex: none; width: 19mm; height: 19mm; border-radius: 50%; background: #fff; color: var(--c);
+  font-weight: 900; font-size: 34pt; display: grid; place-items: center; line-height: 1; }
+.head .kicker { font-size: 13pt; font-weight: 700; opacity: .85; }
+.head h1 { font-size: 30pt; font-weight: 900; line-height: 1.15; letter-spacing: -0.5px; }
+
+.lead { font-size: 17pt; line-height: 1.5; margin: 6mm 1mm 5mm; color: var(--ink); }
+.lead b { font-weight: 900; }
+
+.cols { display: grid; grid-template-columns: var(--split, 1fr 1.3fr); gap: 6mm; flex: 1; min-height: 0; }
+.col { display: flex; flex-direction: column; gap: 4.5mm; min-width: 0; }
+
+ol.steps { list-style: none; display: flex; flex-direction: column; gap: 3.2mm; }
+ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt; line-height: 1.38; }
+.n { flex: none; width: 9.5mm; height: 9.5mm; border-radius: 50%; background: var(--red); color: #fff;
+  font-weight: 900; font-size: 15pt; display: grid; place-items: center; margin-top: 0.6mm; line-height: 1; }
+.n.ok { background: var(--green); font-size: 14pt; }
+.btn { font-weight: 900; color: var(--ink); background: #EEF3FA; border: 0.4mm solid var(--line);
+  border-radius: 1.6mm; padding: 0 1.6mm; white-space: nowrap; }
+.btn.blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+.btn.orange { background: var(--orange); color: #fff; border-color: var(--orange); }
+.btn.night { background: var(--night); color: #fff; border-color: var(--night); }
+.btn.green { background: #22995F; color: #fff; border-color: #22995F; }
+.ok-text { color: var(--green); font-weight: 900; }
+
+.shot { border: 0.35mm solid var(--line); border-radius: 3mm; overflow: hidden; background: #F3F6FA; }
+.shot img { display: block; width: 100%; height: auto; }
+.cap { font-size: 11.5pt; color: var(--sub); margin-top: -2.5mm; }
+
+.tip { background: #F4F7FB; border-left: 2mm solid var(--c); border-radius: 2mm; padding: 3mm 4mm;
+  font-size: 14pt; line-height: 1.45; }
+.tip b { font-weight: 900; }
+
+.foot { position: absolute; left: 11mm; right: 11mm; bottom: 5mm; display: flex; justify-content: space-between;
+  font-size: 10pt; color: #8A96A8; }
+
+/* 표지 */
+.cover h1 { font-size: 40pt; font-weight: 900; line-height: 1.15; color: var(--navy); letter-spacing: -1px; }
+.cover .ver { display: inline-block; font-size: 15pt; font-weight: 900; color: #fff; background: var(--navy);
+  border-radius: 2mm; padding: 0.5mm 3mm; vertical-align: middle; margin-left: 2mm; }
+.cover .sub { font-size: 18pt; color: var(--sub); margin-top: 3mm; }
+.band { height: 3mm; border-radius: 2mm; margin: 7mm 0 6mm;
+  background: linear-gradient(90deg, var(--navy) 0 42%, var(--blue) 42% 58%, var(--orange) 58% 72%, var(--night) 72% 86%, var(--blue) 86%); }
+.flow { list-style: none; display: flex; flex-direction: column; gap: 3mm; }
+.flow li { display: flex; align-items: center; gap: 4mm; border: 0.35mm solid var(--line); border-radius: 3.5mm;
+  padding: 3.2mm 4mm; }
+.flow .k { flex: none; width: 12mm; height: 12mm; border-radius: 50%; background: var(--c); color: #fff;
+  font-weight: 900; font-size: 19pt; display: grid; place-items: center; }
+.flow .t { font-size: 19pt; font-weight: 900; }
+.flow .d { font-size: 13pt; color: var(--sub); margin-left: auto; text-align: right; }
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-top: 7mm; }
+.legend div { display: flex; gap: 3mm; align-items: center; font-size: 15pt; line-height: 1.35;
+  background: #F4F7FB; border-radius: 3mm; padding: 3.5mm 4mm; }
+.legend .n { width: 11mm; height: 11mm; font-size: 17pt; margin: 0; }
+.big-tip { margin-top: 5mm; border: 0.8mm solid var(--green); border-radius: 3.5mm; padding: 4mm 5mm;
+  font-size: 16pt; line-height: 1.45; }
+.big-tip b { font-weight: 900; }
+</style>
+<style>
+.defs { display: grid; grid-template-columns: auto 1fr; gap: 1.6mm 3mm; font-size: 14pt; line-height: 1.38;
+  background: #F4F7FB; border-radius: 3mm; padding: 3.5mm 4mm; }
+.defs dt { font-weight: 900; white-space: nowrap; }
+.defs dd { color: var(--ink); }
+.defs dt.red { color: #B42318; }
+.defs.wide { margin-top: 5mm; font-size: 15pt; gap: 2mm 5mm; padding: 4mm 5mm; }
+.band { background: linear-gradient(90deg, var(--navy) 0 60%, var(--blue) 60%); }
+</style>
+</head>
+<body>
+
+<!-- 표지 -->
+<section class="page cover" style="--c: var(--navy)">
+  <h1>소장 TBM<br>사용 가이드 <span class="ver">v1.0</span></h1>
+  <p class="sub">팀별 TBM 보고를 휴대폰으로 확인하는 방법입니다.</p>
+  <div class="band"></div>
+  <ol class="flow">
+    <li style="--c: var(--navy)"><span class="k">1</span><span class="t">로그인</span><span class="d">이름 + 휴대폰 뒤 4자리</span></li>
+    <li style="--c: var(--navy)"><span class="k">2</span><span class="t">현장 TBM 현황 보기</span><span class="d">숫자로 한눈에</span></li>
+    <li style="--c: var(--navy)"><span class="k">3</span><span class="t">팀별 보고 상태 확인</span><span class="d">전체 · 확인 필요 · 미보고</span></li>
+    <li style="--c: var(--navy)"><span class="k">4</span><span class="t">팀 보고 상세 보기</span><span class="d">「상세 보기」</span></li>
+    <li style="--c: var(--navy)"><span class="k">5</span><span class="t">현장 사진 · 변경 이력</span><span class="d">출근 · 오후 · 퇴근 사진</span></li>
+  </ol>
+  <div class="legend">
+    <div><span class="n">1</span>빨간 번호는<br>누르는 곳입니다.</div>
+    <div><span class="n ok">✓</span>초록 표시는<br>확인하는 곳입니다.</div>
+  </div>
+  <div class="big-tip">
+    소장 화면은 <b>조회 전용</b>입니다.<br>
+    보고 내용은 팀장이 입력하고, 소장은 화면에서 확인만 합니다.
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>1 / 6</span></div>
+</section>
+
+<!-- 1 로그인 -->
+<section class="page" style="--c: var(--navy)">
+  <div class="head"><span class="no">1</span><div><div class="kicker">1단계</div><h1>로그인</h1></div></div>
+  <p class="lead">팀장과 같은 「현장 업무 통합 로그인」 화면을 씁니다.
+    로그인하면 <b>「현장 TBM 현황」</b> 화면이 열립니다.</p>
+  <div class="cols" style="--split: 1fr 1.75fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span>이름을 입력합니다.</span></li>
+        <li><span class="n">2</span><span>휴대폰 번호 뒤 4자리를 입력합니다.</span></li>
+        <li><span class="n">3</span><span><span class="btn blue">로그인</span> 버튼을 누릅니다.</span></li>
+      </ol>
+      <div class="tip">예) 휴대폰 번호가 010-1234-<b>5678</b>이면<br><b>5678</b>을 입력합니다.</div>
+    </div>
+    <div class="col"><div class="shot"><img src="img/m1_login.jpg" alt="통합 로그인 화면"></div></div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>2 / 6</span></div>
+</section>
+
+<!-- 2 현장 TBM 현황 -->
+<section class="page" style="--c: var(--navy)">
+  <div class="head"><span class="no">2</span><div><div class="kicker">2단계</div><h1>현장 TBM 현황 보기</h1></div></div>
+  <p class="lead">날짜를 확인하고 숫자로 오늘 보고 상황을 봅니다.
+    최신 보고를 보려면 <b>「새로고침」</b>을 누릅니다.</p>
+  <div class="cols" style="--split: 1fr 1.55fr; flex: none">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span><span class="btn">새로고침</span>으로 최신 보고를 불러옵니다.</span></li>
+        <li><span class="n ok">✓</span><span>숫자 칸의 뜻은 아래 표와 같습니다.</span></li>
+      </ol>
+      <div class="tip">「60초마다 자동 새로고침」에 체크하면 화면이 저절로 최신 상태로 바뀝니다.</div>
+    </div>
+    <div class="col"><div class="shot"><img src="img/m2_dash.jpg" alt="현장 TBM 현황 화면"></div></div>
+  </div>
+  <dl class="defs wide">
+    <dt>팀</dt><dd>현황에 나오는 팀 수</dd>
+    <dt>미보고</dt><dd>오늘 작업계획이 아직 없는 팀 수</dd>
+    <dt>출근 보고</dt><dd>2/2 → 보고 2건 중 출근 TBM 보고 2건</dd>
+    <dt>퇴근 마감</dt><dd>2/2 → 보고 2건 중 퇴근 TBM 마감 2건</dd>
+    <dt class="red">소장 확인 필요</dt><dd>팀장이 「소장 확인 필요」를 표시한 보고 수</dd>
+    <dt>위험 작업</dt><dd>「위험」으로 표시된 작업 수</dd>
+  </dl>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>3 / 6</span></div>
+</section>
+
+<!-- 3 팀별 보고 상태 -->
+<section class="page" style="--c: var(--navy)">
+  <div class="head"><span class="no">3</span><div><div class="kicker">3단계</div><h1>팀별 보고 상태 확인</h1></div></div>
+  <p class="lead">숫자 칸 아래에 팀별 보고 카드가 나옵니다.
+    버튼을 눌러 보고 싶은 팀만 골라 볼 수 있습니다.</p>
+  <div class="cols" style="--split: 1fr 1.3fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span><span class="btn">전체</span> <span class="btn">확인 필요</span> <span class="btn">미보고</span> 중 하나를 누릅니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>출근 · 오후 · 퇴근</b> 옆 시간은 각 TBM을 보고한 시간입니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>「미보고」</b>는 오늘 작업계획이 아직 없는 팀입니다.</span></li>
+      </ol>
+      <div class="shot"><img src="img/m3_filter.jpg" alt="전체, 확인 필요, 미보고 버튼"></div>
+      <div class="tip"><b>「확인 필요」</b>는 팀장이 <b>「소장 확인 필요」</b>를 표시했거나 위험 작업이 있는 팀입니다.</div>
+    </div>
+    <div class="col">
+      <div class="shot"><img src="img/m3_cards.jpg" alt="팀별 보고 카드"></div>
+      <p class="cap">카드에서 특이사항, 작업 결과(완료 등), 사진 장수도 바로 볼 수 있습니다.</p>
+    </div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>4 / 6</span></div>
+</section>
+
+<!-- 4 상세 보기 -->
+<section class="page" style="--c: var(--navy)">
+  <div class="head"><span class="no">4</span><div><div class="kicker">4단계</div><h1>팀 보고 상세 보기</h1></div></div>
+  <p class="lead">팀 카드의 <b>「상세 보기」</b>를 누르면 그 팀의 보고 내용을 모두 볼 수 있습니다.</p>
+  <div class="cols" style="--split: 1fr 1.35fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span><span class="btn">상세 보기</span>를 누릅니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>보고자 · 위험요인 · 안전조치 · 특이사항</b>과 <b>출근 · 오후 · 퇴근 TBM</b> 시간과 내용을 확인합니다.</span></li>
+        <li><span class="n ok">✓</span><span>작업마다 <b>작업 내용 · 투입 인원 · 오후 상태 · 퇴근 결과</b>를 확인합니다.</span></li>
+        <li><span class="n">2</span><span><span class="btn">목록</span>을 누르면 팀 목록으로 돌아갑니다.</span></li>
+      </ol>
+      <div class="shot"><img src="img/m4_btn.jpg" alt="상세 보기 버튼"></div>
+    </div>
+    <div class="col"><div class="shot"><img src="img/m4_detail.jpg" alt="팀 보고 상세 화면"></div></div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>5 / 6</span></div>
+</section>
+
+<!-- 5 사진 · 변경 이력 -->
+<section class="page" style="--c: var(--navy)">
+  <div class="head"><span class="no">5</span><div><div class="kicker">5단계 · 상세 화면 아래</div><h1>현장 사진 · 변경 이력</h1></div></div>
+  <p class="lead">상세 화면을 아래로 내리면 팀장이 보고한 실제 현장 사진과 변경 이력이 나옵니다.
+    소장 화면에서는 조회만 합니다.</p>
+  <div class="cols" style="--split: 1.25fr 1fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n ok">✓</span><span><b>출근 TBM · 오후 TBM · 퇴근 TBM</b> 사진이 차례로 나옵니다. 사진마다 시간이 표시됩니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>변경 이력</b>에서 누가 언제 무엇을 했는지 확인합니다. 최근 기록이 맨 위에 나옵니다.</span></li>
+      </ol>
+      <div class="shot"><img src="img/m6_history.jpg" alt="변경 이력 목록"></div>
+      <p class="cap">예: 출근 TBM 보고 · 작업 정상 · 사진 추가 · 퇴근 결과 입력 · 퇴근 TBM 마감</p>
+    </div>
+    <div class="col"><div class="shot"><img src="img/m5_photos.jpg" alt="출근, 오후, 퇴근 TBM 사진"></div></div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>6 / 6</span></div>
+</section>
+
+</body>
+</html>

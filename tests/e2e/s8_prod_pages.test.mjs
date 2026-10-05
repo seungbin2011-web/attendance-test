@@ -23,6 +23,37 @@ async function noTestMarks(page) {
   assert.ok(!/_test\.html/.test(page.url()), page.url());
 }
 
+// 역할별 「사용 가이드」: 상단 작은 버튼 줄에 있고, 자기 역할 PDF를 새 탭으로 연다. PDF는 고정 정적 경로에서 바로 받아진다.
+async function checkGuide(page, pdf) {
+  const link = page.locator('.app-stage.active .stage-actions #guideBtn');
+  assert.equal((await link.textContent()).trim(), '사용 가이드');
+  assert.equal(await link.getAttribute('href'), `guides/${pdf}`);
+  assert.equal(await link.getAttribute('target'), '_blank');
+  const res = await page.request.get(new URL(`guides/${pdf}`, page.url()).href);
+  assert.equal(res.status(), 200);
+  assert.match(res.headers()['content-type'], /application\/pdf/);
+  assert.equal((await res.body()).subarray(0, 5).toString(), '%PDF-');
+  // 새 탭이 열리고 그 탭이 PDF를 요청한다 (헤드리스 Chromium은 PDF 뷰어가 없어 주소창 대신 요청으로 확인)
+  const [tab, req] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.context().waitForEvent('request', r => r.url().endsWith(`/guides/${pdf}`)),
+    link.click(),
+  ]);
+  assert.notEqual(tab, page);
+  assert.equal(req.frame()?.page() ?? tab, tab);
+  await tab.close();
+  // 휴대폰 폭: 버튼이 한 줄에 있고 글자가 두 줄로 꺾이거나 화면 밖으로 나가지 않는다
+  for (const width of [360, 320]) {
+    await page.setViewportSize({ width, height: 740 });
+    const boxes = await page.$$eval('.app-stage.active .stage-actions > *', els => els.map(e => {
+      const r = e.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height), right: Math.round(r.right), text: e.textContent.trim() };
+    }));
+    assert.ok(boxes.every(b => b.top === boxes[0].top), `${width}px 버튼 줄바꿈: ${JSON.stringify(boxes)}`);
+    assert.ok(boxes.every(b => b.h <= 40 && b.right <= width), `${width}px 버튼 깨짐: ${JSON.stringify(boxes)}`);
+    await page.screenshot({ path: `artifacts/s8_guide_${pdf.split('-')[0]}_${width}.png` });
+  }
+}
+
 try {
   // 정식 인원DB(흉내)는 시험 파일마다 새로 시작하므로 최초 로그인할 사람을 다시 등록 (DB 로그인 번호는 만들지 않음)
   await fetch(`${env.base}/__test/roster`, { method: 'POST', body: JSON.stringify({ seed: false, entries: [
@@ -78,6 +109,25 @@ try {
     await page.click('#logoutBtn');
     await page.waitForURL(/\/index\.html$/);
     assert.deepEqual(errors, []);
+  });
+
+  await step('역할별 사용 가이드: 팀장 → 팀장 PDF, 현장관리 → 소장 PDF (새 탭, 휴대폰 폭 버튼 한 줄)', async () => {
+    const leader = await rootLogin('시험삼반장', '1301', /\/tbm_report\.html$/);
+    await leader.page.waitForSelector('#stageHome.active');
+    await checkGuide(leader.page, 'team-leader-tbm-guide.pdf');
+    assert.deepEqual(await leader.page.$$eval('#stageHome .stage-actions > *', els => els.map(e => e.textContent.trim())), ['새로고침', '사용 가이드', '로그아웃']);
+    assert.deepEqual(leader.errors, []);
+    const manager = await rootLogin('시험현장관리1', '1401', /\/tbm_manager\.html$/);
+    await manager.page.waitForSelector('#stageList.active');
+    await checkGuide(manager.page, 'site-manager-tbm-guide.pdf');
+    assert.deepEqual(await manager.page.$$eval('#stageList .stage-actions > *', els => els.map(e => e.textContent.trim())), ['사용 가이드', '로그아웃']);
+    assert.deepEqual(manager.errors, []);
+    // 관리자가 여는 같은 현황 화면(관리자 모드)에는 가이드 버튼을 보이지 않는다 (이번 범위는 팀장·소장만)
+    const admin = await rootLogin('시험관리자', '1404');
+    await admin.page.waitForSelector('#directory:not([hidden])');
+    await admin.page.goto(`${env.base}/tbm_manager.html`);
+    await admin.page.waitForSelector('body.admin-mode #stageList.active');
+    assert.equal(await admin.page.isVisible('#guideBtn'), false);
   });
 
   await step('관리자 → 루트에서 관리자 명부 (로그인 번호 등록 현황 표시, 시험 문구 없음)', async () => {
