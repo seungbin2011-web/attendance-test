@@ -33,9 +33,14 @@ async function checkGuide(page, pdf) {
   assert.equal(res.status(), 200);
   assert.match(res.headers()['content-type'], /application\/pdf/);
   assert.equal((await res.body()).subarray(0, 5).toString(), '%PDF-');
-  const [tab] = await Promise.all([page.context().waitForEvent('page'), link.click()]);
-  await tab.waitForEvent('framenavigated').catch(() => {});
-  assert.ok(tab.url().endsWith(`/guides/${pdf}`), tab.url());
+  // 새 탭이 열리고 그 탭이 PDF를 요청한다 (헤드리스 Chromium은 PDF 뷰어가 없어 주소창 대신 요청으로 확인)
+  const [tab, req] = await Promise.all([
+    page.context().waitForEvent('page'),
+    page.context().waitForEvent('request', r => r.url().endsWith(`/guides/${pdf}`)),
+    link.click(),
+  ]);
+  assert.notEqual(tab, page);
+  assert.equal(req.frame()?.page() ?? tab, tab);
   await tab.close();
   // 휴대폰 폭: 버튼이 한 줄에 있고 글자가 두 줄로 꺾이거나 화면 밖으로 나가지 않는다
   for (const width of [360, 320]) {
