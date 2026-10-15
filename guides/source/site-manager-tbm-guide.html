@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>소장 TBM 사용 가이드 v1.0</title>
+<title>소장 TBM 사용 가이드 v1.1</title>
 <style>
 @font-face { font-family: "NSKR"; font-weight: 500; src: url("fonts/NotoSansKR-500.ttf"); }
 @font-face { font-family: "NSKR"; font-weight: 700; src: url("fonts/NotoSansKR-700.ttf"); }
@@ -85,6 +85,9 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
 .defs dt { font-weight: 900; white-space: nowrap; }
 .defs dd { color: var(--ink); }
 .defs dt.red { color: #B42318; }
+.shot.crop { max-height: var(--h, 190mm); }
+.shot.crop img { object-fit: cover; object-position: top; }
+.stop-text { color: #C2410C; font-weight: 900; }
 .defs.wide { margin-top: 5mm; font-size: 15pt; gap: 2mm 5mm; padding: 4mm 5mm; }
 .band { background: linear-gradient(90deg, var(--navy) 0 60%, var(--blue) 60%); }
 </style>
@@ -93,7 +96,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
 
 <!-- 표지 -->
 <section class="page cover" style="--c: var(--navy)">
-  <h1>소장 TBM<br>사용 가이드 <span class="ver">v1.0</span></h1>
+  <h1>소장 TBM<br>사용 가이드 <span class="ver">v1.1</span></h1>
   <p class="sub">팀별 TBM 보고를 휴대폰으로 확인하는 방법입니다.</p>
   <div class="band"></div>
   <ol class="flow">
@@ -102,6 +105,8 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     <li style="--c: var(--navy)"><span class="k">3</span><span class="t">팀별 보고 상태 확인</span><span class="d">전체 · 확인 필요 · 미보고</span></li>
     <li style="--c: var(--navy)"><span class="k">4</span><span class="t">팀 보고 상세 보기</span><span class="d">「상세 보기」</span></li>
     <li style="--c: var(--navy)"><span class="k">5</span><span class="t">현장 사진 · 변경 이력</span><span class="d">출근 · 오후 · 퇴근 사진</span></li>
+    <li style="--c: #C2410C"><span class="k">6</span><span class="t">작업정지 확인</span><span class="d">사유 · 내일 이월 / 정지 종료</span></li>
+    <li style="--c: #0F766E"><span class="k">7</span><span class="t">출역 현황</span><span class="d">팀별 출근 · 퇴근</span></li>
   </ol>
   <div class="legend">
     <div><span class="n">1</span>빨간 번호는<br>누르는 곳입니다.</div>
@@ -111,7 +116,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     소장 화면은 <b>조회 전용</b>입니다.<br>
     보고 내용은 팀장이 입력하고, 소장은 화면에서 확인만 합니다.
   </div>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>1 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>1 / 8</span></div>
 </section>
 
 <!-- 1 로그인 -->
@@ -130,7 +135,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/m1_login.jpg" alt="통합 로그인 화면"></div></div>
   </div>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>2 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>2 / 8</span></div>
 </section>
 
 <!-- 2 현장 TBM 현황 -->
@@ -146,7 +151,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
       </ol>
       <div class="tip">「60초마다 자동 새로고침」에 체크하면 화면이 저절로 최신 상태로 바뀝니다.</div>
     </div>
-    <div class="col"><div class="shot"><img src="img/m2_dash.jpg" alt="현장 TBM 현황 화면"></div></div>
+    <div class="col"><div class="shot crop" style="--h: 142mm"><img src="img/m2_dash_v11.jpg" alt="현장 TBM 현황 화면"></div></div>
   </div>
   <dl class="defs wide">
     <dt>팀</dt><dd>현황에 나오는 팀 수</dd>
@@ -155,8 +160,9 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     <dt>퇴근 마감</dt><dd>2/2 → 보고 2건 중 퇴근 TBM 마감 2건</dd>
     <dt class="red">소장 확인 필요</dt><dd>팀장이 「소장 확인 필요」를 표시한 보고 수</dd>
     <dt>위험 작업</dt><dd>「위험」으로 표시된 작업 수</dd>
+    <dt class="red">작업정지</dt><dd>⛔ 작업정지된 작업 수 (있을 때만 나옴)</dd>
   </dl>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>3 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>3 / 8</span></div>
 </section>
 
 <!-- 3 팀별 보고 상태 -->
@@ -172,14 +178,14 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
         <li><span class="n ok">✓</span><span><b>「미보고」</b>는 오늘 작업계획이 아직 없는 팀입니다.</span></li>
       </ol>
       <div class="shot"><img src="img/m3_filter.jpg" alt="전체, 확인 필요, 미보고 버튼"></div>
-      <div class="tip"><b>「확인 필요」</b>는 팀장이 <b>「소장 확인 필요」</b>를 표시했거나 위험 작업이 있는 팀입니다.</div>
+      <div class="tip"><b>「확인 필요」</b>는 팀장이 <b>「소장 확인 필요」</b>를 표시했거나 <b>위험 · 작업정지</b> 작업이 있는 팀입니다.</div>
     </div>
     <div class="col">
       <div class="shot"><img src="img/m3_cards.jpg" alt="팀별 보고 카드"></div>
       <p class="cap">카드에서 특이사항, 작업 결과(완료 등), 사진 장수도 바로 볼 수 있습니다.</p>
     </div>
   </div>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>4 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>4 / 8</span></div>
 </section>
 
 <!-- 4 상세 보기 -->
@@ -198,7 +204,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/m4_detail.jpg" alt="팀 보고 상세 화면"></div></div>
   </div>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>5 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>5 / 8</span></div>
 </section>
 
 <!-- 5 사진 · 변경 이력 -->
@@ -217,7 +223,47 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/m5_photos.jpg" alt="출근, 오후, 퇴근 TBM 사진"></div></div>
   </div>
-  <div class="foot"><span>소장 TBM 사용 가이드 v1.0</span><span>6 / 6</span></div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>6 / 8</span></div>
+</section>
+
+<!-- 6 작업정지 -->
+<section class="page" style="--c: #C2410C">
+  <div class="head"><span class="no">6</span><div><div class="kicker">6단계 · 팀 카드</div><h1>⛔ 작업정지 확인</h1></div></div>
+  <p class="lead">팀장이 오후 TBM에서 작업을 멈추면 팀 카드에 <b class="stop-text">⛔ 작업정지 N</b>이 나오고,
+    멈춘 작업은 진한 주황 테두리로 표시됩니다.</p>
+  <div class="cols" style="--split: 1fr 1.25fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n ok">✓</span><span><b>정지 사유</b>와 정지 시각을 확인합니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>작업정지 · 내일 이월</b> → 다음 날 작업계획에서 이어받는 작업입니다.</span></li>
+        <li><span class="n ok">✓</span><span><b>작업정지 · 정지로 종료</b> → 오늘로 끝낸 작업입니다 (완료 아님).</span></li>
+        <li><span class="n">1</span><span><span class="btn">상세 보기</span>에서 조치·요청사항과 변경 이력을 봅니다.</span></li>
+      </ol>
+      <div class="tip" style="--c: #C2410C">작업정지가 있는 팀은 <b>「확인 필요」</b> 버튼으로 모아 볼 수 있습니다.</div>
+    </div>
+    <div class="col"><div class="shot"><img src="img/m7_stop_card.jpg" alt="작업정지가 표시된 팀 카드"></div></div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>7 / 8</span></div>
+</section>
+
+<!-- 7 출역 현황 -->
+<section class="page" style="--c: #0F766E">
+  <div class="head"><span class="no">7</span><div><div class="kicker">7단계 · 조회 전용</div><h1>출역 현황 (출근 · 퇴근)</h1></div></div>
+  <p class="lead">현황 화면의 <b>「👷 출역 현황」</b>을 누르면 팀장이 확정한 팀별 출근·퇴근을 봅니다.
+    날짜는 현황 화면에서 고른 날짜를 따릅니다.</p>
+  <div class="cols" style="--split: 1fr 1.15fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span><span class="btn">👷 출역 현황</span>을 누릅니다.</span></li>
+        <li><span class="n ok">✓</span><span>위 숫자 칸: 출근 · 지각 · 결근 · 휴무 · 미확정 · 퇴근 · 조퇴 · 미퇴근</span></li>
+        <li><span class="n ok">✓</span><span>팀을 누르면 사람마다 상태 · 시각 · <b>입력한 사람</b>이 나옵니다.</span></li>
+        <li><span class="n">2</span><span><span class="btn">목록</span>을 누르면 현황 화면으로 돌아갑니다.</span></li>
+      </ol>
+      <div class="tip" style="--c: #0F766E">소장 화면은 <b>조회만</b> 합니다. 잘못된 출역은 팀장이 고치거나, 관리자가 정정합니다(이력 남음).</div>
+    </div>
+    <div class="col"><div class="shot crop" style="--h: 212mm"><img src="img/m8_attendance.jpg" alt="출역 현황 화면"></div></div>
+  </div>
+  <div class="foot"><span>소장 TBM 사용 가이드 v1.1</span><span>8 / 8</span></div>
 </section>
 
 </body>
