@@ -18,7 +18,7 @@ let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {}, attendance: {} };
 const RESULTS = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
 // 작업정지(STOPPED)는 버튼 목록과 따로 둔다: 오후 TBM에서 사유·처리 방향과 함께 저장하고, 퇴근 결과도 함께 확정된다
@@ -836,6 +836,127 @@ $('openEvening').addEventListener('click', async () => {
 });
 
 
+// ---------- 출역 관리 (오늘 · 우리 팀 공식 소속 인원) ----------
+// 순서: 전체 출근(또는 전체 퇴근) → 다른 사람만 바꾸기 → 확정. 확정 전 선택은 이 화면에만 있고 서버에 저장되지 않는다.
+const ATT_IN = { PRESENT: '출근', LATE: '지각', ABSENT: '결근', OFF: '휴무' };
+const ATT_OUT = { LEFT: '퇴근', EARLY: '조퇴', NOT_LEFT: '미퇴근' };
+const ATT_CLASS = { PRESENT: 'good', LATE: 'warn', ABSENT: 'bad', OFF: 'gray', LEFT: 'good', EARLY: 'warn', NOT_LEFT: 'bad' };
+let att = null;        // tbm_attendance_today 결과
+let attTab = 'IN';
+const attDraft = { IN: new Map(), OUT: new Map() };
+const attServer = (p, kind) => kind === 'IN' ? p.check_in_status : p.check_out_status;
+const attCanOut = p => ['PRESENT', 'LATE'].includes(p.check_in_status);
+const attTargets = kind => !att ? [] : kind === 'IN' ? att.people : att.people.filter(attCanOut);
+function attPending(kind) {
+  return attTargets(kind).filter(p => attDraft[kind].has(p.person_id) && attDraft[kind].get(p.person_id) !== attServer(p, kind));
+}
+function renderAttendanceHome() {
+  if (!att) return;
+  const inDone = att.people.filter(p => p.check_in_status).length;
+  const outs = attTargets('OUT');
+  const outDone = outs.filter(p => p.check_out_status).length;
+  $('openAttendanceSub').textContent = !inDone ? `출근 확정 전 · ${att.people.length}명` : `출근 ${inDone}/${att.people.length} 확정 · 퇴근 ${outDone}/${outs.length}`;
+  $('openAttendance').classList.toggle('done', att.people.length > 0 && inDone === att.people.length && outs.length === outDone);
+}
+function renderAttendance() {
+  if (!att) return;
+  const kind = attTab;
+  const names = kind === 'IN' ? ATT_IN : ATT_OUT;
+  const label = kind === 'IN' ? '출근' : '퇴근';
+  const targets = attTargets(kind);
+  const done = targets.filter(p => attServer(p, kind)).length;
+  $('attendanceTitle').textContent = `출역 관리 · ${att.team.name}`;
+  $('attendanceHead').textContent = `${kstDateLabel(att.date)} · ${att.team.name} ${att.people.length}명`;
+  document.querySelectorAll('[data-att-tab]').forEach(b => { b.classList.toggle('selected', b.dataset.attTab === kind); b.setAttribute('aria-selected', String(b.dataset.attTab === kind)); });
+  $('attendanceBadge').textContent = `${label} 확정 ${done}/${targets.length}`;
+  $('attendanceBadge').className = 'badge' + (targets.length && done === targets.length ? ' ok' : '');
+  $('attendanceSummary').innerHTML = Object.entries(names).map(([code, name]) => `<span class="att-count ${ATT_CLASS[code]}">${name} <b>${targets.filter(p => attServer(p, kind) === code).length}</b></span>`).join('')
+    + `<span class="att-count">미확정 <b>${targets.length - done}</b></span>`
+    + (kind === 'OUT' && targets.length < att.people.length ? `<div class="att-note">퇴근은 출근·지각으로 확정된 ${targets.length}명만 처리합니다.</div>` : '');
+  const blank = targets.filter(p => !attServer(p, kind) && !attDraft[kind].has(p.person_id));
+  $('attendanceAll').textContent = blank.length ? `전체 ${label} (${blank.length}명)` : `전체 ${label} 선택됨`;
+  $('attendanceAll').disabled = !blank.length;
+  const pending = attPending(kind);
+  const fixes = pending.filter(p => attServer(p, kind)).length;
+  $('attendanceConfirm').textContent = pending.length ? `${label} 확정 (${pending.length}명${fixes ? ` · 수정 ${fixes}명` : ''})` : `${label} 확정할 선택 없음`;
+  $('attendanceConfirm').disabled = !pending.length;
+  $('attendanceList').innerHTML = att.people.map(p => {
+    const server = attServer(p, kind);
+    const draft = attDraft[kind].get(p.person_id);
+    const chosen = draft ?? server;
+    const locked = kind === 'OUT' && !attCanOut(p);
+    const at = kind === 'IN' ? p.check_in_at : p.check_out_at;
+    const by = kind === 'IN' ? p.check_in_by : p.check_out_by;
+    const state = locked ? (p.check_in_status ? `${ATT_IN[p.check_in_status]} · 퇴근 처리 없음` : '출근 확정 전')
+      : server ? `${names[server]} 확정 · ${kstTime(at)} · ${by || '-'}${draft && draft !== server ? ` → ${names[draft]}(으)로 수정 예정` : ''}`
+      : draft ? `${names[draft]} 선택됨 · 아직 확정 전` : '미확정';
+    return `<div class="att-row ${locked ? 'locked' : ''} ${draft && draft !== server ? 'pending' : ''} ${chosen ? 'is-' + ATT_CLASS[chosen] : ''}" data-att-person="${p.person_id}">
+      <div class="att-head"><span class="att-name">${escapeHtml(p.name)}</span>${p.is_leader ? '<span class="task-tag">팀장</span>' : ''}${p.corrections ? `<span class="att-fix">수정 ${p.corrections}회</span>` : ''}</div>
+      <div class="att-state">${escapeHtml(state)}</div>
+      ${locked ? '' : `<div class="att-buttons n${Object.keys(names).length}">${Object.entries(names).map(([code, name]) => `<button type="button" class="att-btn ${ATT_CLASS[code]} ${chosen === code ? 'selected' : ''}" data-att-status="${code}" aria-pressed="${chosen === code}">${name}</button>`).join('')}</div>`}
+    </div>`;
+  }).join('') || '<div class="task-member-empty">우리 팀 공식 소속 인원이 없습니다. 관리자에게 팀 소속 등록을 요청해주세요.</div>';
+  $('attendanceState').className = 'server-state' + (pending.length ? ' dirty' : ' ok');
+  $('attendanceState').textContent = pending.length ? `확정하지 않은 선택 ${pending.length}명 (아직 서버에 저장되지 않음)` : '화면의 확정 상태는 모두 서버에 저장된 내용입니다.';
+}
+async function loadAttendance({ quiet = false } = {}) {
+  if (!quiet) setBusy(true, '출역 불러오는 중');
+  try {
+    att = await rpc('tbm_attendance_today', { p_team_id: today?.team?.id || null });
+    renderAttendance(); renderAttendanceHome();
+    return true;
+  } catch (e) {
+    tell(e.code === 'UNKNOWN' ? '출역 관리를 아직 쓸 수 없습니다 (서버 준비 전). 관리자에게 문의해주세요.' : describeError(e), 'error');
+    return false;
+  } finally { if (!quiet) setBusy(false); }
+}
+async function confirmAttendance() {
+  if (busy || !att) return;
+  const kind = attTab;
+  const names = kind === 'IN' ? ATT_IN : ATT_OUT;
+  const label = kind === 'IN' ? '출근' : '퇴근';
+  const pending = attPending(kind);
+  if (!pending.length) return;
+  const fixes = pending.filter(p => attServer(p, kind));
+  if (fixes.length && !confirm(`이미 확정된 ${fixes.length}명의 ${label} 상태를 바꿉니다. 수정 이력이 남습니다.\n${fixes.map(p => `${p.name}: ${names[attServer(p, kind)]} → ${names[attDraft[kind].get(p.person_id)]}`).join('\n')}`)) return;
+  const unset = attTargets(kind).filter(p => !attServer(p, kind) && !attDraft[kind].has(p.person_id));
+  if (unset.length && !confirm(`아직 고르지 않은 ${unset.length}명은 이번에 확정하지 않습니다.\n${unset.map(p => p.name).join(', ')}\n\n고른 ${pending.length}명만 확정할까요?`)) return;
+  const payload = { team_id: att.team.id, kind, work_date: att.date, entries: pending.map(p => ({ person_id: p.person_id, status: attDraft[kind].get(p.person_id) })) };
+  payload.request_id = requestIdFor(slots.attendance, payload);
+  setBusy(true, `${label} 확정 중`);
+  try {
+    const res = await rpc('tbm_attendance_save', { p_payload: payload });
+    slots.attendance = {};
+    attDraft[kind].clear();
+    att = { ...att, people: res.people };
+    for (const id of [...attDraft.OUT.keys()]) if (!attCanOut(att.people.find(p => p.person_id === id) || {})) attDraft.OUT.delete(id);
+    renderAttendance(); renderAttendanceHome();
+    tell(`${label} ${pending.length}명을 확정했습니다${fixes.length ? ` (수정 ${fixes.length}명, 이력 남음)` : ''}.`, 'ok');
+  } catch (e) {
+    tell(describeError(e) + (e.code === 'NETWORK' || e.code === 'TIMEOUT' ? '' : ' (저장되지 않았습니다)'), 'error');
+    if (['MEMBER_NOT_IN_TEAM', 'ATTENDANCE_NOT_CHECKED_IN', 'ATTENDANCE_DATE_LOCKED'].includes(e.code)) { slots.attendance = {}; await loadAttendance({ quiet: true }); }
+  } finally { setBusy(false); }
+}
+$('openAttendance').addEventListener('click', async () => { if (busy) return; tell(''); if (await loadAttendance()) showStage('stageAttendance'); });
+$('attendanceRefresh').addEventListener('click', async () => { if (await loadAttendance()) tell('최신 출역을 불러왔습니다. 확정하지 않은 선택은 그대로 둡니다.'); });
+$('attendanceConfirm').addEventListener('click', confirmAttendance);
+$('attendanceAll').addEventListener('click', () => {
+  const code = attTab === 'IN' ? 'PRESENT' : 'LEFT';
+  for (const p of attTargets(attTab)) if (!attServer(p, attTab) && !attDraft[attTab].has(p.person_id)) attDraft[attTab].set(p.person_id, code);
+  renderAttendance();
+});
+document.querySelector('#stageAttendance .seg').addEventListener('click', e => {
+  const tab = e.target.closest('[data-att-tab]')?.dataset.attTab; if (!tab) return;
+  attTab = tab; renderAttendance();
+});
+$('attendanceList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-att-status]'); if (!btn || busy || !att) return;
+  const id = btn.closest('[data-att-person]').dataset.attPerson;
+  const p = att.people.find(x => x.person_id === id);
+  if (btn.dataset.attStatus === attServer(p, attTab)) attDraft[attTab].delete(id); else attDraft[attTab].set(id, btn.dataset.attStatus);
+  renderAttendance();
+});
+
 // Same-day sessions. Completed sessions are shown in a separate read-only view.
 function renderSessions() {
   const completed = (today.reports || []).filter(r => r.evening_at);
@@ -900,7 +1021,7 @@ $('logoutBtn').addEventListener('click', async () => {
   await logout(); location.replace(pageUrl('login'));
 });
 $('goLogin').addEventListener('click', async () => { await logout(); location.replace(loginUrl(PAGE)); });
-window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (dirty || attPending('IN').length || attPending('OUT').length) { e.preventDefault(); e.returnValue = ''; } });
 
 // 운영 화면에는 TEST 표시를 하지 않는다
 const VERSION_LABEL = PROD ? 'v1.1' : `v${PAGE_VERSION} TEST`;

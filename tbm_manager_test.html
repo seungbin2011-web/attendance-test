@@ -41,6 +41,14 @@ body.admin-mode .team-name,body.admin-mode .stage-title{color:#164936}
 .auto-line{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--navy)}.auto-line input{width:16px;height:16px}
 body.admin-mode .filter-btn.selected{background:#164936;border-color:#164936}
 body.admin-mode #guideBtn{display:none}
+.att-open{background:#ECFDF5;border-color:#99D5C9;color:#0F766E}
+.att-team{border:1px solid #D9E3ED;border-radius:13px;background:#fff;margin-top:10px}
+.att-team>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:15px;font-weight:900;color:var(--navy)}
+.att-team>summary::-webkit-details-marker{display:none}
+.att-team-body{padding:0 12px 12px}
+.att-person{border-top:1px dashed #E4E7EC;padding:9px 2px;font-size:13px;line-height:1.55}
+.att-person strong{font-size:15px;color:var(--navy)}
+.att-fix-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.att-fix-row select{height:44px;font-size:14px}
 @media (max-width:400px){#stageList .stage-nav-inner{flex-wrap:wrap}#stageList .stage-actions{flex-wrap:nowrap;margin-left:auto}#stageList .stage-small-btn{padding:8px 8px}}
 </style>
 </head>
@@ -70,6 +78,7 @@ body.admin-mode #guideBtn{display:none}
       </div>
       <div class="refresh-line"><span id="loadedAt">-</span><label class="auto-line"><input type="checkbox" id="autoRefresh">60초마다 자동 새로고침</label></div>
       <div class="summary-grid" id="summaryGrid"></div>
+      <button class="detail-btn att-open" id="openAttendance" type="button">👷 출역 현황 (출근 · 퇴근)</button>
       <div class="filters" id="filters">
         <button class="filter-btn selected" type="button" data-filter="all">전체</button>
         <button class="filter-btn" type="button" data-filter="attention">확인 필요</button>
@@ -78,6 +87,14 @@ body.admin-mode #guideBtn{display:none}
       <div class="notice" style="margin:12px 0 0">이 화면은 조회만 합니다. 승인·반려와 자재 요청 처리는 다음 단계에서 추가됩니다. 확인 필요: 팀장이 "소장 확인 필요"를 표시했거나 위험·작업정지 작업이 있는 팀.</div>
     </section>
     <div class="team-list" id="teamList"></div>
+  </div>
+
+  <div class="app-stage" id="stageAttendance">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title" id="attendanceTitle">출역 현황</div>
+      <div class="stage-actions"><button class="stage-small-btn" id="attendanceRefresh" type="button">새로고침</button><button class="stage-small-btn" type="button" data-go="stageList">목록</button></div>
+    </div></div>
+    <section class="card" id="attendanceBody"></section>
   </div>
 
   <div class="app-stage" id="stageDetail">

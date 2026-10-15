@@ -38,6 +38,7 @@
         <div class="tbm-home-sub" id="homeSub"></div>
         <div class="steps" id="homeSteps"></div>
       </div>
+      <button class="tbm-home-btn attendance" id="openAttendance" type="button">출역 관리<small id="openAttendanceSub">출근 · 퇴근 확정</small></button>
       <div class="tbm-home-menu" id="currentActions">
         <button class="tbm-home-btn plan" id="openPlan" type="button">오늘 작업계획<small id="openPlanSub">작성 · 수정</small></button>
         <button class="tbm-home-btn morning" id="openMorning" type="button">출근 TBM<small id="openMorningSub">작업계획 공유</small></button>
@@ -48,6 +49,25 @@
       <div class="stage-note">모든 저장은 서버 확인 후에만 “저장됨”으로 표시됩니다. 작성 중인 내용은 이 기기에만 임시로 남습니다.</div>
     </section>
     <section class="card" id="completedSessions" hidden><h2 class="section-title">오늘 완료 작업</h2><div id="sessionList"></div></section>
+  </div>
+  <div class="app-stage" id="stageAttendance">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title" id="attendanceTitle">출역 관리</div>
+      <div class="stage-actions"><button class="stage-small-btn" id="attendanceRefresh" type="button">새로고침</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong id="attendanceHead">오늘 출역</strong><span class="badge" id="attendanceBadge">확인 중</span></div>
+      <div class="desc">① 전체 출근(또는 전체 퇴근) → ② 다른 사람만 바꾸기 → ③ 확정. 화면을 열기만 해서는 아무것도 기록되지 않습니다. 확정한 뒤 바꾸면 수정 이력이 남습니다.</div>
+      <div class="seg" role="tablist">
+        <button type="button" class="seg-btn selected" data-att-tab="IN" role="tab">출근</button>
+        <button type="button" class="seg-btn" data-att-tab="OUT" role="tab">퇴근</button>
+      </div>
+      <div class="att-summary" id="attendanceSummary"></div>
+      <button class="all-clear-btn" id="attendanceAll" type="button">전체 출근</button>
+      <div class="att-list" id="attendanceList"></div>
+      <button class="btn submit" id="attendanceConfirm" type="button" style="margin-top:14px">출근 확정</button>
+      <div class="server-state" id="attendanceState"></div>
+    </section>
   </div>
   <div class="app-stage" id="stageSessionDetail">
     <div class="stage-nav"><div class="stage-nav-inner"><div class="stage-title" id="sessionDetailTitle">완료 작업</div><button class="stage-small-btn" data-go="stageHome" type="button">홈</button></div></div>
