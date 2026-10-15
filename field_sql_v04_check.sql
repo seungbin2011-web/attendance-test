@@ -9,8 +9,8 @@ with expected(name, hash) as (values
   ('public.tbm_task_result', 'b6b7a28ab2ef8f33da672199de6dc074')
 ), checks as (
   select 'v03_applied' as name, exists (select 1 from information_schema.columns where table_schema = 'field_pilot_v1' and table_name = 'daily_reports' and column_name = 'session_no') as ok
-  union all select 'v04_not_applied', to_regclass('field_pilot_v1.attendance_records') is null and to_regprocedure('public.tbm_task_stop(uuid,text,text,text,text)') is null
-    and not exists (select 1 from information_schema.columns where table_schema = 'field_pilot_v1' and table_name = 'task_assignments' and column_name = 'home_team_id')
+  union all select 'v04_not_applied', to_regprocedure('public.tbm_task_stop(uuid,text,text,text,text)') is null
+    and not exists (select 1 from pg_constraint where conrelid = 'field_pilot_v1.report_tasks'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%STOPPED%')
   union all select 'original_functions', not exists (select 1 from expected e where not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname || '.' || p.proname = e.name and md5(replace(p.prosrc, chr(13), '')) = e.hash))

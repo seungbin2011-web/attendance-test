@@ -114,3 +114,24 @@ body.admin-mode .topbar{background:linear-gradient(135deg,#164936,#1e6b4f)}
 
 /* 완료 작업 목록은 휴대폰에서 간결하게 표시 */
 .session-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #e1e8ef}.session-row:last-child{border-bottom:0}.session-row>div{min-width:0}.session-row button{flex-shrink:0} [hidden]{display:none!important}
+
+/* 작업 상태 색 (항상 글자와 함께): 정상 초록 · 변경 파랑 · 지연 주황 · 위험 빨강 · 작업정지 진한 주황/빨강 + 굵은 왼쪽 테두리 */
+.task-tbm-card.is-changed{border-color:#9CC3F5;background:#F5F9FF}.task-tbm-card.is-changed .task-save-state{background:#E1EEFF;color:#195FB8}
+.task-tbm-card.is-stopped{border:2px solid #C2410C;border-left-width:8px;background:#FFF4ED}
+.task-tbm-card.is-stopped .task-save-state{background:#C2410C;color:#fff}
+.task-status-btn.changed.selected{border-color:#2E7CF6;background:#EDF5FF;color:#195FB8}
+.task-status-btn.delayed.selected{border-color:#C67A00;background:#FFF6E5;color:#8A5600}
+.task-status-btn.risk.selected{border-color:#B42318;background:#FEF3F2;color:#B42318}
+.task-status-btn.stop{grid-column:1/-1;border:2px solid #C2410C;color:#9A3412;background:#FFF7F2}
+.task-status-btn.stop.selected{background:#C2410C;color:#fff}
+.stop-editor{border-top-color:#F0B48F}
+.task-save-btn.stop-save{background:#C2410C}
+.choice-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choice-btn{border:2px solid #D6E1ED;background:#fff;border-radius:11px;min-height:56px;padding:10px 8px;font-size:14px;font-weight:900;color:#39495C;cursor:pointer;line-height:1.35}
+.choice-btn small{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:3px}
+.choice-btn.selected{border-color:#C2410C;background:#FFF1E8;color:#9A3412}
+.link-btn{border:0;background:transparent;color:#A12B2B;font-size:13px;font-weight:800;text-decoration:underline;cursor:pointer;padding:10px 4px;min-height:44px}
+.stop-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#FFE9DC;color:#9A3412;font-size:13px;font-weight:800;line-height:1.5}
+.stop-note .link-btn{color:#9A3412;padding:4px 2px;min-height:auto}
+@media(max-width:440px){.choice-row{grid-template-columns:1fr}}
+.badge.stop{background:#C2410C;color:#fff}.badge.info{background:#E1EEFF;color:#195FB8}

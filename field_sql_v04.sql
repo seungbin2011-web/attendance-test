@@ -1,5 +1,6 @@
 -- field v0.4: TBM / 출역 관리 개선 v0.1 (작업정지 · 타 팀원 투입 · 팀장 출역 관리)
 -- CHECK(field_sql_v04_check.sql) → 이 파일 → VERIFY(field_sql_v04_verify.sql). 되돌리기: field_sql_v04_rollback.sql
+-- 되돌리기는 출역 표와 배정 당시 소속 열(home_team_id)을 지우지 않으므로, 되돌린 뒤 이 파일을 다시 실행할 수 있다.
 -- 선행: field_sql_v03.sql (같은 날 순차 작업) 적용
 -- 지키는 것
 --   * 기존 보고·작업·배정·사진·이력 행은 바꾸지 않는다. 바뀌면 전체 취소 (아래 $verify$).
@@ -21,7 +22,8 @@ do $snapshot$
 declare t text;
 begin
   foreach t in array array['daily_reports','report_tasks','task_assignments','attachments','workflow_history'] loop
-    execute format('insert into field_v04_before select %L, coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text), ''[]''::jsonb) from field_pilot_v1.%I x', t, t);
+    -- 배정 표는 새 열 home_team_id를 빼고 비교한다 (이 파일은 기존 배정 행을 고치지 않는다)
+    execute format('insert into field_v04_before select %L, coalesce(jsonb_agg(j order by j::text), ''[]''::jsonb) from (select to_jsonb(x) - ''home_team_id'' as j from field_pilot_v1.%I x) y', t, t);
   end loop;
 end $snapshot$;
 
@@ -31,7 +33,9 @@ begin
   if not exists (select 1 from information_schema.columns where table_schema = 'field_pilot_v1' and table_name = 'daily_reports' and column_name = 'session_no') then
     raise exception 'PRECHECK: field_sql_v03.sql을 먼저 적용해야 함';
   end if;
-  if to_regclass('field_pilot_v1.attendance_records') is not null or to_regprocedure('public.tbm_task_stop(uuid,text,text,text,text)') is not null then
+  if to_regprocedure('public.tbm_task_stop(uuid,text,text,text,text)') is not null
+     or exists (select 1 from pg_constraint where conrelid = 'field_pilot_v1.report_tasks'::regclass and contype = 'c'
+                and pg_get_constraintdef(oid) like '%STOPPED%') then
     raise exception 'PRECHECK: v04 already applied';
   end if;
   -- 바꾸는 함수가 저장소 v01/v03 사본과 같은지 (SQL Editor 붙여넣기의 CR 줄바꿈은 무시)
@@ -69,10 +73,10 @@ alter table field_pilot_v1.report_tasks
   add constraint report_tasks_stopped_check check ((alert = 'STOPPED') = (coalesce(result, '') = 'STOPPED'));
 
 -- 2) 배정 당시 공식 소속 팀 (기존 행은 null: 화면은 현재 소속으로 표시) -------------
-alter table field_pilot_v1.task_assignments add column home_team_id uuid references personnel_pilot_v1.teams(id);
+alter table field_pilot_v1.task_assignments add column if not exists home_team_id uuid references personnel_pilot_v1.teams(id);
 
 -- 3) 출역 ---------------------------------------------------------------------
-create table field_pilot_v1.attendance_records (
+create table if not exists field_pilot_v1.attendance_records (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references personnel_pilot_v1.sites(id),
   work_date date not null,
@@ -98,9 +102,9 @@ create table field_pilot_v1.attendance_records (
   check ((check_out_status is null) = (check_out_at is null)),
   check (check_out_status is null or check_in_status in ('PRESENT', 'LATE'))
 );
-create index attendance_records_team_date on field_pilot_v1.attendance_records (site_id, work_date, team_id);
+create index if not exists attendance_records_team_date on field_pilot_v1.attendance_records (site_id, work_date, team_id);
 
-create table field_pilot_v1.attendance_history (
+create table if not exists field_pilot_v1.attendance_history (
   id bigint generated always as identity primary key,
   attendance_id uuid not null references field_pilot_v1.attendance_records(id),
   action text not null check (action in ('CHECK_IN', 'CHECK_IN_CORRECT', 'CHECK_OUT', 'CHECK_OUT_CORRECT')),
@@ -113,8 +117,8 @@ create table field_pilot_v1.attendance_history (
   request_id text,
   created_at timestamptz not null default clock_timestamp()
 );
-create index attendance_history_record on field_pilot_v1.attendance_history (attendance_id, created_at);
-create index attendance_history_request on field_pilot_v1.attendance_history (request_id) where request_id is not null;
+create index if not exists attendance_history_record on field_pilot_v1.attendance_history (attendance_id, created_at);
+create index if not exists attendance_history_request on field_pilot_v1.attendance_history (request_id) where request_id is not null;
 
 alter table field_pilot_v1.attendance_records enable row level security;
 alter table field_pilot_v1.attendance_history enable row level security;
@@ -234,6 +238,7 @@ $fn$;
 
 -- 오후 TBM 작업정지: 사유(필수)와 처리(CARRY 내일 이월 / END 오늘 정지로 종료). 퇴근 TBM 결과까지 한 번에 확정한다.
 -- 같은 작업에 다시 보내면 사유·처리만 고친다(퇴근 마감 전). 정지 시각(alert_at)은 처음 시각을 유지한다.
+-- CANCEL: 잘못 누른 정지를 취소해 오후 상태 입력 전으로 되돌린다 (퇴근 마감 전, 이력에 남음).
 create or replace function public.tbm_task_stop(
   p_task_id uuid, p_reason text, p_disposition text, p_action text default null, p_request_id text default null)
 returns jsonb
@@ -250,11 +255,28 @@ begin
   if not found then raise exception 'TASK_NOT_FOUND' using errcode = 'P0002'; end if;
   r := field_pilot_v1.lock_editable_report(a, k.report_id);
   if r.morning_at is null then raise exception 'MORNING_REQUIRED' using errcode = '22023'; end if;
-  if coalesce(length(trim(p_reason)), 0) < 2 then raise exception 'NOTE_REQUIRED' using errcode = '22023'; end if;
-  if p_disposition is null or p_disposition not in ('CARRY', 'END') then raise exception 'INVALID_DISPOSITION' using errcode = '22023'; end if;
+  if p_disposition is null or p_disposition not in ('CARRY', 'END', 'CANCEL') then raise exception 'INVALID_DISPOSITION' using errcode = '22023'; end if;
+  if p_disposition <> 'CANCEL' and coalesce(length(trim(p_reason)), 0) < 2 then raise exception 'NOTE_REQUIRED' using errcode = '22023'; end if;
   select * into k from field_pilot_v1.report_tasks where id = k.id for update;
   if k.result is not null and k.alert <> 'STOPPED' then raise exception 'TASK_CLOSED' using errcode = '22023'; end if;
   if k.carry_status = 'CONTINUED' then raise exception 'CARRY_ALREADY_TAKEN' using errcode = '22023'; end if;
+  if p_disposition = 'CANCEL' then
+    if k.alert <> 'STOPPED' then
+      return jsonb_build_object('ok', true, 'replayed', true, 'report', field_pilot_v1.report_json(r.id));
+    end if;
+    select to_jsonb(x) - 'created_at' - 'updated_at' into v_before from field_pilot_v1.report_tasks x where id = k.id;
+    update field_pilot_v1.report_tasks set
+      alert = 'NONE', alert_note = null, alert_action = null, alert_at = null,
+      result = null, result_note = null, result_at = null,
+      carry_over = false, carry_note = null, carry_status = null, updated_at = clock_timestamp()
+    where id = k.id;
+    update field_pilot_v1.daily_reports set version = version + 1, last_request_id = left(p_request_id, 80), updated_at = clock_timestamp()
+    where id = r.id;
+    perform field_pilot_v1.log_history(r.id, 'TASK', k.id, 'TASK_STOP_CANCELLED', v_before,
+      (select to_jsonb(x) - 'created_at' - 'updated_at' from field_pilot_v1.report_tasks x where id = k.id),
+      nullif(trim(p_reason), ''), a);
+    return jsonb_build_object('ok', true, 'report', field_pilot_v1.report_json(r.id));
+  end if;
   v_carry := p_disposition = 'CARRY';
   if k.alert = 'STOPPED' and k.alert_note = trim(p_reason) and k.carry_over = v_carry
      and coalesce(k.alert_action, '') = coalesce(nullif(trim(p_action), ''), '') then
@@ -372,7 +394,7 @@ begin
     'teams', v_teams);
 end $fn$;
 
--- 팀원 오늘 작업: 작업정지 표시를 더한다
+-- 팀원 오늘 작업: 작업정지 표시를 더하고, 다른 팀 작업에 투입된 작업도 보여 준다
 create or replace function public.tbm_my_today() returns jsonb
 language plpgsql stable security definer set search_path = ''
 as $fn$
@@ -394,8 +416,9 @@ begin
     join field_pilot_v1.report_tasks k on k.id=asg.task_id and k.is_active
     join field_pilot_v1.daily_reports r on r.id=k.report_id and r.work_date=field_pilot_v1.kst_today()
     join personnel_pilot_v1.sites s on s.id=r.site_id and s.is_active
+    -- 다른 팀 작업에 투입된 경우도 보이도록 같은 현장의 현재 소속이면 된다 (v03: 같은 팀 소속만)
     where asg.person_id=person and exists(select 1 from personnel_pilot_v1.memberships m
-      where m.person_id=person and m.team_id=r.team_id and m.site_id=r.site_id and m.valid_to is null)
+      where m.person_id=person and m.site_id=r.site_id and m.valid_to is null)
   ),'[]'::jsonb));
 end $fn$;
 
@@ -620,17 +643,9 @@ do $verify$
 declare b record; after_rows jsonb;
 begin
   for b in select * from field_v04_before loop
-    if b.table_name = 'task_assignments' then
-      select coalesce(jsonb_agg(x.j order by x.j::text), '[]'::jsonb) into after_rows
-      from (select to_jsonb(t) - 'home_team_id' as j from field_pilot_v1.task_assignments t) x;
-    else
-      execute format('select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text), ''[]''::jsonb) from field_pilot_v1.%I x', b.table_name) into after_rows;
-    end if;
+    execute format('select coalesce(jsonb_agg(j order by j::text), ''[]''::jsonb) from (select to_jsonb(x) - ''home_team_id'' as j from field_pilot_v1.%I x) y', b.table_name) into after_rows;
     if b.rows is distinct from after_rows then raise exception 'VERIFY: original data changed in %', b.table_name; end if;
   end loop;
-  if exists (select 1 from field_pilot_v1.task_assignments where home_team_id is not null) then
-    raise exception 'VERIFY: existing assignments changed';
-  end if;
 end $verify$;
 notify pgrst, 'reload schema';
 commit;

@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.62: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.70: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM(작업정지 포함) · 퇴근 TBM · 이월 이어받기 · 출역 관리)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.1';
+import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.2';
 
 const PAGE = pageUrl('tbm_report');
-const PAGE_VERSION = '0.62';
+const PAGE_VERSION = '0.70';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -16,10 +16,15 @@ let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, result: {}, evening: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {} };
 const RESULTS = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
-const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'CARRY_NOT_AVAILABLE'];
+// 작업정지(STOPPED)는 버튼 목록과 따로 둔다: 오후 TBM에서 사유·처리 방향과 함께 저장하고, 퇴근 결과도 함께 확정된다
+const RESULT_LABELS = { ...RESULTS, STOPPED: '작업정지' };
+const ALERT_LABELS = { ...ALERTS, STOPPED: '작업정지' };
+const STOP_DISPOSITIONS = { CARRY: '내일 이월', END: '오늘 정지로 종료' };
+const stopLabel = t => `작업정지 · ${t.carry_over ? '내일 이월' : '정지로 종료'}`;
+const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'TASK_STOPPED', 'CARRY_ALREADY_TAKEN', 'CARRY_NOT_AVAILABLE'];
 
 function tell(text, kind = '') { $('message').textContent = text; $('message').className = 'message' + (kind ? ' ' + kind : ''); }
 // 저장 중에는 화면 전체를 덮어 추가 입력·중복 전송을 막는다 (busy 플래그로 한 번 더 확인)
@@ -140,7 +145,8 @@ function renderAll() {
   $('openMorningSub').textContent = r?.morning_at ? `보고 완료 ${kstTime(r.morning_at)}` : '작업계획 공유';
   $('openMorning').classList.toggle('done', !!r?.morning_at);
   const flagged = (r?.tasks || []).filter(t => ['CHANGED', 'DELAYED', 'RISK'].includes(t.alert)).length;
-  $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}` : '정상 · 변경 · 지연 · 위험';
+  const stoppedCount = (r?.tasks || []).filter(t => t.alert === 'STOPPED').length;
+  $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}${stoppedCount ? ` · 작업정지 ${stoppedCount}건` : ''}` : '정상 · 변경 · 지연 · 위험 · 정지';
   $('openAfternoon').classList.toggle('done', !!r?.afternoon_at);
   const carried = (r?.tasks || []).filter(t => t.carry_over).length;
   $('openEveningSub').textContent = r?.evening_at ? `마감 ${kstTime(r.evening_at)}${carried ? ` · 이월 ${carried}건` : ''}` : '작업별 완료 · 이월';
@@ -233,7 +239,7 @@ function renderCarry() {
     return `<div class="carry-item" data-carry="${c.task_id}">
       <strong>${escapeHtml(kstDateLabel(c.work_date))} 작업 ${c.task_no} · ${escapeHtml(c.place)}</strong>
       <span>${escapeHtml(c.carry_note || c.content)}</span>
-      <span>${c.result === 'PARTIAL' ? '일부완료' : '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
+      <span>${({ PARTIAL: '일부완료', NOT_DONE: '미완료', STOPPED: '작업정지' })[c.result] || '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
       <div class="carry-actions">
         <button type="button" data-carry-take="${c.task_id}" ${locked ? 'disabled' : ''}>오늘 이어서</button>
         <button type="button" class="drop ${dropped ? 'selected' : ''}" data-carry-drop="${c.task_id}" ${locked ? 'disabled' : ''}>${dropped ? '이어받지 않음 (저장 시 반영)' : '이어받지 않음'}</button>
@@ -528,14 +534,25 @@ function renderAfternoon() {
   $('afternoonAllClear').disabled = !ready || !untouched.length;
   $('afternoonAllClear').textContent = !open.length ? '확인할 작업이 없습니다' : !untouched.length ? '모든 작업 확인됨' : untouched.length === open.length ? '전체 이상 없음' : `나머지 ${untouched.length}건 이상 없음`;
   $('afternoonTasks').innerHTML = (r?.tasks || []).map(t => {
-    const closed = !!t.result;
+    const stopped = t.alert === 'STOPPED';
+    const closed = !!t.result && !stopped;
     const editing = alertEdit?.taskId === t.id ? alertEdit : null;
     const selected = editing ? editing.alert : t.alert;
-    const cls = t.alert === 'RISK' ? 'is-risk' : ['CHANGED', 'DELAYED'].includes(t.alert) ? 'is-alert' : t.alert === 'NORMAL' ? 'saved' : '';
-    const label = closed ? '퇴근 결과 입력됨' : ALERTS[t.alert] ? `${ALERTS[t.alert]} 저장됨` : '미확인';
-    const buttons = Object.entries(ALERTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'NORMAL' ? 'normal' : 'danger'} ${selected === code ? 'selected' : ''}"
-      data-alert="${code}" data-task-id="${t.id}" ${!ready || closed ? 'disabled' : ''}>${name}</button>`).join('');
-    const editor = editing && editing.alert !== 'NORMAL' ? `<div class="task-detail-editor">
+    const cls = stopped ? 'is-stopped' : t.alert === 'RISK' ? 'is-risk' : t.alert === 'DELAYED' ? 'is-alert' : t.alert === 'CHANGED' ? 'is-changed' : t.alert === 'NORMAL' ? 'saved' : '';
+    const label = stopped ? `⛔ ${stopLabel(t)}` : closed ? '퇴근 결과 입력됨' : ALERTS[t.alert] ? `${ALERTS[t.alert]} 저장됨` : '미확인';
+    const buttons = Object.entries(ALERTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'NORMAL' ? 'normal' : code.toLowerCase()} ${selected === code ? 'selected' : ''}"
+      data-alert="${code}" data-task-id="${t.id}" ${!ready || closed || stopped ? 'disabled' : ''}>${name}</button>`).join('')
+      + `<button type="button" class="task-status-btn stop ${selected === 'STOPPED' ? 'selected' : ''}" data-alert="STOPPED" data-task-id="${t.id}" ${!ready || closed ? 'disabled' : ''}>⛔ ${stopped ? '작업정지 내용 고치기' : '작업정지'}</button>`;
+    const editor = editing && editing.alert === 'STOPPED' ? `<div class="task-detail-editor stop-editor">
+      <div class="field"><label class="label">정지 사유 (필수)</label><textarea data-aedit="note" maxlength="500" placeholder="예: 자재 미입고, 우천, 안전 문제">${escapeHtml(editing.note)}</textarea></div>
+      <div class="field"><span class="label">처리 방향 (필수)</span><div class="choice-row">
+        <button type="button" class="choice-btn ${editing.disposition === 'CARRY' ? 'selected' : ''}" data-stop-disp="CARRY">내일 이월<small>다음 날 작업계획에서 이어받기</small></button>
+        <button type="button" class="choice-btn ${editing.disposition === 'END' ? 'selected' : ''}" data-stop-disp="END">오늘 정지로 종료<small>이월 없음 · 완료 아님</small></button></div></div>
+      <div class="field"><label class="label">조치 / 요청사항 (선택)</label><textarea data-aedit="action" maxlength="500" placeholder="예: 자재 입고 요청, 내일 오전 재개">${escapeHtml(editing.action)}</textarea></div>
+      <p class="stage-note">저장하면 퇴근 TBM 결과도 '작업정지'로 함께 정해집니다. 퇴근 때 다시 입력하지 않습니다.</p>
+      <div class="btn-row" style="margin-top:10px"><button type="button" class="task-save-btn stop-save" data-stop-save="${t.id}">작업정지 저장</button><button type="button" class="task-save-btn" style="background:#EEF4FA;color:var(--navy)" data-alert-cancel>취소</button></div>
+      ${stopped ? `<button type="button" class="link-btn" data-stop-cancel="${t.id}">작업정지 취소 (잘못 누른 경우)</button>` : ''}
+    </div>` : editing && editing.alert !== 'NORMAL' ? `<div class="task-detail-editor">
       <div class="field"><label class="label">${{ CHANGED: '변경 내용', DELAYED: '지연 사유', RISK: '위험 내용' }[editing.alert]} (필수)</label><textarea data-aedit="note" maxlength="500" placeholder="2자 이상">${escapeHtml(editing.note)}</textarea></div>
       <div class="field"><label class="label">조치 / 요청사항 (선택)</label><textarea data-aedit="action" maxlength="500" placeholder="예: 자재 추가 요청, 작업 순서 변경">${escapeHtml(editing.action)}</textarea></div>
       ${editing.alert === 'CHANGED' ? `<div class="field"><label class="label">작업 위치</label><input data-aedit="place" maxlength="120" value="${escapeHtml(editing.place)}"></div>
@@ -547,7 +564,7 @@ function renderAfternoon() {
     return `<div class="task-tbm-card ${cls}" data-afternoon-task="${t.id}">
       <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
         <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}</div>
-        ${t.alert_note ? `<div class="task-tbm-meta"><strong>${ALERTS[t.alert] || ''}</strong> ${escapeHtml(t.alert_note)}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}</div>` : ''}</div>
+        ${t.alert_note ? `<div class="task-tbm-meta"><strong>${stopped ? '정지 사유' : ALERTS[t.alert] || ''}</strong> ${escapeHtml(t.alert_note)}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}${stopped ? ` · ${kstTime(t.alert_at)} 정지` : ''}</div>` : ''}</div>
         <span class="task-save-state">${label}</span></div>
       <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
   }).join('');
@@ -592,6 +609,32 @@ async function afternoonAllClear() {
   } catch (e) { await handleActionError(e); }
   finally { setBusy(false); }
 }
+// 작업정지: 사유와 처리 방향(내일 이월 / 오늘 정지로 종료)을 함께 저장. CANCEL은 잘못 누른 정지를 되돌린다
+async function saveStop(taskId, disposition) {
+  if (busy || planIsDirty()) return;
+  const task = report().tasks.find(t => t.id === taskId);
+  const edit = alertEdit?.taskId === taskId ? alertEdit : null;
+  let args;
+  if (disposition === 'CANCEL') {
+    if (!confirm(`작업 ${task.task_no}의 작업정지를 취소할까요?\n취소하면 이 작업의 오후 상태를 다시 입력해야 합니다.`)) return;
+    args = { p_task_id: taskId, p_reason: null, p_disposition: 'CANCEL', p_action: null };
+  } else {
+    const note = (edit?.note || '').trim();
+    if (note.length < 2) { tell('정지 사유를 2자 이상 적어주세요.', 'error'); return; }
+    if (!edit.disposition) { tell('처리 방향(내일 이월 / 오늘 정지로 종료)을 골라주세요.', 'error'); return; }
+    args = { p_task_id: taskId, p_reason: note, p_disposition: edit.disposition, p_action: (edit.action || '').trim() || null };
+  }
+  args.p_request_id = requestIdFor(slots.stop, args);
+  setBusy(true, '작업정지 저장 중');
+  try {
+    const res = await rpc('tbm_task_stop', args);
+    slots.stop = {}; alertEdit = null;
+    applyReport(res.report);
+    tell(disposition === 'CANCEL' ? `작업 ${task.task_no}의 작업정지를 취소했습니다. 오후 상태를 다시 입력해주세요.`
+      : `작업 ${task.task_no}을(를) 작업정지(${STOP_DISPOSITIONS[args.p_disposition]})로 저장했습니다.`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
 $('afternoonAllClear').addEventListener('click', afternoonAllClear);
 $('afternoonNote').addEventListener('input', () => { afternoonNoteTouched = true; });
 $('afternoonTasks').addEventListener('click', e => {
@@ -599,11 +642,22 @@ $('afternoonTasks').addEventListener('click', e => {
   if (btn.dataset.alert) {
     const t = report().tasks.find(x => x.id === btn.dataset.taskId);
     if (btn.dataset.alert === 'NORMAL') { if (alertEdit?.taskId === t.id) alertEdit = null; saveAlert(t.id, 'NORMAL'); return; }
+    if (btn.dataset.alert === 'STOPPED') {
+      const stopped = t.alert === 'STOPPED';
+      alertEdit = { taskId: t.id, alert: 'STOPPED', note: stopped ? t.alert_note || '' : '', action: stopped ? t.alert_action || '' : '',
+        disposition: stopped ? (t.carry_over ? 'CARRY' : 'END') : null };
+      renderAfternoon();
+      document.querySelector(`[data-afternoon-task="${t.id}"] [data-aedit=note]`)?.focus();
+      return;
+    }
     alertEdit = { taskId: t.id, alert: btn.dataset.alert, note: t.alert === btn.dataset.alert ? t.alert_note || '' : '', action: t.alert === btn.dataset.alert ? t.alert_action || '' : '',
       place: t.place, content: t.content, members: t.members.map(m => ({ person_id: m.person_id, role: m.role })) };
     renderAfternoon();
     document.querySelector(`[data-afternoon-task="${t.id}"] [data-aedit=note]`)?.focus();
   } else if (btn.dataset.alertSave) saveAlert(btn.dataset.alertSave, alertEdit.alert);
+  else if (btn.dataset.stopDisp && alertEdit) { alertEdit.disposition = btn.dataset.stopDisp; renderAfternoon(); }
+  else if (btn.dataset.stopSave) saveStop(btn.dataset.stopSave, alertEdit?.disposition);
+  else if (btn.dataset.stopCancel) saveStop(btn.dataset.stopCancel, 'CANCEL');
   else if (btn.hasAttribute('data-alert-cancel')) { alertEdit = null; renderAfternoon(); }
 });
 $('afternoonTasks').addEventListener('input', e => { const f = e.target.dataset.aedit; if (f && alertEdit) alertEdit[f] = e.target.value; });
@@ -641,11 +695,13 @@ function renderEvening() {
   $('eveningClose').hidden = !!r?.evening_at;
   $('eveningClose').textContent = r?.evening_at ? '퇴근 마감 완료' : open.length ? `나머지 ${open.length}건 완료로 하고 퇴근 마감` : '퇴근 TBM 마감';
   $('eveningTasks').innerHTML = (r?.tasks || []).map(t => {
+    const stopped = t.result === 'STOPPED';
     const editing = resultEdit?.taskId === t.id ? resultEdit : null;
     const selected = editing ? editing.result : t.result;
-    const cls = t.result === 'DONE' ? 'saved' : ['PARTIAL', 'NOT_DONE'].includes(t.result) ? 'is-alert' : '';
-    const label = t.result ? `${RESULTS[t.result]}${t.carry_over ? ' · 이월' : ''} 저장됨` : '미입력';
-    const buttons = Object.entries(RESULTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'DONE' ? 'normal' : code === 'EXCLUDED' ? '' : 'danger'} ${selected === code ? 'selected' : ''}"
+    const cls = stopped ? 'is-stopped' : t.result === 'DONE' ? 'saved' : ['PARTIAL', 'NOT_DONE'].includes(t.result) ? 'is-alert' : '';
+    const label = stopped ? `⛔ ${stopLabel(t)}` : t.result ? `${RESULTS[t.result]}${t.carry_over ? ' · 이월' : ''} 저장됨` : '미입력';
+    // 작업정지는 오후 TBM에서 결과까지 정해졌으므로 다시 입력하지 않는다 (고치기는 오후 TBM에서)
+    const buttons = stopped ? '' : Object.entries(RESULTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'DONE' ? 'normal' : code === 'EXCLUDED' ? '' : 'danger'} ${selected === code ? 'selected' : ''}"
       data-result="${code}" data-task-id="${t.id}" ${!ready ? 'disabled' : ''}>${name}</button>`).join('');
     const partial = editing && ['PARTIAL', 'NOT_DONE'].includes(editing.result);
     const editor = editing && editing.result !== 'DONE' ? `<div class="task-detail-editor">
@@ -656,10 +712,10 @@ function renderEvening() {
     </div>` : '';
     return `<div class="task-tbm-card ${cls}" data-evening-task="${t.id}">
       <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
-        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}${ALERTS[t.alert] && t.alert !== 'NORMAL' ? `<br>오후: ${ALERTS[t.alert]} · ${escapeHtml(t.alert_note || '')}` : ''}</div>
+        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}${ALERT_LABELS[t.alert] && t.alert !== 'NORMAL' ? `<br>오후: ${ALERT_LABELS[t.alert]} · ${escapeHtml(t.alert_note || '')}` : ''}</div>
         ${t.result_note || t.carry_over ? `<div class="task-tbm-meta">${t.result_note ? escapeHtml(t.result_note) : ''}${t.carry_over ? `${t.result_note ? ' · ' : ''}이월: ${escapeHtml(t.carry_note || '')}` : ''}</div>` : ''}</div>
         <span class="task-save-state">${label}</span></div>
-      <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
+      ${stopped ? `<div class="stop-note">오후 TBM에서 작업정지로 처리됨 · 퇴근 결과 입력 필요 없음${ready ? ' <button type="button" class="link-btn" data-go="stageAfternoon">오후 TBM에서 고치기</button>' : ''}</div>` : `<div class="task-status-buttons">${buttons}</div>`}${editor}</div>`;
   }).join('');
   $('eveningState').className = 'server-state' + (r?.evening_at ? ' ok' : '');
   $('eveningState').textContent = r?.evening_at ? `서버 저장됨 · ${kstTime(r.evening_at)} 마감` : open.length ? `결과를 입력하지 않은 작업 ${open.length}건` : '모든 작업 결과가 입력됐습니다. 마감을 눌러주세요.';
@@ -747,10 +803,10 @@ async function openCompleted(id) {
       <dt>소장 확인 필요</dt><dd>${r.needs_manager_check ? '필요' : '-'}</dd>
       ${[['출근',r.morning_at,r.morning_note],['오후',r.afternoon_at,r.afternoon_note],['퇴근 마감',r.evening_at,r.evening_note]].map(([label,at,note]) => `<dt>${label}</dt><dd>${at ? kstTime(at) : '-'} ${escapeHtml(note || '')}</dd>`).join('')}</dl>
       <div class="plan-view">${r.tasks.map(t => `<div class="plan-view-item"><strong>세부 작업 ${t.task_no} · ${escapeHtml(t.place)}</strong><span>${escapeHtml(t.content)}</span>
-        <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERTS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
-        <span>퇴근: ${RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
+        <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERT_LABELS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
+        <span>퇴근: ${t.result === 'STOPPED' ? stopLabel(t) : RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
       ${['MORNING','AFTERNOON','EVENING'].map((kind,i) => `<h3>${['출근','오후','퇴근'][i]} 사진</h3><div class="photo-preview">${r.photos.filter(p => p.kind===kind).map(p => `<div class="photo-thumb"><img alt="${['출근','오후','퇴근'][i]} 사진" data-photo-path="${escapeHtml(p.path)}"><span class="photo-state">${kstTime(p.created_at)}</span></div>`).join('') || '사진 없음'}</div>`).join('')}
-      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
+      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험',TASK_STOPPED:'작업정지',TASK_STOP_CANCELLED:'작업정지 취소'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
     await loadPhotoUrls(); showStage('stageSessionDetail');
   } catch(e) { tell(describeError(e),'error'); } finally { setBusy(false); }
 }
@@ -791,6 +847,6 @@ $('goLogin').addEventListener('click', async () => { await logout(); location.re
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
 // 운영 화면에는 TEST 표시를 하지 않는다
-const VERSION_LABEL = PROD ? 'v1.0' : `v${PAGE_VERSION} TEST`;
+const VERSION_LABEL = PROD ? 'v1.1' : `v${PAGE_VERSION} TEST`;
 $('pageVersion').textContent = VERSION_LABEL; $('footerVersion').textContent = VERSION_LABEL;
 if (requireLogin(PAGE)) load();
