@@ -175,3 +175,51 @@ body.admin-mode .topbar{background:linear-gradient(135deg,#164936,#1e6b4f)}
 .att-btn.good.selected{background:#229A62;border-color:#229A62;color:#fff}.att-btn.warn.selected{background:#C67A00;border-color:#C67A00;color:#fff}
 .att-btn.bad.selected{background:#B42318;border-color:#B42318;color:#fff}.att-btn.gray.selected{background:#667085;border-color:#667085;color:#fff}
 #attendanceAll{background:#0F766E}
+
+/* ===== v0.4 가독성: 글자·버튼 크게, 누르는 칸 44px 이상 (현장 휴대폰 기준). 위 규칙을 덮어쓴다 ===== */
+body{font-size:16px;line-height:1.5}
+.brand{font-size:22px}.brand-sub{font-size:14px}
+.title{font-size:20px}.desc{font-size:15px;line-height:1.6}
+.label{font-size:15px}
+input,select,textarea{font-size:16px}input,select{height:50px}
+.btn{min-height:56px;font-size:17px}
+.stage-title{font-size:16px}
+.stage-small-btn{font-size:14px;padding:10px 12px;min-height:44px}
+.stage-note{font-size:14px}
+.badge{font-size:13px;padding:5px 10px}
+.message{font-size:15px;padding:12px 14px}
+.notice{font-size:14px}
+.summary{font-size:15px}
+.server-state{font-size:14px}
+.risk{font-size:15px;padding:13px}.risk input{width:20px;height:20px}
+.check-line{font-size:15px;padding:13px}.check-line input{width:20px;height:20px}
+.carry-title{font-size:15px}.carry-text{font-size:14px}.carry-item strong{font-size:15px}.carry-item span{font-size:14px}
+.carry-actions button{font-size:14px;min-height:44px}
+.task-title{font-size:17px}.task-tag{font-size:12px}
+.task-remove{font-size:14px;min-height:40px;padding:8px 12px}
+.member-count{font-size:14px}
+.task-member{font-size:15px;padding:11px;min-height:48px}
+.task-member input[type=checkbox]{width:20px;height:20px}
+.task-member .member-sub{font-size:13px}
+.task-member-assigned{font-size:12px}
+.task-role-select{height:42px;font-size:15px}
+.task-member-empty{font-size:14px}
+.add-task-btn{font-size:16px;min-height:52px}
+.draft-status{font-size:14px}.draft-clear{font-size:14px;min-height:40px}
+.tbm-home-title{font-size:18px}.tbm-home-sub{font-size:14px}
+.tbm-home-btn{font-size:17px;padding:16px 12px;min-height:72px}.tbm-home-btn small{font-size:13px}
+.step{font-size:13px;padding:8px 4px}
+.all-clear-btn{min-height:56px;font-size:17px}
+.task-tbm-name{font-size:16px}.task-tbm-meta{font-size:14px;line-height:1.55}
+.task-save-state{font-size:13px;padding:6px 10px;white-space:normal;text-align:center;max-width:46%}
+.task-status-btn{font-size:15px;min-height:48px;padding:10px 6px}
+.task-save-btn{min-height:50px;font-size:16px}
+.photo-title{font-size:15px}.photo-help{font-size:13px}.photo-count{font-size:13px}.photo-input{font-size:14px}
+.plan-view-item > strong{font-size:15px}.plan-view-item > span{font-size:14px}
+.kv{font-size:15px;grid-template-columns:96px 1fr}
+.footer{font-size:12px}
+/* 상태 표시: 색만으로 구분하지 않고 항상 글자와 함께 (정상 초록 · 변경 파랑 · 지연 주황 · 위험 빨강 · 작업정지 진한 주황 + 굵은 테두리) */
+.task-tbm-card.is-alert,.task-tbm-card.is-risk,.task-tbm-card.is-changed{border-width:2px}
+.task-tbm-card.is-risk{border-left:6px solid #B42318}.task-tbm-card.is-alert{border-left:6px solid #C67A00}.task-tbm-card.is-changed{border-left:6px solid #2E7CF6}.task-tbm-card.saved{border-left:6px solid #229A62}
+/* 좁은 휴대폰: 단계 제목 줄의 버튼은 한 줄 유지, 모자라면 제목 아래 줄로 */
+@media(max-width:400px){.stage-nav-inner{flex-wrap:wrap}.stage-actions{flex-wrap:nowrap;margin-left:auto}.stage-small-btn{padding:9px 10px;white-space:nowrap}}

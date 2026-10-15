@@ -231,6 +231,26 @@ const r26=await rec('026');assert.ok(r26.check_out_status==='LEFT'&&r26.check_ou
 assert.match(await page.locator('[data-att-team="b0000000-0000-0000-0000-000000000002"]').textContent(),/수정 1회/);
 ok('admin correction saved with ADMIN role and history');
 
+// ---- 휴대폰 폭 320 / 360 / 390 + 데스크톱: 가로 스크롤 없음 ----
+const shot=async (w,name)=>{await noHScroll(`${name} ${w}`);if(w!==360)await page.screenshot({path:`artifacts/w${w}-${name}.png`,fullPage:true});};
+for(const w of [320,360,390,1280]){
+  await page.setViewportSize({width:w,height:w>1000?900:760});
+  await login('leader','tbm_report.html');await page.locator('#homeTitle').filter({hasText:'작업 4'}).waitFor();await idle();
+  await shot(w,'leader-home');
+  if(w>1000){assert.ok((await page.locator('main.wrap').boundingBox()).width<=620,'desktop keeps phone-width column');continue;}
+  await page.locator('#openPlan').click();await page.locator('#stagePlan.active').waitFor();await idle();await shot(w,'leader-plan');
+  await page.locator('#stagePlan [data-go="stageHome"]').click();
+  await page.locator('#openAfternoon').click();await page.locator('#stageAfternoon.active').waitFor();await idle();await shot(w,'leader-afternoon');
+  await page.locator('#stageAfternoon [data-go="stageHome"]').click();
+  await page.locator('#openAttendance').click();await page.locator('#stageAttendance.active').waitFor();await idle();await shot(w,'leader-attendance');
+  await login('manager','tbm_manager.html');await page.locator('#loadedAt').filter({hasText:'최근 조회'}).waitFor();await idle();await shot(w,'manager-list');
+  await page.locator('.team-card').filter({hasText:'작업정지'}).locator('[data-detail]').click();await page.locator('#stageDetail.active').waitFor();await idle();await shot(w,'manager-detail');
+  await page.locator('#stageDetail [data-go="stageList"]').click();await idle();
+  await page.locator('#openAttendance').click();await page.locator('#stageAttendance.active').waitFor();await idle();await shot(w,'manager-attendance');
+  await login('member','member.html');await page.locator('#myTasks details').first().waitFor();await shot(w,'member');
+}
+ok('no horizontal scroll at 320/360/390 on leader home·plan·afternoon·attendance, manager list·detail·attendance, member; desktop column kept');
+
 assert.deepEqual(errors,[]);
 console.log('UI V04 PASSED',passed);
 await browser.close();await db.close();
