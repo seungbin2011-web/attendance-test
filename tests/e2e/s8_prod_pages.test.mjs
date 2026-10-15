@@ -49,7 +49,8 @@ async function checkGuide(page, pdf) {
       const r = e.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height), right: Math.round(r.right), text: e.textContent.trim() };
     }));
     assert.ok(boxes.every(b => b.top === boxes[0].top), `${width}px 버튼 줄바꿈: ${JSON.stringify(boxes)}`);
-    assert.ok(boxes.every(b => b.h <= 40 && b.right <= width), `${width}px 버튼 깨짐: ${JSON.stringify(boxes)}`);
+    // v0.4: 누르는 칸 최소 44px. 글자가 두 줄로 꺾이면 60px 이상이 되므로 48px 이하면 한 줄
+    assert.ok(boxes.every(b => b.h <= 48 && b.right <= width), `${width}px 버튼 깨짐: ${JSON.stringify(boxes)}`);
     await page.screenshot({ path: `artifacts/s8_guide_${pdf.split('-')[0]}_${width}.png` });
   }
 }
