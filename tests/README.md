@@ -35,3 +35,16 @@ bash tests/e2e/run_e2e.sh s0_login.test.mjs
 - `e2e/s8_prod_pages.test.mjs`: 운영 화면(루트 `index.html` → `member.html`·`tbm_report.html`·`tbm_manager.html`·관리자 명부), TEST·시험 표시 없음, 로그아웃·로그인 필요 시 운영 로그인으로, 출결 등록 → `index_season1.html`, 역할별 「사용 가이드」(팀장·소장 PDF 새 탭, PDF 정상 응답, 360·320px 폭 버튼 한 줄)
 - `run_e2e.sh`는 시작할 때 `python3 tests/make_prod_pages.py --check`로 운영 화면이 시험 화면과 맞는지 먼저 확인한다.
 - 결과 화면 캡처는 `e2e/artifacts/` (Git 제외)
+
+## 순차 작업·v0.4 시험 (PGlite + Chromium, `tests/sessions`)
+
+```
+cd tests/sessions && pnpm install     # 처음 한 번
+node sql.mjs                          # v03 순차 작업 33개
+node v04.mjs                          # v04 CHECK→APPLY→VERIFY→되돌리기→재적용, 작업정지·타 팀원·출역 89개
+node ui_v04.mjs                       # v04 화면: 작업정지·인원 검색·출역(팀장·소장·관리자)·팀원, 320/360/390 폭
+node guide_shots_v11.mjs              # 사용 가이드 v1.1 그림 (예시 이름, guides/source/img)
+```
+
+- 브라우저 주소의 Supabase 요청을 흉내 DB(PGlite)로 돌린다. 실제 Supabase에 연결하지 않는다.
+- 결과 화면 캡처는 `tests/sessions/artifacts/` (Git 제외).

@@ -3,8 +3,8 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.62 TEST';
-const MANAGER_VERSION = 'v0.41 TEST';
+const REPORT_VERSION = 'v0.70 TEST';
+const MANAGER_VERSION = 'v0.50 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -196,8 +196,11 @@ try {
     assert.deepEqual(names.sort(), ['시험삼팀원', '시험삼팀장'].sort());
     const forbidden = await rpcFromPage(page, 'tbm_save_plan', { p_payload: { team_id: TEAM2, tasks: [{ place: 'x', content: 'y', members: [] }] } });
     assert.equal(forbidden.code, 'TEAM_FORBIDDEN');
-    const notMine = await rpcFromPage(page, 'tbm_save_plan', { p_payload: { tasks: [{ place: 'x', content: 'y', members: [{ person_id: P(26) }] }] } });
-    assert.equal(notMine.code, 'MEMBER_NOT_IN_TEAM'); assert.match(notMine.message, /시험팀원가/);
+    // v0.4: 같은 현장 다른 팀 인원도 작업에 넣을 수 있다. 단, 다른 팀 진행 중 작업에 배정된 인원과 퇴사자는 서버가 거절
+    const busy = await rpcFromPage(page, 'tbm_save_plan', { p_payload: { tasks: [{ place: 'x', content: 'y', members: [{ person_id: P(26) }] }] } });
+    assert.equal(busy.code, 'MEMBER_ASSIGNED_ELSEWHERE'); assert.match(busy.message, /시험팀원가/);
+    const gone = await rpcFromPage(page, 'tbm_save_plan', { p_payload: { tasks: [{ place: 'x', content: 'y', members: [{ person_id: P(28) }] }] } });
+    assert.equal(gone.code, 'MEMBER_NOT_AVAILABLE'); assert.match(gone.message, /시험퇴사자/);
     const detail = await rpcFromPage(page, 'tbm_today', { p_team_id: TEAM2 });
     assert.equal(detail.code, 'TEAM_FORBIDDEN');
   });

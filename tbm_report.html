@@ -6,13 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#173A63">
 <title>팀장 TBM 보고</title>
-<link rel="stylesheet" href="tbm_test.css?v=0.7">
+<link rel="stylesheet" href="tbm_test.css?v=0.8">
 <style>/* 사용 가이드 버튼 추가 후 좁은 휴대폰: 버튼 3개는 한 줄 유지, 모자라면 제목 아래 줄로 */
 @media (max-width:400px){#stageHome .stage-nav-inner{flex-wrap:wrap}#stageHome .stage-actions{flex-wrap:nowrap;margin-left:auto}#stageHome .stage-small-btn{padding:8px 8px}}</style>
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
-  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v1.0</span></div>
+  <div class="brand-row"><div class="brand">팀장 TBM 보고</div><span class="version" id="pageVersion">v1.1</span></div>
   <div class="brand-sub" id="headerSub">로그인 정보를 확인하는 중입니다…</div>
 </div></header>
 <main class="wrap">
@@ -39,16 +39,36 @@
         <div class="tbm-home-sub" id="homeSub"></div>
         <div class="steps" id="homeSteps"></div>
       </div>
+      <button class="tbm-home-btn attendance" id="openAttendance" type="button">출역 관리<small id="openAttendanceSub">출근 · 퇴근 확정</small></button>
       <div class="tbm-home-menu" id="currentActions">
         <button class="tbm-home-btn plan" id="openPlan" type="button">오늘 작업계획<small id="openPlanSub">작성 · 수정</small></button>
         <button class="tbm-home-btn morning" id="openMorning" type="button">출근 TBM<small id="openMorningSub">작업계획 공유</small></button>
-        <button class="tbm-home-btn lunch" id="openAfternoon" type="button">오후 TBM<small id="openAfternoonSub">정상 · 변경 · 지연 · 위험</small></button>
+        <button class="tbm-home-btn lunch" id="openAfternoon" type="button">오후 TBM<small id="openAfternoonSub">정상 · 변경 · 지연 · 위험 · 정지</small></button>
         <button class="tbm-home-btn evening" id="openEvening" type="button">퇴근 TBM<small id="openEveningSub">작업별 완료 · 이월</small></button>
       </div>
       <button class="btn save" id="openNextSession" type="button" hidden>+ 새 작업 열기</button>
       <div class="stage-note">모든 저장은 서버 확인 후에만 “저장됨”으로 표시됩니다. 작성 중인 내용은 이 기기에만 임시로 남습니다.</div>
     </section>
     <section class="card" id="completedSessions" hidden><h2 class="section-title">오늘 완료 작업</h2><div id="sessionList"></div></section>
+  </div>
+  <div class="app-stage" id="stageAttendance">
+    <div class="stage-nav"><div class="stage-nav-inner">
+      <div class="stage-title" id="attendanceTitle">출역 관리</div>
+      <div class="stage-actions"><button class="stage-small-btn" id="attendanceRefresh" type="button">새로고침</button><button class="stage-small-btn" type="button" data-go="stageHome">홈</button></div>
+    </div></div>
+    <section class="card">
+      <div class="section-title"><strong id="attendanceHead">오늘 출역</strong><span class="badge" id="attendanceBadge">확인 중</span></div>
+      <div class="desc">① 전체 출근(또는 전체 퇴근) → ② 다른 사람만 바꾸기 → ③ 확정. 화면을 열기만 해서는 아무것도 기록되지 않습니다. 확정한 뒤 바꾸면 수정 이력이 남습니다.</div>
+      <div class="seg" role="tablist">
+        <button type="button" class="seg-btn selected" data-att-tab="IN" role="tab">출근</button>
+        <button type="button" class="seg-btn" data-att-tab="OUT" role="tab">퇴근</button>
+      </div>
+      <div class="att-summary" id="attendanceSummary"></div>
+      <button class="all-clear-btn" id="attendanceAll" type="button">전체 출근</button>
+      <div class="att-list" id="attendanceList"></div>
+      <button class="btn submit" id="attendanceConfirm" type="button" style="margin-top:14px">출근 확정</button>
+      <div class="server-state" id="attendanceState"></div>
+    </section>
   </div>
   <div class="app-stage" id="stageSessionDetail">
     <div class="stage-nav"><div class="stage-nav-inner"><div class="stage-title" id="sessionDetailTitle">완료 작업</div><button class="stage-small-btn" data-go="stageHome" type="button">홈</button></div></div>
@@ -61,7 +81,7 @@
     </div></div>
     <section class="card">
       <div class="section-title"><strong>금일 작업계획</strong><span class="badge">작업별 인원배정</span></div>
-      <div class="desc">작업마다 위치·내용과 투입 인원을 고릅니다. 인원은 서버에 등록된 우리 팀 소속만 표시됩니다.</div>
+      <div class="desc">작업마다 위치·내용과 투입 인원을 고릅니다. 목록은 우리 팀이 기본이고, 다른 팀 인원은 이름·팀으로 검색해 넣을 수 있습니다 (<span class="other-team-badge">타 팀원</span>으로 표시, 공식 소속은 바뀌지 않음).</div>
       <div class="notice" id="planLocked" hidden></div>
       <div class="carry-box" id="carryBox" hidden>
         <div class="carry-title">이전 작업 이월 <span id="carryCount"></span></div>
@@ -117,7 +137,7 @@
     </div></div>
     <section class="card">
       <div class="section-title"><strong>오후 TBM</strong><span class="badge" id="afternoonBadge">확인 전</span></div>
-      <div class="desc">모두 계획대로면 한 번에 저장하고, 변경·지연·위험이 있는 작업만 골라 내용을 적습니다.</div>
+      <div class="desc">모두 계획대로면 한 번에 저장하고, 변경·지연·위험이 있는 작업만 골라 내용을 적습니다. 작업을 멈춘 경우 <strong>⛔ 작업정지</strong>로 사유와 처리(내일 이월 / 오늘 정지로 종료)를 남깁니다.</div>
       <div class="notice" id="afternoonBlocked" hidden></div>
       <div class="field"><label class="label" for="afternoonNote">오후 전달사항 (선택)</label><textarea id="afternoonNote" maxlength="1000" placeholder="오후 TBM에서 공통으로 전달한 내용"></textarea></div>
       <button class="all-clear-btn" id="afternoonAllClear" type="button">전체 이상 없음</button>
@@ -140,7 +160,7 @@
     </div></div>
     <section class="card">
       <div class="section-title"><strong>퇴근 TBM</strong><span class="badge" id="eveningBadge">마감 전</span></div>
-      <div class="desc">완료된 작업은 한 번에 마감하고, 일부완료·미완료 작업만 사유와 내일 이월 여부를 적습니다.</div>
+      <div class="desc">완료된 작업은 한 번에 마감하고, 일부완료·미완료 작업만 사유와 내일 이월 여부를 적습니다. 오후에 작업정지한 작업은 다시 입력하지 않습니다.</div>
       <div class="notice" id="eveningBlocked" hidden></div>
       <div class="task-tbm-list" id="eveningTasks"></div>
       <div class="photo-box" data-photo-kind="EVENING">
@@ -156,7 +176,7 @@
     </section>
   </div>
 
-  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v1.0</span></div>
+  <div class="footer">© 2026 TBM Report · <span id="footerVersion">v1.1</span></div>
 </main>
 <div class="loading-overlay" id="loadingOverlay" aria-hidden="true">
   <div class="loading-card">
@@ -165,6 +185,6 @@
     <div class="loading-sub">서버 확인을 기다리는 중입니다. 버튼을 여러 번 누르지 말고 잠시만 기다려주세요.</div>
   </div>
 </div>
-<script type="module" src="tbm_report_test.mjs?v=1.1"></script>
+<script type="module" src="tbm_report_test.mjs?v=1.2"></script>
 </body>
 </html>

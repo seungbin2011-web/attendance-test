@@ -1,9 +1,9 @@
-// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.62: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM · 퇴근 TBM · 이월 이어받기)
+// 팀장 TBM 보고 시험 화면 (tbm_report_test v0.70: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM(작업정지 포함) · 퇴근 TBM · 이월 이어받기 · 출역 관리)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.1';
+import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.2';
 
 const PAGE = pageUrl('tbm_report');
-const PAGE_VERSION = '0.62';
+const PAGE_VERSION = '0.70';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -11,15 +11,22 @@ const BLOCKING = ['AUTH_REQUIRED', 'AUTH_EXPIRED', 'SESSION_EXPIRED', 'ACCOUNT_N
 const $ = id => document.getElementById(id);
 
 let today = null;      // tbm_today 결과
+let sitePeople = null; // tbm_site_people 결과(같은 현장 현재 인원). 서버에 v0.4가 없으면 null → 우리 팀만
+const memberQuery = new Map(); // 작업별 인원 검색어 (화면에만)
 let form = null;       // 작업계획 입력 상태
 let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, result: {}, evening: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {}, attendance: {} };
 const RESULTS = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
-const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'CARRY_NOT_AVAILABLE'];
+// 작업정지(STOPPED)는 버튼 목록과 따로 둔다: 오후 TBM에서 사유·처리 방향과 함께 저장하고, 퇴근 결과도 함께 확정된다
+const RESULT_LABELS = { ...RESULTS, STOPPED: '작업정지' };
+const ALERT_LABELS = { ...ALERTS, STOPPED: '작업정지' };
+const STOP_DISPOSITIONS = { CARRY: '내일 이월', END: '오늘 정지로 종료' };
+const stopLabel = t => `작업정지 · ${t.carry_over ? '내일 이월' : '정지로 종료'}`;
+const RELOAD_CODES = ['VERSION_CONFLICT', 'REPORT_NOT_EDITABLE', 'REPORT_NOT_FOUND', 'TASK_NOT_FOUND', 'TASK_CLOSED', 'TASK_STOPPED', 'CARRY_ALREADY_TAKEN', 'CARRY_NOT_AVAILABLE'];
 
 function tell(text, kind = '') { $('message').textContent = text; $('message').className = 'message' + (kind ? ' ' + kind : ''); }
 // 저장 중에는 화면 전체를 덮어 추가 입력·중복 전송을 막는다 (busy 플래그로 한 번 더 확인)
@@ -105,6 +112,10 @@ async function load({ quiet = false } = {}) {
       for (const id of ['morningNote', 'afternoonNote', 'eveningNote']) $(id).value = '';
       for (const key of Object.keys(slots)) slots[key] = {};
     }
+    if (editable() && (!quiet || sitePeople === null)) {
+      // 다른 팀 인원 검색용. 실패해도 우리 팀 인원으로 계속 쓸 수 있게 한다
+      sitePeople = await rpc('tbm_site_people', { p_team_id: today.team.id }).then(x => x.people || null, () => null);
+    }
     form = formFromReport(report()); dirty = false;
     const restored = restoreDraft();
     renderAll();
@@ -140,7 +151,8 @@ function renderAll() {
   $('openMorningSub').textContent = r?.morning_at ? `보고 완료 ${kstTime(r.morning_at)}` : '작업계획 공유';
   $('openMorning').classList.toggle('done', !!r?.morning_at);
   const flagged = (r?.tasks || []).filter(t => ['CHANGED', 'DELAYED', 'RISK'].includes(t.alert)).length;
-  $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}` : '정상 · 변경 · 지연 · 위험';
+  const stoppedCount = (r?.tasks || []).filter(t => t.alert === 'STOPPED').length;
+  $('openAfternoonSub').textContent = r?.afternoon_at ? `확인 ${kstTime(r.afternoon_at)}${flagged ? ` · 이상 ${flagged}건` : ''}${stoppedCount ? ` · 작업정지 ${stoppedCount}건` : ''}` : '정상 · 변경 · 지연 · 위험 · 정지';
   $('openAfternoon').classList.toggle('done', !!r?.afternoon_at);
   const carried = (r?.tasks || []).filter(t => t.carry_over).length;
   $('openEveningSub').textContent = r?.evening_at ? `마감 ${kstTime(r.evening_at)}${carried ? ` · 이월 ${carried}건` : ''}` : '작업별 완료 · 이월';
@@ -157,7 +169,18 @@ function renderAll() {
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
 
-function memberName(personId) { return today.members.find(m => m.person_id === personId)?.name || today.report?.tasks.flatMap(t => t.members).find(m => m.person_id === personId)?.name || '(팀 외 인원)'; }
+// 인원 정보: 우리 팀 → 같은 현장 인원 → 저장된 배정 순으로 찾는다. other = 다른 팀 공식 소속(타 팀원)
+function personInfo(personId) {
+  const mine = today.members.find(m => m.person_id === personId);
+  if (mine) return { name: mine.name, team: today.team.name, other: false, sub: [mine.rank, mine.job].filter(Boolean).join(' · ') || (mine.is_leader ? '팀장' : '팀원') };
+  const site = (sitePeople || []).find(m => m.person_id === personId);
+  if (site) return { name: site.name, team: site.team_name, other: site.team_id !== today.team.id, sub: site.team_name };
+  const saved = (today.reports || [today.report]).filter(Boolean).flatMap(r => r.tasks).flatMap(t => t.members).find(m => m.person_id === personId);
+  if (saved) return { name: saved.name, team: saved.home_team_name || '', other: saved.other_team !== false, sub: saved.home_team_name || '' };
+  return { name: '(팀 외 인원)', team: '', other: true, sub: '' };
+}
+function memberName(personId) { return personInfo(personId).name; }
+const otherBadge = info => info.other ? `<span class="other-team-badge">타 팀원${info.team ? ' · ' + escapeHtml(info.team) : ''}</span>` : '';
 function renderPlan() {
   const locked = !editable();
   $('planLocked').hidden = !locked;
@@ -178,26 +201,53 @@ function renderPlan() {
 function otherTaskNos(task, personId) {
   return form.tasks.filter(t => t !== task && t.members.some(m => m.person_id === personId)).map(t => '작업' + (form.tasks.indexOf(t) + 1));
 }
+// 고를 수 있는 인원 목록: 검색어가 없으면 우리 팀, 있으면 같은 현장 전체(이름·팀). 이미 고른 인원은 위 '선택된 인원'으로 옮긴다
+function memberPool(task) {
+  const q = (memberQuery.get(task.key) || '').trim().toLowerCase();
+  const chosen = new Set(task.members.map(m => m.person_id));
+  const own = today.members.map(m => ({ person_id: m.person_id, name: m.name, team_name: today.team.name, team_id: today.team.id }));
+  const source = q ? (sitePeople || own) : own;
+  return source.filter(p => !chosen.has(p.person_id) && (!q || p.name.toLowerCase().includes(q) || (p.team_name || '').toLowerCase().includes(q))).slice(0, 40);
+}
+function renderPool(task) {
+  const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
+  const q = (memberQuery.get(task.key) || '').trim();
+  const list = memberPool(task);
+  if (!list.length) return `<div class="task-member-empty">${q ? `'${escapeHtml(q)}' 검색 결과가 없습니다. 퇴사·비활성 인원은 나오지 않습니다.` : today.members.length ? '우리 팀 인원을 모두 골랐습니다. 다른 팀 인원은 위에서 검색하세요.' : '서버에 등록된 우리 팀 인원이 없습니다. 위에서 이름으로 검색하거나 관리자에게 팀 소속 등록을 요청해주세요.'}</div>`;
+  return list.map(p => {
+    const info = personInfo(p.person_id);
+    const lock = lockMap.get(p.person_id);
+    const others = otherTaskNos(task, p.person_id);
+    return `<label class="task-member ${lock ? 'locked' : ''} ${info.other ? 'other-team' : ''}">
+      <input type="checkbox" data-member="${p.person_id}" ${task.closed || lock ? 'disabled' : ''}>
+      <span>${escapeHtml(info.name)}</span>${otherBadge(info)}
+      ${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
+      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}
+      ${info.other ? '' : `<span class="member-sub">${escapeHtml(info.sub)}</span>`}
+    </label>`;
+  }).join('');
+}
+function renderChosen(task) {
+  if (!task.members.length) return '<div class="chosen-empty">아직 고른 인원이 없습니다. 아래 목록에서 눌러 고르세요.</div>';
+  return task.members.map(m => {
+    const info = personInfo(m.person_id);
+    const others = otherTaskNos(task, m.person_id);
+    return `<div class="task-member chosen ${info.other ? 'other-team' : ''}">
+      <div class="chip-head"><span class="chip-name">${escapeHtml(info.name)}</span>${otherBadge(info)}
+      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}</div>
+      <select class="task-role-select" data-role="${m.person_id}" ${task.closed ? 'disabled' : ''} aria-label="${escapeHtml(info.name)} 역할">
+        ${ROLES.map(r => `<option ${m.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+      ${task.closed ? '' : `<label class="chip-x" title="빼기" aria-label="${escapeHtml(info.name)} 빼기"><input type="checkbox" class="sr-only" data-member="${m.person_id}" checked>×</label>`}
+    </div>`;
+  }).join('');
+}
 function renderTasks() {
   if (!form.tasks.length) form.tasks.push(emptyTask());
-  const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
   $('taskList').innerHTML = form.tasks.map((task, i) => {
-    const members = today.members.length ? today.members.map(m => {
-      const chosen = task.members.find(x => x.person_id === m.person_id);
-      const lock = lockMap.get(m.person_id);
-      const disabled = task.closed || (!!lock && !chosen);
-      const others = otherTaskNos(task, m.person_id);
-      return `<label class="task-member ${lock && !chosen ? 'locked' : ''}">
-        <input type="checkbox" data-member="${m.person_id}" ${chosen ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-        <span>${escapeHtml(m.name)}</span>
-        ${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
-        ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}
-        <span class="member-sub">${escapeHtml([m.rank, m.job].filter(Boolean).join(' · ') || (m.is_leader ? '팀장' : '팀원'))}</span>
-        ${chosen ? `<select class="task-role-select" data-role="${m.person_id}" ${disabled ? 'disabled' : ''} aria-label="${escapeHtml(m.name)} 역할">
-          ${ROLES.map(r => `<option ${chosen.role === r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>` : ''}
-      </label>`;
-    }).join('') : '<div class="task-member-empty">서버에 등록된 우리 팀 인원이 없습니다. 관리자에게 팀 소속 등록을 요청해주세요.</div>';
+    const members = `<div class="chosen-list">${renderChosen(task)}</div>
+      ${task.closed ? '' : `<input type="search" class="member-search" data-msearch="${task.key}" value="${escapeHtml(memberQuery.get(task.key) || '')}" placeholder="이름·팀으로 검색" aria-label="작업 ${i + 1} 인원 검색" enterkeyhint="search" autocomplete="off">
+      <div class="task-members" data-member-pool="${task.key}">${renderPool(task)}</div>`}`;
     return `<div class="task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}">
       <div class="task-head">
         <div class="task-title">작업 ${i + 1}${task.carried_from_task_id ? '<span class="task-tag">이월</span>' : ''}${task.closed ? '<span class="task-tag">결과 입력됨</span>' : ''}</div>
@@ -205,8 +255,8 @@ function renderTasks() {
       </div>
       <div class="field"><label class="label">작업 위치</label><input data-tfield="place" maxlength="120" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(task.place)}" ${task.closed ? 'disabled' : ''}></div>
       <div class="field"><label class="label">작업 내용</label><textarea data-tfield="content" maxlength="500" placeholder="예: 배선 작업 / 관로 작업" ${task.closed ? 'disabled' : ''}>${escapeHtml(task.content)}</textarea></div>
-      <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">${task.members.length}명 선택</span></div>
-      <div class="task-members">${members}</div>
+      <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">선택된 인원 ${task.members.length}명</span></div>
+      ${members}
     </div>`;
   }).join('');
 }
@@ -233,7 +283,7 @@ function renderCarry() {
     return `<div class="carry-item" data-carry="${c.task_id}">
       <strong>${escapeHtml(kstDateLabel(c.work_date))} 작업 ${c.task_no} · ${escapeHtml(c.place)}</strong>
       <span>${escapeHtml(c.carry_note || c.content)}</span>
-      <span>${c.result === 'PARTIAL' ? '일부완료' : '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
+      <span>${({ PARTIAL: '일부완료', NOT_DONE: '미완료', STOPPED: '작업정지' })[c.result] || '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
       <div class="carry-actions">
         <button type="button" data-carry-take="${c.task_id}" ${locked ? 'disabled' : ''}>오늘 이어서</button>
         <button type="button" class="drop ${dropped ? 'selected' : ''}" data-carry-drop="${c.task_id}" ${locked ? 'disabled' : ''}>${dropped ? '이어받지 않음 (저장 시 반영)' : '이어받지 않음'}</button>
@@ -245,7 +295,7 @@ function takeCarry(id) {
   if (!c) return;
   if (form.tasks.length >= 20) { tell('작업은 최대 20개까지 입력할 수 있습니다.', 'error'); return; }
   const lockIds = new Set((today.locks || []).map(l => l.person_id));
-  const teamIds = new Set(today.members.map(m => m.person_id));
+  const teamIds = new Set([...today.members, ...(sitePeople || [])].map(m => m.person_id));
   const members = c.members.filter(m => teamIds.has(m.person_id) && !lockIds.has(m.person_id)).map(m => ({ person_id: m.person_id, role: m.role }));
   const skipped = c.members.filter(m => !members.some(x => x.person_id === m.person_id)).map(m => m.name);
   // 비어 있는 첫 작업 칸은 이월 작업으로 대신한다
@@ -270,6 +320,14 @@ $('carryList').addEventListener('click', e => {
 function taskOf(el) { const key = el.closest('[data-task]')?.dataset.task; return form.tasks.find(t => t.key === key); }
 $('stagePlan').addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset.msearch) {
+    // 검색은 서버 저장·임시저장과 무관. 목록만 다시 그린다 (입력칸 포커스 유지)
+    memberQuery.set(el.dataset.msearch, el.value);
+    const task = form.tasks.find(t => t.key === el.dataset.msearch);
+    const pool = document.querySelector(`[data-member-pool="${el.dataset.msearch}"]`);
+    if (task && pool) pool.innerHTML = renderPool(task);
+    return;
+  }
   if (el.dataset.field && el.type !== 'checkbox') { form[el.dataset.field] = el.value; saveDraftSoon(); return; }
   if (el.dataset.tfield) { const t = taskOf(el); if (t) { t[el.dataset.tfield] = el.value; saveDraftSoon(); } }
 });
@@ -363,7 +421,7 @@ function risksText(r) { return [...(r.risks || []).filter(x => x !== '기타'), 
 function tasksHtml(r) {
   return r.tasks.map(t => `<div class="plan-view-item"><strong>작업 ${t.task_no} · ${escapeHtml(t.place)}</strong>
     <span>${escapeHtml(t.content)}</span>
-    <span>인원: ${t.members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'}</span></div>`).join('');
+    <span>인원: ${membersLine(t.members)}</span></div>`).join('');
 }
 function renderMorning() {
   const r = report();
@@ -503,14 +561,18 @@ document.addEventListener('click', e => { const id = e.target.closest('[data-pho
 // ---------- 오후 TBM (전체 이상 없음 한 번, 이상 있는 작업만 상세) ----------
 let alertEdit = null; // 열려 있는 작업 상세 입력 { taskId, alert, note, action, place, content, members }
 let afternoonNoteTouched = false;
-function membersLine(members) { return members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'; }
+function membersLine(members) { return members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}${m.other_team ? ` <span class="other-team-badge">타 팀원${m.home_team_name ? ' · ' + escapeHtml(m.home_team_name) : ''}</span>` : ''}`).join(', ') || '-'; }
 function alertMemberPicker(edit) {
   const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
-  return today.members.map(m => {
+  // 우리 팀 + 이 작업에 이미 들어간 다른 팀 인원(뺄 수 있도록)
+  const ids = [...new Set([...today.members.map(m => m.person_id), ...edit.members.map(m => m.person_id)])];
+  return ids.map(id => {
+    const m = { person_id: id, name: memberName(id) };
+    const info = personInfo(id);
     const chosen = edit.members.find(x => x.person_id === m.person_id);
     const lock = lockMap.get(m.person_id);
     return `<label class="task-member ${lock && !chosen ? 'locked' : ''}"><input type="checkbox" data-amember="${m.person_id}" ${chosen ? 'checked' : ''} ${lock && !chosen ? 'disabled' : ''}>
-      <span>${escapeHtml(m.name)}</span>${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
+      <span>${escapeHtml(m.name)}</span>${otherBadge(info)}${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
       ${chosen ? `<select class="task-role-select" data-arole="${m.person_id}" aria-label="${escapeHtml(m.name)} 역할">${ROLES.map(r => `<option ${chosen.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>` : ''}</label>`;
   }).join('');
 }
@@ -528,14 +590,25 @@ function renderAfternoon() {
   $('afternoonAllClear').disabled = !ready || !untouched.length;
   $('afternoonAllClear').textContent = !open.length ? '확인할 작업이 없습니다' : !untouched.length ? '모든 작업 확인됨' : untouched.length === open.length ? '전체 이상 없음' : `나머지 ${untouched.length}건 이상 없음`;
   $('afternoonTasks').innerHTML = (r?.tasks || []).map(t => {
-    const closed = !!t.result;
+    const stopped = t.alert === 'STOPPED';
+    const closed = !!t.result && !stopped;
     const editing = alertEdit?.taskId === t.id ? alertEdit : null;
     const selected = editing ? editing.alert : t.alert;
-    const cls = t.alert === 'RISK' ? 'is-risk' : ['CHANGED', 'DELAYED'].includes(t.alert) ? 'is-alert' : t.alert === 'NORMAL' ? 'saved' : '';
-    const label = closed ? '퇴근 결과 입력됨' : ALERTS[t.alert] ? `${ALERTS[t.alert]} 저장됨` : '미확인';
-    const buttons = Object.entries(ALERTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'NORMAL' ? 'normal' : 'danger'} ${selected === code ? 'selected' : ''}"
-      data-alert="${code}" data-task-id="${t.id}" ${!ready || closed ? 'disabled' : ''}>${name}</button>`).join('');
-    const editor = editing && editing.alert !== 'NORMAL' ? `<div class="task-detail-editor">
+    const cls = stopped ? 'is-stopped' : t.alert === 'RISK' ? 'is-risk' : t.alert === 'DELAYED' ? 'is-alert' : t.alert === 'CHANGED' ? 'is-changed' : t.alert === 'NORMAL' ? 'saved' : '';
+    const label = stopped ? `⛔ ${stopLabel(t)}` : closed ? '퇴근 결과 입력됨' : ALERTS[t.alert] ? `${ALERTS[t.alert]} 저장됨` : '미확인';
+    const buttons = Object.entries(ALERTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'NORMAL' ? 'normal' : code.toLowerCase()} ${selected === code ? 'selected' : ''}"
+      data-alert="${code}" data-task-id="${t.id}" ${!ready || closed || stopped ? 'disabled' : ''}>${name}</button>`).join('')
+      + `<button type="button" class="task-status-btn stop ${selected === 'STOPPED' ? 'selected' : ''}" data-alert="STOPPED" data-task-id="${t.id}" ${!ready || closed ? 'disabled' : ''}>⛔ ${stopped ? '작업정지 내용 고치기' : '작업정지'}</button>`;
+    const editor = editing && editing.alert === 'STOPPED' ? `<div class="task-detail-editor stop-editor">
+      <div class="field"><label class="label">정지 사유 (필수)</label><textarea data-aedit="note" maxlength="500" placeholder="예: 자재 미입고, 우천, 안전 문제">${escapeHtml(editing.note)}</textarea></div>
+      <div class="field"><span class="label">처리 방향 (필수)</span><div class="choice-row">
+        <button type="button" class="choice-btn ${editing.disposition === 'CARRY' ? 'selected' : ''}" data-stop-disp="CARRY">내일 이월<small>다음 날 작업계획에서 이어받기</small></button>
+        <button type="button" class="choice-btn ${editing.disposition === 'END' ? 'selected' : ''}" data-stop-disp="END">오늘 정지로 종료<small>이월 없음 · 완료 아님</small></button></div></div>
+      <div class="field"><label class="label">조치 / 요청사항 (선택)</label><textarea data-aedit="action" maxlength="500" placeholder="예: 자재 입고 요청, 내일 오전 재개">${escapeHtml(editing.action)}</textarea></div>
+      <p class="stage-note">저장하면 퇴근 TBM 결과도 '작업정지'로 함께 정해집니다. 퇴근 때 다시 입력하지 않습니다.</p>
+      <div class="btn-row" style="margin-top:10px"><button type="button" class="task-save-btn stop-save" data-stop-save="${t.id}">작업정지 저장</button><button type="button" class="task-save-btn" style="background:#EEF4FA;color:var(--navy)" data-alert-cancel>취소</button></div>
+      ${stopped ? `<button type="button" class="link-btn" data-stop-cancel="${t.id}">작업정지 취소 (잘못 누른 경우)</button>` : ''}
+    </div>` : editing && editing.alert !== 'NORMAL' ? `<div class="task-detail-editor">
       <div class="field"><label class="label">${{ CHANGED: '변경 내용', DELAYED: '지연 사유', RISK: '위험 내용' }[editing.alert]} (필수)</label><textarea data-aedit="note" maxlength="500" placeholder="2자 이상">${escapeHtml(editing.note)}</textarea></div>
       <div class="field"><label class="label">조치 / 요청사항 (선택)</label><textarea data-aedit="action" maxlength="500" placeholder="예: 자재 추가 요청, 작업 순서 변경">${escapeHtml(editing.action)}</textarea></div>
       ${editing.alert === 'CHANGED' ? `<div class="field"><label class="label">작업 위치</label><input data-aedit="place" maxlength="120" value="${escapeHtml(editing.place)}"></div>
@@ -547,7 +620,7 @@ function renderAfternoon() {
     return `<div class="task-tbm-card ${cls}" data-afternoon-task="${t.id}">
       <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
         <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}</div>
-        ${t.alert_note ? `<div class="task-tbm-meta"><strong>${ALERTS[t.alert] || ''}</strong> ${escapeHtml(t.alert_note)}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}</div>` : ''}</div>
+        ${t.alert_note ? `<div class="task-tbm-meta"><strong>${stopped ? '정지 사유' : ALERTS[t.alert] || ''}</strong> ${escapeHtml(t.alert_note)}${t.alert_action ? ` · 조치: ${escapeHtml(t.alert_action)}` : ''}${stopped ? ` · ${kstTime(t.alert_at)} 정지` : ''}</div>` : ''}</div>
         <span class="task-save-state">${label}</span></div>
       <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
   }).join('');
@@ -592,6 +665,32 @@ async function afternoonAllClear() {
   } catch (e) { await handleActionError(e); }
   finally { setBusy(false); }
 }
+// 작업정지: 사유와 처리 방향(내일 이월 / 오늘 정지로 종료)을 함께 저장. CANCEL은 잘못 누른 정지를 되돌린다
+async function saveStop(taskId, disposition) {
+  if (busy || planIsDirty()) return;
+  const task = report().tasks.find(t => t.id === taskId);
+  const edit = alertEdit?.taskId === taskId ? alertEdit : null;
+  let args;
+  if (disposition === 'CANCEL') {
+    if (!confirm(`작업 ${task.task_no}의 작업정지를 취소할까요?\n취소하면 이 작업의 오후 상태를 다시 입력해야 합니다.`)) return;
+    args = { p_task_id: taskId, p_reason: null, p_disposition: 'CANCEL', p_action: null };
+  } else {
+    const note = (edit?.note || '').trim();
+    if (note.length < 2) { tell('정지 사유를 2자 이상 적어주세요.', 'error'); return; }
+    if (!edit.disposition) { tell('처리 방향(내일 이월 / 오늘 정지로 종료)을 골라주세요.', 'error'); return; }
+    args = { p_task_id: taskId, p_reason: note, p_disposition: edit.disposition, p_action: (edit.action || '').trim() || null };
+  }
+  args.p_request_id = requestIdFor(slots.stop, args);
+  setBusy(true, '작업정지 저장 중');
+  try {
+    const res = await rpc('tbm_task_stop', args);
+    slots.stop = {}; alertEdit = null;
+    applyReport(res.report);
+    tell(disposition === 'CANCEL' ? `작업 ${task.task_no}의 작업정지를 취소했습니다. 오후 상태를 다시 입력해주세요.`
+      : `작업 ${task.task_no}을(를) 작업정지(${STOP_DISPOSITIONS[args.p_disposition]})로 저장했습니다.`, 'ok');
+  } catch (e) { await handleActionError(e); }
+  finally { setBusy(false); }
+}
 $('afternoonAllClear').addEventListener('click', afternoonAllClear);
 $('afternoonNote').addEventListener('input', () => { afternoonNoteTouched = true; });
 $('afternoonTasks').addEventListener('click', e => {
@@ -599,11 +698,22 @@ $('afternoonTasks').addEventListener('click', e => {
   if (btn.dataset.alert) {
     const t = report().tasks.find(x => x.id === btn.dataset.taskId);
     if (btn.dataset.alert === 'NORMAL') { if (alertEdit?.taskId === t.id) alertEdit = null; saveAlert(t.id, 'NORMAL'); return; }
+    if (btn.dataset.alert === 'STOPPED') {
+      const stopped = t.alert === 'STOPPED';
+      alertEdit = { taskId: t.id, alert: 'STOPPED', note: stopped ? t.alert_note || '' : '', action: stopped ? t.alert_action || '' : '',
+        disposition: stopped ? (t.carry_over ? 'CARRY' : 'END') : null };
+      renderAfternoon();
+      document.querySelector(`[data-afternoon-task="${t.id}"] [data-aedit=note]`)?.focus();
+      return;
+    }
     alertEdit = { taskId: t.id, alert: btn.dataset.alert, note: t.alert === btn.dataset.alert ? t.alert_note || '' : '', action: t.alert === btn.dataset.alert ? t.alert_action || '' : '',
       place: t.place, content: t.content, members: t.members.map(m => ({ person_id: m.person_id, role: m.role })) };
     renderAfternoon();
     document.querySelector(`[data-afternoon-task="${t.id}"] [data-aedit=note]`)?.focus();
   } else if (btn.dataset.alertSave) saveAlert(btn.dataset.alertSave, alertEdit.alert);
+  else if (btn.dataset.stopDisp && alertEdit) { alertEdit.disposition = btn.dataset.stopDisp; renderAfternoon(); }
+  else if (btn.dataset.stopSave) saveStop(btn.dataset.stopSave, alertEdit?.disposition);
+  else if (btn.dataset.stopCancel) saveStop(btn.dataset.stopCancel, 'CANCEL');
   else if (btn.hasAttribute('data-alert-cancel')) { alertEdit = null; renderAfternoon(); }
 });
 $('afternoonTasks').addEventListener('input', e => { const f = e.target.dataset.aedit; if (f && alertEdit) alertEdit[f] = e.target.value; });
@@ -641,11 +751,13 @@ function renderEvening() {
   $('eveningClose').hidden = !!r?.evening_at;
   $('eveningClose').textContent = r?.evening_at ? '퇴근 마감 완료' : open.length ? `나머지 ${open.length}건 완료로 하고 퇴근 마감` : '퇴근 TBM 마감';
   $('eveningTasks').innerHTML = (r?.tasks || []).map(t => {
+    const stopped = t.result === 'STOPPED';
     const editing = resultEdit?.taskId === t.id ? resultEdit : null;
     const selected = editing ? editing.result : t.result;
-    const cls = t.result === 'DONE' ? 'saved' : ['PARTIAL', 'NOT_DONE'].includes(t.result) ? 'is-alert' : '';
-    const label = t.result ? `${RESULTS[t.result]}${t.carry_over ? ' · 이월' : ''} 저장됨` : '미입력';
-    const buttons = Object.entries(RESULTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'DONE' ? 'normal' : code === 'EXCLUDED' ? '' : 'danger'} ${selected === code ? 'selected' : ''}"
+    const cls = stopped ? 'is-stopped' : t.result === 'DONE' ? 'saved' : ['PARTIAL', 'NOT_DONE'].includes(t.result) ? 'is-alert' : '';
+    const label = stopped ? `⛔ ${stopLabel(t)}` : t.result ? `${RESULTS[t.result]}${t.carry_over ? ' · 이월' : ''} 저장됨` : '미입력';
+    // 작업정지는 오후 TBM에서 결과까지 정해졌으므로 다시 입력하지 않는다 (고치기는 오후 TBM에서)
+    const buttons = stopped ? '' : Object.entries(RESULTS).map(([code, name]) => `<button type="button" class="task-status-btn ${code === 'DONE' ? 'normal' : code === 'EXCLUDED' ? '' : 'danger'} ${selected === code ? 'selected' : ''}"
       data-result="${code}" data-task-id="${t.id}" ${!ready ? 'disabled' : ''}>${name}</button>`).join('');
     const partial = editing && ['PARTIAL', 'NOT_DONE'].includes(editing.result);
     const editor = editing && editing.result !== 'DONE' ? `<div class="task-detail-editor">
@@ -656,10 +768,10 @@ function renderEvening() {
     </div>` : '';
     return `<div class="task-tbm-card ${cls}" data-evening-task="${t.id}">
       <div class="task-tbm-head"><div><div class="task-tbm-name">작업 ${t.task_no} · ${escapeHtml(t.place)}</div>
-        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}${ALERTS[t.alert] && t.alert !== 'NORMAL' ? `<br>오후: ${ALERTS[t.alert]} · ${escapeHtml(t.alert_note || '')}` : ''}</div>
+        <div class="task-tbm-meta">${escapeHtml(t.content)}<br>인원: ${membersLine(t.members)}${ALERT_LABELS[t.alert] && t.alert !== 'NORMAL' ? `<br>오후: ${ALERT_LABELS[t.alert]} · ${escapeHtml(t.alert_note || '')}` : ''}</div>
         ${t.result_note || t.carry_over ? `<div class="task-tbm-meta">${t.result_note ? escapeHtml(t.result_note) : ''}${t.carry_over ? `${t.result_note ? ' · ' : ''}이월: ${escapeHtml(t.carry_note || '')}` : ''}</div>` : ''}</div>
         <span class="task-save-state">${label}</span></div>
-      <div class="task-status-buttons">${buttons}</div>${editor}</div>`;
+      ${stopped ? `<div class="stop-note">오후 TBM에서 작업정지로 처리됨 · 퇴근 결과 입력 필요 없음${ready ? ' <button type="button" class="link-btn" data-go="stageAfternoon">오후 TBM에서 고치기</button>' : ''}</div>` : `<div class="task-status-buttons">${buttons}</div>`}${editor}</div>`;
   }).join('');
   $('eveningState').className = 'server-state' + (r?.evening_at ? ' ok' : '');
   $('eveningState').textContent = r?.evening_at ? `서버 저장됨 · ${kstTime(r.evening_at)} 마감` : open.length ? `결과를 입력하지 않은 작업 ${open.length}건` : '모든 작업 결과가 입력됐습니다. 마감을 눌러주세요.';
@@ -724,6 +836,127 @@ $('openEvening').addEventListener('click', async () => {
 });
 
 
+// ---------- 출역 관리 (오늘 · 우리 팀 공식 소속 인원) ----------
+// 순서: 전체 출근(또는 전체 퇴근) → 다른 사람만 바꾸기 → 확정. 확정 전 선택은 이 화면에만 있고 서버에 저장되지 않는다.
+const ATT_IN = { PRESENT: '출근', LATE: '지각', ABSENT: '결근', OFF: '휴무' };
+const ATT_OUT = { LEFT: '퇴근', EARLY: '조퇴', NOT_LEFT: '미퇴근' };
+const ATT_CLASS = { PRESENT: 'good', LATE: 'warn', ABSENT: 'bad', OFF: 'gray', LEFT: 'good', EARLY: 'warn', NOT_LEFT: 'bad' };
+let att = null;        // tbm_attendance_today 결과
+let attTab = 'IN';
+const attDraft = { IN: new Map(), OUT: new Map() };
+const attServer = (p, kind) => kind === 'IN' ? p.check_in_status : p.check_out_status;
+const attCanOut = p => ['PRESENT', 'LATE'].includes(p.check_in_status);
+const attTargets = kind => !att ? [] : kind === 'IN' ? att.people : att.people.filter(attCanOut);
+function attPending(kind) {
+  return attTargets(kind).filter(p => attDraft[kind].has(p.person_id) && attDraft[kind].get(p.person_id) !== attServer(p, kind));
+}
+function renderAttendanceHome() {
+  if (!att) return;
+  const inDone = att.people.filter(p => p.check_in_status).length;
+  const outs = attTargets('OUT');
+  const outDone = outs.filter(p => p.check_out_status).length;
+  $('openAttendanceSub').textContent = !inDone ? `출근 확정 전 · ${att.people.length}명` : `출근 ${inDone}/${att.people.length} 확정 · 퇴근 ${outDone}/${outs.length}`;
+  $('openAttendance').classList.toggle('done', att.people.length > 0 && inDone === att.people.length && outs.length === outDone);
+}
+function renderAttendance() {
+  if (!att) return;
+  const kind = attTab;
+  const names = kind === 'IN' ? ATT_IN : ATT_OUT;
+  const label = kind === 'IN' ? '출근' : '퇴근';
+  const targets = attTargets(kind);
+  const done = targets.filter(p => attServer(p, kind)).length;
+  $('attendanceTitle').textContent = `출역 관리 · ${att.team.name}`;
+  $('attendanceHead').textContent = `${kstDateLabel(att.date)} · ${att.team.name} ${att.people.length}명`;
+  document.querySelectorAll('[data-att-tab]').forEach(b => { b.classList.toggle('selected', b.dataset.attTab === kind); b.setAttribute('aria-selected', String(b.dataset.attTab === kind)); });
+  $('attendanceBadge').textContent = `${label} 확정 ${done}/${targets.length}`;
+  $('attendanceBadge').className = 'badge' + (targets.length && done === targets.length ? ' ok' : '');
+  $('attendanceSummary').innerHTML = Object.entries(names).map(([code, name]) => `<span class="att-count ${ATT_CLASS[code]}">${name} <b>${targets.filter(p => attServer(p, kind) === code).length}</b></span>`).join('')
+    + `<span class="att-count">미확정 <b>${targets.length - done}</b></span>`
+    + (kind === 'OUT' && targets.length < att.people.length ? `<div class="att-note">퇴근은 출근·지각으로 확정된 ${targets.length}명만 처리합니다.</div>` : '');
+  const blank = targets.filter(p => !attServer(p, kind) && !attDraft[kind].has(p.person_id));
+  $('attendanceAll').textContent = blank.length ? `전체 ${label} (${blank.length}명)` : `전체 ${label} 선택됨`;
+  $('attendanceAll').disabled = !blank.length;
+  const pending = attPending(kind);
+  const fixes = pending.filter(p => attServer(p, kind)).length;
+  $('attendanceConfirm').textContent = pending.length ? `${label} 확정 (${pending.length}명${fixes ? ` · 수정 ${fixes}명` : ''})` : `${label} 확정할 선택 없음`;
+  $('attendanceConfirm').disabled = !pending.length;
+  $('attendanceList').innerHTML = att.people.map(p => {
+    const server = attServer(p, kind);
+    const draft = attDraft[kind].get(p.person_id);
+    const chosen = draft ?? server;
+    const locked = kind === 'OUT' && !attCanOut(p);
+    const at = kind === 'IN' ? p.check_in_at : p.check_out_at;
+    const by = kind === 'IN' ? p.check_in_by : p.check_out_by;
+    const state = locked ? (p.check_in_status ? `${ATT_IN[p.check_in_status]} · 퇴근 처리 없음` : '출근 확정 전')
+      : server ? `${names[server]} 확정 · ${kstTime(at)} · ${by || '-'}${draft && draft !== server ? ` → ${names[draft]}(으)로 수정 예정` : ''}`
+      : draft ? `${names[draft]} 선택됨 · 아직 확정 전` : '미확정';
+    return `<div class="att-row ${locked ? 'locked' : ''} ${draft && draft !== server ? 'pending' : ''} ${chosen ? 'is-' + ATT_CLASS[chosen] : ''}" data-att-person="${p.person_id}">
+      <div class="att-head"><span class="att-name">${escapeHtml(p.name)}</span>${p.is_leader ? '<span class="task-tag">팀장</span>' : ''}${p.corrections ? `<span class="att-fix">수정 ${p.corrections}회</span>` : ''}</div>
+      <div class="att-state">${escapeHtml(state)}</div>
+      ${locked ? '' : `<div class="att-buttons n${Object.keys(names).length}">${Object.entries(names).map(([code, name]) => `<button type="button" class="att-btn ${ATT_CLASS[code]} ${chosen === code ? 'selected' : ''}" data-att-status="${code}" aria-pressed="${chosen === code}">${name}</button>`).join('')}</div>`}
+    </div>`;
+  }).join('') || '<div class="task-member-empty">우리 팀 공식 소속 인원이 없습니다. 관리자에게 팀 소속 등록을 요청해주세요.</div>';
+  $('attendanceState').className = 'server-state' + (pending.length ? ' dirty' : ' ok');
+  $('attendanceState').textContent = pending.length ? `확정하지 않은 선택 ${pending.length}명 (아직 서버에 저장되지 않음)` : '화면의 확정 상태는 모두 서버에 저장된 내용입니다.';
+}
+async function loadAttendance({ quiet = false } = {}) {
+  if (!quiet) setBusy(true, '출역 불러오는 중');
+  try {
+    att = await rpc('tbm_attendance_today', { p_team_id: today?.team?.id || null });
+    renderAttendance(); renderAttendanceHome();
+    return true;
+  } catch (e) {
+    tell(e.code === 'UNKNOWN' ? '출역 관리를 아직 쓸 수 없습니다 (서버 준비 전). 관리자에게 문의해주세요.' : describeError(e), 'error');
+    return false;
+  } finally { if (!quiet) setBusy(false); }
+}
+async function confirmAttendance() {
+  if (busy || !att) return;
+  const kind = attTab;
+  const names = kind === 'IN' ? ATT_IN : ATT_OUT;
+  const label = kind === 'IN' ? '출근' : '퇴근';
+  const pending = attPending(kind);
+  if (!pending.length) return;
+  const fixes = pending.filter(p => attServer(p, kind));
+  if (fixes.length && !confirm(`이미 확정된 ${fixes.length}명의 ${label} 상태를 바꿉니다. 수정 이력이 남습니다.\n${fixes.map(p => `${p.name}: ${names[attServer(p, kind)]} → ${names[attDraft[kind].get(p.person_id)]}`).join('\n')}`)) return;
+  const unset = attTargets(kind).filter(p => !attServer(p, kind) && !attDraft[kind].has(p.person_id));
+  if (unset.length && !confirm(`아직 고르지 않은 ${unset.length}명은 이번에 확정하지 않습니다.\n${unset.map(p => p.name).join(', ')}\n\n고른 ${pending.length}명만 확정할까요?`)) return;
+  const payload = { team_id: att.team.id, kind, work_date: att.date, entries: pending.map(p => ({ person_id: p.person_id, status: attDraft[kind].get(p.person_id) })) };
+  payload.request_id = requestIdFor(slots.attendance, payload);
+  setBusy(true, `${label} 확정 중`);
+  try {
+    const res = await rpc('tbm_attendance_save', { p_payload: payload });
+    slots.attendance = {};
+    attDraft[kind].clear();
+    att = { ...att, people: res.people };
+    for (const id of [...attDraft.OUT.keys()]) if (!attCanOut(att.people.find(p => p.person_id === id) || {})) attDraft.OUT.delete(id);
+    renderAttendance(); renderAttendanceHome();
+    tell(`${label} ${pending.length}명을 확정했습니다${fixes.length ? ` (수정 ${fixes.length}명, 이력 남음)` : ''}.`, 'ok');
+  } catch (e) {
+    tell(describeError(e) + (e.code === 'NETWORK' || e.code === 'TIMEOUT' ? '' : ' (저장되지 않았습니다)'), 'error');
+    if (['MEMBER_NOT_IN_TEAM', 'ATTENDANCE_NOT_CHECKED_IN', 'ATTENDANCE_DATE_LOCKED'].includes(e.code)) { slots.attendance = {}; await loadAttendance({ quiet: true }); }
+  } finally { setBusy(false); }
+}
+$('openAttendance').addEventListener('click', async () => { if (busy) return; tell(''); if (await loadAttendance()) showStage('stageAttendance'); });
+$('attendanceRefresh').addEventListener('click', async () => { if (await loadAttendance()) tell('최신 출역을 불러왔습니다. 확정하지 않은 선택은 그대로 둡니다.'); });
+$('attendanceConfirm').addEventListener('click', confirmAttendance);
+$('attendanceAll').addEventListener('click', () => {
+  const code = attTab === 'IN' ? 'PRESENT' : 'LEFT';
+  for (const p of attTargets(attTab)) if (!attServer(p, attTab) && !attDraft[attTab].has(p.person_id)) attDraft[attTab].set(p.person_id, code);
+  renderAttendance();
+});
+document.querySelector('#stageAttendance .seg').addEventListener('click', e => {
+  const tab = e.target.closest('[data-att-tab]')?.dataset.attTab; if (!tab) return;
+  attTab = tab; renderAttendance();
+});
+$('attendanceList').addEventListener('click', e => {
+  const btn = e.target.closest('[data-att-status]'); if (!btn || busy || !att) return;
+  const id = btn.closest('[data-att-person]').dataset.attPerson;
+  const p = att.people.find(x => x.person_id === id);
+  if (btn.dataset.attStatus === attServer(p, attTab)) attDraft[attTab].delete(id); else attDraft[attTab].set(id, btn.dataset.attStatus);
+  renderAttendance();
+});
+
 // Same-day sessions. Completed sessions are shown in a separate read-only view.
 function renderSessions() {
   const completed = (today.reports || []).filter(r => r.evening_at);
@@ -747,10 +980,10 @@ async function openCompleted(id) {
       <dt>소장 확인 필요</dt><dd>${r.needs_manager_check ? '필요' : '-'}</dd>
       ${[['출근',r.morning_at,r.morning_note],['오후',r.afternoon_at,r.afternoon_note],['퇴근 마감',r.evening_at,r.evening_note]].map(([label,at,note]) => `<dt>${label}</dt><dd>${at ? kstTime(at) : '-'} ${escapeHtml(note || '')}</dd>`).join('')}</dl>
       <div class="plan-view">${r.tasks.map(t => `<div class="plan-view-item"><strong>세부 작업 ${t.task_no} · ${escapeHtml(t.place)}</strong><span>${escapeHtml(t.content)}</span>
-        <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERTS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
-        <span>퇴근: ${RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
+        <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERT_LABELS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
+        <span>퇴근: ${t.result === 'STOPPED' ? stopLabel(t) : RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
       ${['MORNING','AFTERNOON','EVENING'].map((kind,i) => `<h3>${['출근','오후','퇴근'][i]} 사진</h3><div class="photo-preview">${r.photos.filter(p => p.kind===kind).map(p => `<div class="photo-thumb"><img alt="${['출근','오후','퇴근'][i]} 사진" data-photo-path="${escapeHtml(p.path)}"><span class="photo-state">${kstTime(p.created_at)}</span></div>`).join('') || '사진 없음'}</div>`).join('')}
-      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
+      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험',TASK_STOPPED:'작업정지',TASK_STOP_CANCELLED:'작업정지 취소'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
     await loadPhotoUrls(); showStage('stageSessionDetail');
   } catch(e) { tell(describeError(e),'error'); } finally { setBusy(false); }
 }
@@ -788,9 +1021,9 @@ $('logoutBtn').addEventListener('click', async () => {
   await logout(); location.replace(pageUrl('login'));
 });
 $('goLogin').addEventListener('click', async () => { await logout(); location.replace(loginUrl(PAGE)); });
-window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (dirty || attPending('IN').length || attPending('OUT').length) { e.preventDefault(); e.returnValue = ''; } });
 
 // 운영 화면에는 TEST 표시를 하지 않는다
-const VERSION_LABEL = PROD ? 'v1.0' : `v${PAGE_VERSION} TEST`;
+const VERSION_LABEL = PROD ? 'v1.1' : `v${PAGE_VERSION} TEST`;
 $('pageVersion').textContent = VERSION_LABEL; $('footerVersion').textContent = VERSION_LABEL;
 if (requireLogin(PAGE)) load();

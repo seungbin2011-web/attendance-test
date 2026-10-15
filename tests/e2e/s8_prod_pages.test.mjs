@@ -49,7 +49,8 @@ async function checkGuide(page, pdf) {
       const r = e.getBoundingClientRect(); return { top: Math.round(r.top), h: Math.round(r.height), right: Math.round(r.right), text: e.textContent.trim() };
     }));
     assert.ok(boxes.every(b => b.top === boxes[0].top), `${width}px 버튼 줄바꿈: ${JSON.stringify(boxes)}`);
-    assert.ok(boxes.every(b => b.h <= 40 && b.right <= width), `${width}px 버튼 깨짐: ${JSON.stringify(boxes)}`);
+    // v0.4: 누르는 칸 최소 44px. 글자가 두 줄로 꺾이면 60px 이상이 되므로 48px 이하면 한 줄
+    assert.ok(boxes.every(b => b.h <= 48 && b.right <= width), `${width}px 버튼 깨짐: ${JSON.stringify(boxes)}`);
     await page.screenshot({ path: `artifacts/s8_guide_${pdf.split('-')[0]}_${width}.png` });
   }
 }
@@ -91,20 +92,20 @@ try {
     assert.deepEqual(errors, []);
   });
 
-  await step('팀장 → 운영 팀장 TBM (v1.0), 로그아웃 → 루트 로그인', async () => {
+  await step('팀장 → 운영 팀장 TBM (v1.1), 로그아웃 → 루트 로그인', async () => {
     const { page, errors } = await rootLogin('시험지휘03', '1203', /\/tbm_report\.html$/);
     await page.waitForSelector('#stageHome.active');
-    assert.equal(await page.textContent('#pageVersion'), 'v1.0');
+    assert.equal(await page.textContent('#pageVersion'), 'v1.1');
     await noTestMarks(page);
     await page.click('#logoutBtn');
     await page.waitForURL(/\/index\.html$/);
     assert.deepEqual(errors, []);
   });
 
-  await step('현장관리 → 운영 현장 TBM 현황 (v1.0), 로그아웃 → 루트 로그인', async () => {
+  await step('현장관리 → 운영 현장 TBM 현황 (v1.1), 로그아웃 → 루트 로그인', async () => {
     const { page, errors } = await rootLogin('시험현장관리2', '1402', /\/tbm_manager\.html$/);
     await page.waitForSelector('#stageList.active');
-    assert.equal(await page.textContent('#pageVersion'), 'v1.0');
+    assert.equal(await page.textContent('#pageVersion'), 'v1.1');
     await noTestMarks(page);
     await page.click('#logoutBtn');
     await page.waitForURL(/\/index\.html$/);

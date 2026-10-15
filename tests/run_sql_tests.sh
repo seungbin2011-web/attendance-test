@@ -112,7 +112,8 @@ run "$ROOT/personnel_auth_v12_rollback.sql"
 run "$ROOT/personnel_auth_v11_rollback.sql"
 runtest "$ROOT/tests/sql/41_test_personnel_auth_v11_rollback.sql"
 run "$ROOT/personnel_auth_v10_rollback.sql"
-for f in $(ls "$ROOT"/field_sql_v0*_rollback.sql 2>/dev/null | sort -r); do run "$f"; done
+# 이 시험이 적용한 field v01·v02만 되돌린다 (v03·v04는 tests/sessions, e2e에서 시험)
+for f in "$ROOT"/field_sql_v02_rollback.sql "$ROOT"/field_sql_v01_rollback.sql; do [ -e "$f" ] && run "$f"; done
 run "$ROOT/personnel_auth_v09_rollback.sql"
 run "$ROOT/personnel_auth_v08_rollback.sql"
 runtest "$ROOT/tests/sql/19_test_personnel_auth_v08_rollback.sql"
