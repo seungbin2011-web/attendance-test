@@ -37,6 +37,7 @@ const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message)
 async function login(role,f){if(page.url().startsWith(origin))await page.evaluate(()=>sessionStorage.clear());await page.goto(origin+'index.html');await page.evaluate(({role})=>{sessionStorage.setItem('personnelPilotSessionV2',JSON.stringify({access_token:role,refresh_token:role,expiresAt:Date.now()+3600000}));sessionStorage.setItem('attendanceAuthUser',JSON.stringify({name:'시험팀원가',personId:'c0000000-0000-0000-0000-000000000026',userId:'T-0026',authSource:'supabase-pin'}));},{role});await page.goto(origin+f);}
 async function idle(){await page.locator('#loadingOverlay.active').waitFor({state:'hidden'});}
 async function noHScroll(label){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal scroll: '+label);}
+const poolNamesOf=async c=>(await c.locator('[data-member-pool] .task-member > span:nth-of-type(1)').allTextContents());
 const msg=async re=>{await page.locator('#message').filter({hasText:re}).waitFor();};
 let passed=0;const ok=(label)=>{passed++;console.log('PASS',label);};
 
@@ -122,6 +123,48 @@ await stoppedRow.locator('summary').click();
 assert.match(await stoppedRow.innerText(),/오후 TBM: 작업정지[\s\S]*퇴근 TBM: 작업정지 · 내일 이월/);
 await noHScroll('member 360');
 ok('member screen shows 작업정지 · 내일 이월');
+
+// ---- 작업계획 인원: 검색 · 타 팀원 · 선택된 인원 ----
+await page.setViewportSize({width:320,height:720});
+await login('leader','tbm_report.html');await page.locator('#homeTitle').filter({hasText:'작업 3'}).waitFor();await idle();
+await page.locator('#openNextSession').click();await page.locator('#stagePlan.active').waitFor();await idle();
+const plan=page.locator('.task-card').first();
+const poolNames=async()=>(await plan.locator('[data-member-pool] .task-member > span:nth-of-type(1)').allTextContents()).sort();
+assert.deepEqual(await poolNames(),['시험이팀장','시험중복가','시험팀원가','시험팀원나'].sort(),'default list = own team');
+assert.match(await plan.locator('.member-count').innerText(),/선택된 인원 0명/);
+await plan.locator('[data-msearch]').fill('시험3');
+assert.deepEqual(await poolNames(),['시험삼팀원','시험삼팀장'].sort());
+assert.equal(await plan.locator('[data-member-pool] .other-team-badge').count(),2);
+assert.match(await plan.locator('[data-member-pool]').innerText(),/타 팀원 · 시험3팀/);
+await plan.locator('[data-msearch]').fill('퇴사');
+assert.match(await plan.locator('[data-member-pool]').innerText(),/검색 결과가 없습니다/);
+ok('search: own team by default, other teams by name/team, inactive never shown');
+await plan.locator('[data-msearch]').fill('삼팀원');
+await plan.locator('[data-member-pool] .task-member',{hasText:'시험삼팀원'}).locator('input').click();
+await page.locator('.task-card').first().locator('[data-msearch]').fill('');
+await page.locator('.task-card').first().locator('[data-member-pool] .task-member',{hasText:'시험팀원가'}).locator('input').click();
+const plan2=page.locator('.task-card').first();
+assert.match(await plan2.locator('.member-count').innerText(),/선택된 인원 2명/);
+assert.deepEqual((await plan2.locator('.chosen-list .chip-name').allTextContents()),['시험삼팀원','시험팀원가']);
+assert.match(await plan2.locator('.chosen-list .task-member',{hasText:'시험삼팀원'}).innerText(),/타 팀원 · 시험3팀/);
+assert.ok(!(await poolNamesOf(plan2)).includes('시험팀원가'),'chosen person leaves the list');
+await plan2.locator('.chosen-list .task-member',{hasText:'시험팀원가'}).locator('.chip-x').click();
+assert.ok((await poolNamesOf(page.locator('.task-card').first())).includes('시험팀원가'),'× returns person to the list');
+await page.locator('.task-card').first().locator('[data-member-pool] .task-member',{hasText:'시험팀원가'}).locator('input').click();
+await page.locator('.task-card').first().locator('.chosen-list .task-member',{hasText:'시험삼팀원'}).locator('select').selectOption('신호수');
+ok('chosen chips with ×, role select, other-team badge');
+await page.locator('.task-card').first().locator('[data-tfield=place]').fill('지원 구역');
+await page.locator('.task-card').first().locator('[data-tfield=content]').fill('타 팀 지원 작업');
+await noHScroll('plan 320');
+await page.screenshot({path:'artifacts/v04-plan-320.png',fullPage:true});
+await page.locator('#savePlan').click();await msg(/서버에 저장했습니다/);await idle();
+const four=(await rpc('tbm_today')).report;
+const m51=four.tasks[0].members.find(m=>m.name==='시험삼팀원');
+assert.ok(four.session_no===4&&m51.other_team&&m51.home_team_name==='시험3팀'&&m51.role==='신호수');
+assert.equal((await db.query("select team_id from personnel_pilot_v1.memberships where person_id=$1 and valid_to is null",[P('051')])).rows[0].team_id,'b0000000-0000-0000-0000-000000000003');
+await page.locator('#stagePlan [data-open="openMorning"]').click();await page.locator('#stageMorning.active').waitFor();
+assert.match(await page.locator('#morningTasks').innerText(),/시험삼팀원\(신호수\)\s*타 팀원 · 시험3팀/);
+ok('saved with other-team member; official team unchanged; morning view shows badge');
 
 assert.deepEqual(errors,[]);
 console.log('UI V04 PASSED',passed);

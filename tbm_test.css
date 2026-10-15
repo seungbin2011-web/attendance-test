@@ -135,3 +135,19 @@ body.admin-mode .topbar{background:linear-gradient(135deg,#164936,#1e6b4f)}
 .stop-note .link-btn{color:#9A3412;padding:4px 2px;min-height:auto}
 @media(max-width:440px){.choice-row{grid-template-columns:1fr}}
 .badge.stop{background:#C2410C;color:#fff}.badge.info{background:#E1EEFF;color:#195FB8}
+
+/* 작업 인원: 선택된 인원(칩) · 검색 · 고를 수 있는 목록 */
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.chosen-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.chosen-empty{font-size:13px;color:var(--muted);padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#fff}
+.task-member.chosen{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;border-color:var(--blue);background:#EEF5FF;padding:6px 6px 6px 12px}
+.task-member.chosen .chip-name{font-size:15px;font-weight:900;color:var(--navy);white-space:nowrap}
+.task-member.chosen .task-role-select{width:auto;flex:1 1 92px;min-width:84px;height:40px;margin-left:auto}
+.chip-x{position:relative;flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;border:1px solid #CAD8E8;background:#fff;color:#A12B2B;font-size:22px;font-weight:900;cursor:pointer;line-height:1}
+.member-search{height:48px;margin-bottom:8px;font-size:16px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23718096' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center;padding-left:38px}
+.other-team-badge{display:inline-block;font-size:11px;font-weight:900;border-radius:999px;padding:3px 7px;white-space:nowrap;background:#F3E8FF;color:#6B21A8;border:1px solid #D8B4FE}
+.task-member.other-team:not(.chosen){background:#FBF7FF}
+.task-member.chosen.other-team{background:#F7F0FF;border-color:#A855F7}
+.chip-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;min-width:0;flex:1 1 auto}
+@media(max-width:440px){.task-member.chosen{display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-areas:"head x" "role x";gap:6px 8px;padding:8px 8px 8px 12px}
+  .task-member.chosen .chip-head{grid-area:head}.task-member.chosen .task-role-select{grid-area:role;width:100%;margin:0}.task-member.chosen .chip-x{grid-area:x;align-self:center}}

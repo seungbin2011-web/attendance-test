@@ -11,6 +11,8 @@ const BLOCKING = ['AUTH_REQUIRED', 'AUTH_EXPIRED', 'SESSION_EXPIRED', 'ACCOUNT_N
 const $ = id => document.getElementById(id);
 
 let today = null;      // tbm_today 결과
+let sitePeople = null; // tbm_site_people 결과(같은 현장 현재 인원). 서버에 v0.4가 없으면 null → 우리 팀만
+const memberQuery = new Map(); // 작업별 인원 검색어 (화면에만)
 let form = null;       // 작업계획 입력 상태
 let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
@@ -110,6 +112,10 @@ async function load({ quiet = false } = {}) {
       for (const id of ['morningNote', 'afternoonNote', 'eveningNote']) $(id).value = '';
       for (const key of Object.keys(slots)) slots[key] = {};
     }
+    if (editable() && (!quiet || sitePeople === null)) {
+      // 다른 팀 인원 검색용. 실패해도 우리 팀 인원으로 계속 쓸 수 있게 한다
+      sitePeople = await rpc('tbm_site_people', { p_team_id: today.team.id }).then(x => x.people || null, () => null);
+    }
     form = formFromReport(report()); dirty = false;
     const restored = restoreDraft();
     renderAll();
@@ -163,7 +169,18 @@ function renderAll() {
   if (!document.querySelector('.app-stage.active')) showStage('stageHome');
 }
 
-function memberName(personId) { return today.members.find(m => m.person_id === personId)?.name || today.report?.tasks.flatMap(t => t.members).find(m => m.person_id === personId)?.name || '(팀 외 인원)'; }
+// 인원 정보: 우리 팀 → 같은 현장 인원 → 저장된 배정 순으로 찾는다. other = 다른 팀 공식 소속(타 팀원)
+function personInfo(personId) {
+  const mine = today.members.find(m => m.person_id === personId);
+  if (mine) return { name: mine.name, team: today.team.name, other: false, sub: [mine.rank, mine.job].filter(Boolean).join(' · ') || (mine.is_leader ? '팀장' : '팀원') };
+  const site = (sitePeople || []).find(m => m.person_id === personId);
+  if (site) return { name: site.name, team: site.team_name, other: site.team_id !== today.team.id, sub: site.team_name };
+  const saved = (today.reports || [today.report]).filter(Boolean).flatMap(r => r.tasks).flatMap(t => t.members).find(m => m.person_id === personId);
+  if (saved) return { name: saved.name, team: saved.home_team_name || '', other: saved.other_team !== false, sub: saved.home_team_name || '' };
+  return { name: '(팀 외 인원)', team: '', other: true, sub: '' };
+}
+function memberName(personId) { return personInfo(personId).name; }
+const otherBadge = info => info.other ? `<span class="other-team-badge">타 팀원${info.team ? ' · ' + escapeHtml(info.team) : ''}</span>` : '';
 function renderPlan() {
   const locked = !editable();
   $('planLocked').hidden = !locked;
@@ -184,26 +201,53 @@ function renderPlan() {
 function otherTaskNos(task, personId) {
   return form.tasks.filter(t => t !== task && t.members.some(m => m.person_id === personId)).map(t => '작업' + (form.tasks.indexOf(t) + 1));
 }
+// 고를 수 있는 인원 목록: 검색어가 없으면 우리 팀, 있으면 같은 현장 전체(이름·팀). 이미 고른 인원은 위 '선택된 인원'으로 옮긴다
+function memberPool(task) {
+  const q = (memberQuery.get(task.key) || '').trim().toLowerCase();
+  const chosen = new Set(task.members.map(m => m.person_id));
+  const own = today.members.map(m => ({ person_id: m.person_id, name: m.name, team_name: today.team.name, team_id: today.team.id }));
+  const source = q ? (sitePeople || own) : own;
+  return source.filter(p => !chosen.has(p.person_id) && (!q || p.name.toLowerCase().includes(q) || (p.team_name || '').toLowerCase().includes(q))).slice(0, 40);
+}
+function renderPool(task) {
+  const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
+  const q = (memberQuery.get(task.key) || '').trim();
+  const list = memberPool(task);
+  if (!list.length) return `<div class="task-member-empty">${q ? `'${escapeHtml(q)}' 검색 결과가 없습니다. 퇴사·비활성 인원은 나오지 않습니다.` : today.members.length ? '우리 팀 인원을 모두 골랐습니다. 다른 팀 인원은 위에서 검색하세요.' : '서버에 등록된 우리 팀 인원이 없습니다. 위에서 이름으로 검색하거나 관리자에게 팀 소속 등록을 요청해주세요.'}</div>`;
+  return list.map(p => {
+    const info = personInfo(p.person_id);
+    const lock = lockMap.get(p.person_id);
+    const others = otherTaskNos(task, p.person_id);
+    return `<label class="task-member ${lock ? 'locked' : ''} ${info.other ? 'other-team' : ''}">
+      <input type="checkbox" data-member="${p.person_id}" ${task.closed || lock ? 'disabled' : ''}>
+      <span>${escapeHtml(info.name)}</span>${otherBadge(info)}
+      ${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
+      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}
+      ${info.other ? '' : `<span class="member-sub">${escapeHtml(info.sub)}</span>`}
+    </label>`;
+  }).join('');
+}
+function renderChosen(task) {
+  if (!task.members.length) return '<div class="chosen-empty">아직 고른 인원이 없습니다. 아래 목록에서 눌러 고르세요.</div>';
+  return task.members.map(m => {
+    const info = personInfo(m.person_id);
+    const others = otherTaskNos(task, m.person_id);
+    return `<div class="task-member chosen ${info.other ? 'other-team' : ''}">
+      <div class="chip-head"><span class="chip-name">${escapeHtml(info.name)}</span>${otherBadge(info)}
+      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}</div>
+      <select class="task-role-select" data-role="${m.person_id}" ${task.closed ? 'disabled' : ''} aria-label="${escapeHtml(info.name)} 역할">
+        ${ROLES.map(r => `<option ${m.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+      ${task.closed ? '' : `<label class="chip-x" title="빼기" aria-label="${escapeHtml(info.name)} 빼기"><input type="checkbox" class="sr-only" data-member="${m.person_id}" checked>×</label>`}
+    </div>`;
+  }).join('');
+}
 function renderTasks() {
   if (!form.tasks.length) form.tasks.push(emptyTask());
-  const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
   $('taskList').innerHTML = form.tasks.map((task, i) => {
-    const members = today.members.length ? today.members.map(m => {
-      const chosen = task.members.find(x => x.person_id === m.person_id);
-      const lock = lockMap.get(m.person_id);
-      const disabled = task.closed || (!!lock && !chosen);
-      const others = otherTaskNos(task, m.person_id);
-      return `<label class="task-member ${lock && !chosen ? 'locked' : ''}">
-        <input type="checkbox" data-member="${m.person_id}" ${chosen ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-        <span>${escapeHtml(m.name)}</span>
-        ${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
-        ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}
-        <span class="member-sub">${escapeHtml([m.rank, m.job].filter(Boolean).join(' · ') || (m.is_leader ? '팀장' : '팀원'))}</span>
-        ${chosen ? `<select class="task-role-select" data-role="${m.person_id}" ${disabled ? 'disabled' : ''} aria-label="${escapeHtml(m.name)} 역할">
-          ${ROLES.map(r => `<option ${chosen.role === r ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>` : ''}
-      </label>`;
-    }).join('') : '<div class="task-member-empty">서버에 등록된 우리 팀 인원이 없습니다. 관리자에게 팀 소속 등록을 요청해주세요.</div>';
+    const members = `<div class="chosen-list">${renderChosen(task)}</div>
+      ${task.closed ? '' : `<input type="search" class="member-search" data-msearch="${task.key}" value="${escapeHtml(memberQuery.get(task.key) || '')}" placeholder="이름·팀으로 검색" aria-label="작업 ${i + 1} 인원 검색" enterkeyhint="search" autocomplete="off">
+      <div class="task-members" data-member-pool="${task.key}">${renderPool(task)}</div>`}`;
     return `<div class="task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}">
       <div class="task-head">
         <div class="task-title">작업 ${i + 1}${task.carried_from_task_id ? '<span class="task-tag">이월</span>' : ''}${task.closed ? '<span class="task-tag">결과 입력됨</span>' : ''}</div>
@@ -211,8 +255,8 @@ function renderTasks() {
       </div>
       <div class="field"><label class="label">작업 위치</label><input data-tfield="place" maxlength="120" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(task.place)}" ${task.closed ? 'disabled' : ''}></div>
       <div class="field"><label class="label">작업 내용</label><textarea data-tfield="content" maxlength="500" placeholder="예: 배선 작업 / 관로 작업" ${task.closed ? 'disabled' : ''}>${escapeHtml(task.content)}</textarea></div>
-      <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">${task.members.length}명 선택</span></div>
-      <div class="task-members">${members}</div>
+      <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">선택된 인원 ${task.members.length}명</span></div>
+      ${members}
     </div>`;
   }).join('');
 }
@@ -251,7 +295,7 @@ function takeCarry(id) {
   if (!c) return;
   if (form.tasks.length >= 20) { tell('작업은 최대 20개까지 입력할 수 있습니다.', 'error'); return; }
   const lockIds = new Set((today.locks || []).map(l => l.person_id));
-  const teamIds = new Set(today.members.map(m => m.person_id));
+  const teamIds = new Set([...today.members, ...(sitePeople || [])].map(m => m.person_id));
   const members = c.members.filter(m => teamIds.has(m.person_id) && !lockIds.has(m.person_id)).map(m => ({ person_id: m.person_id, role: m.role }));
   const skipped = c.members.filter(m => !members.some(x => x.person_id === m.person_id)).map(m => m.name);
   // 비어 있는 첫 작업 칸은 이월 작업으로 대신한다
@@ -276,6 +320,14 @@ $('carryList').addEventListener('click', e => {
 function taskOf(el) { const key = el.closest('[data-task]')?.dataset.task; return form.tasks.find(t => t.key === key); }
 $('stagePlan').addEventListener('input', e => {
   const el = e.target;
+  if (el.dataset.msearch) {
+    // 검색은 서버 저장·임시저장과 무관. 목록만 다시 그린다 (입력칸 포커스 유지)
+    memberQuery.set(el.dataset.msearch, el.value);
+    const task = form.tasks.find(t => t.key === el.dataset.msearch);
+    const pool = document.querySelector(`[data-member-pool="${el.dataset.msearch}"]`);
+    if (task && pool) pool.innerHTML = renderPool(task);
+    return;
+  }
   if (el.dataset.field && el.type !== 'checkbox') { form[el.dataset.field] = el.value; saveDraftSoon(); return; }
   if (el.dataset.tfield) { const t = taskOf(el); if (t) { t[el.dataset.tfield] = el.value; saveDraftSoon(); } }
 });
@@ -369,7 +421,7 @@ function risksText(r) { return [...(r.risks || []).filter(x => x !== '기타'), 
 function tasksHtml(r) {
   return r.tasks.map(t => `<div class="plan-view-item"><strong>작업 ${t.task_no} · ${escapeHtml(t.place)}</strong>
     <span>${escapeHtml(t.content)}</span>
-    <span>인원: ${t.members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'}</span></div>`).join('');
+    <span>인원: ${membersLine(t.members)}</span></div>`).join('');
 }
 function renderMorning() {
   const r = report();
@@ -509,14 +561,18 @@ document.addEventListener('click', e => { const id = e.target.closest('[data-pho
 // ---------- 오후 TBM (전체 이상 없음 한 번, 이상 있는 작업만 상세) ----------
 let alertEdit = null; // 열려 있는 작업 상세 입력 { taskId, alert, note, action, place, content, members }
 let afternoonNoteTouched = false;
-function membersLine(members) { return members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}`).join(', ') || '-'; }
+function membersLine(members) { return members.map(m => `${escapeHtml(m.name)}${m.role !== '작업자' ? `(${escapeHtml(m.role)})` : ''}${m.other_team ? ` <span class="other-team-badge">타 팀원${m.home_team_name ? ' · ' + escapeHtml(m.home_team_name) : ''}</span>` : ''}`).join(', ') || '-'; }
 function alertMemberPicker(edit) {
   const lockMap = new Map((today.locks || []).map(l => [l.person_id, l]));
-  return today.members.map(m => {
+  // 우리 팀 + 이 작업에 이미 들어간 다른 팀 인원(뺄 수 있도록)
+  const ids = [...new Set([...today.members.map(m => m.person_id), ...edit.members.map(m => m.person_id)])];
+  return ids.map(id => {
+    const m = { person_id: id, name: memberName(id) };
+    const info = personInfo(id);
     const chosen = edit.members.find(x => x.person_id === m.person_id);
     const lock = lockMap.get(m.person_id);
     return `<label class="task-member ${lock && !chosen ? 'locked' : ''}"><input type="checkbox" data-amember="${m.person_id}" ${chosen ? 'checked' : ''} ${lock && !chosen ? 'disabled' : ''}>
-      <span>${escapeHtml(m.name)}</span>${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
+      <span>${escapeHtml(m.name)}</span>${otherBadge(info)}${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
       ${chosen ? `<select class="task-role-select" data-arole="${m.person_id}" aria-label="${escapeHtml(m.name)} 역할">${ROLES.map(r => `<option ${chosen.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>` : ''}</label>`;
   }).join('');
 }
