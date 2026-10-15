@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash tests/run_sql_tests.sh)",
+      "Bash(bash tests/e2e/run_e2e.sh)",
+      "Bash(python3 tests/make_prod_pages.py --check)",
+      "Bash(pg_ctlcluster 16 main start)",
+      "Bash(pg_lsclusters)",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_pull_requests",
+      "mcp__Claude_Code_Remote__read_documentation"
+    ]
+  }
+}
