@@ -5,7 +5,9 @@
     "test": "node sql.mjs",
     "test:ui": "node ui.mjs",
     "test:v04": "node v04.mjs",
-    "test:ui-v04": "node ui_v04.mjs"
+    "test:ui-v04": "node ui_v04.mjs",
+    "test:v05": "node v05.mjs",
+    "test:ui-v12": "node ui_v12.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
