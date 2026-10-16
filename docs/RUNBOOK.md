@@ -46,7 +46,7 @@ Claude가 운영 작업(DB 변경, 로그인 서버 배포, main 반영)을 할 
      - 예: SQL Editor 붙여넣기로 생긴 CR 줄바꿈
    - 되돌릴 때는 rollback 파일을 위에서부터 순서대로 쓴다 (`docs/CURRENT_STATE.md` 롤백 기준).
 
-TBM 현장 SQL(`field_sql_v0*`)은 버전별 `field_sql_v0N_apply.md`의 CHECK → APPLY → VERIFY를 따른다 (v0.4: `field_sql_v04_apply.md`, DB 먼저 적용한 뒤 화면 PR merge).
+TBM 현장 SQL(`field_sql_v0*`)은 버전별 `field_sql_v0N_apply.md`의 CHECK → APPLY → VERIFY를 따른다 (v0.4: `field_sql_v04_apply.md`, v0.5: `field_sql_v05_apply.md`, DB 먼저 적용한 뒤 화면 PR merge).
 
 민감정보: 명단·번호가 들어간 SQL은 Git 밖에서 만들고 사용자에게 파일로 전달한다. 로그인 번호는 작업 환경에서 bcrypt 해시로 바꿔 해시만 넣는다. 평문 번호를 Supabase SQL에 넣지 않는다.
 
