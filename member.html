@@ -581,7 +581,7 @@ async function logout(){
   sessionStorage.removeItem("tbmAuthUser");
   location.replace(PROD?LOGIN_PAGE:"index_test.html");
 }
-// 뒤로가기 캐시(Safari BFCache)로 다시 보일 때 로그아웃된 상태면 로그인으로
+// 뒤로가기 캐시(BFCache: iPhone Chrome·Safari 등)로 다시 보일 때 로그아웃된 상태면 로그인으로
 window.addEventListener("pageshow",e=>{ if(e.persisted&&!readAuth()) location.replace(PROD?LOGIN_PAGE:"index_test.html"); });
 
 (function init(){

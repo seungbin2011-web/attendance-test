@@ -7,7 +7,8 @@
     "test:v04": "node v04.mjs",
     "test:ui-v04": "node ui_v04.mjs",
     "test:v05": "node v05.mjs",
-    "test:ui-v12": "node ui_v12.mjs"
+    "test:ui-v12": "node ui_v12.mjs",
+    "test:history-chrome": "node history_chrome.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

@@ -80,5 +80,5 @@ bash tests/e2e/run_e2e.sh          # Chromium: 로그인(S0) + 하루 흐름(S1)
 - 같은 사람이 여러 작업에 들어가면 「작업2에도 투입」 (서버 규칙은 그대로: 한 작업 안 중복과 다른 팀 진행 중 작업만 거절).
 - 홈에 작업정지 표시 (⛔ 작업정지 · 내일 이월 / 정지로 종료).
 - 소장 화면 PC(900px 이상): 넓은 화면 · 팀 카드 2열 · 요약 칸 넓게. 휴대폰 화면은 그대로.
-- 로그인: 로그인 성공 이동을 `location.replace`로 바꿔 뒤로가기에 로그인 폼이 남지 않게. 세션이 살아 있으면 로그인 화면을 열어도 역할 화면으로. 뒤로가기 캐시(pageshow) 확인.
+- 로그인: 로그인 성공 이동을 `location.replace`로 바꿔 뒤로가기에 로그인 폼이 남지 않게. 세션이 살아 있으면 로그인 화면을 열어도 역할 화면으로. 뒤로가기 캐시(pageshow) 확인. 대표 브라우저 iPhone Chrome, iPhone Safari도 같은 대응 (브라우저 구분 없음). 시험 `tests/sessions/history_chrome.mjs`.
 - DB: `field_sql_v05*.sql` (적용 순서 `field_sql_v05_apply.md`).

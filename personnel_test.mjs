@@ -345,7 +345,7 @@ function resumeSession() {
 syncSecretField();
 restoreSession();
 resumeSession();
-// Safari·Chrome 뒤로가기 캐시(BFCache)로 이 화면이 그대로 다시 보일 때: 세션을 다시 확인한다
+// iPhone Chrome·Safari 뒤로가기 캐시(BFCache)로 이 화면이 그대로 다시 보일 때: 세션을 다시 확인한다
 window.addEventListener('pageshow', event => {
   if (!event.persisted) return;
   const stored = sessionStorage.getItem(SESSION_KEY);

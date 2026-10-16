@@ -93,7 +93,7 @@ export function clearSession() {
   sessionStorage.removeItem('tbmAuthUser');
 }
 export function loginUrl(next) { return pageUrl('login') + '?next=' + encodeURIComponent(next); }
-// 뒤로가기 캐시(Safari BFCache)로 업무 화면이 다시 보일 때, 그 사이 로그아웃됐으면 로그인으로 보낸다
+// 뒤로가기 캐시(BFCache: iPhone Chrome·Safari 등)로 업무 화면이 다시 보일 때, 그 사이 로그아웃됐으면 로그인으로 보낸다
 export function guardBackForward(next) {
   window.addEventListener('pageshow', e => { if (e.persisted && !loadSession()) location.replace(loginUrl(next)); });
 }
