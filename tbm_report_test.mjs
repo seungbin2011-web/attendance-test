@@ -1,9 +1,9 @@
 // 팀장 TBM 보고 시험 화면 (tbm_report_test v0.70: 오늘 작업계획 · 출근 TBM · TBM 사진 · 오후 TBM(작업정지 포함) · 퇴근 TBM · 이월 이어받기 · 출역 관리)
 // 팀·날짜·보고자는 서버(tbm_today)가 정한다. 화면은 서버 저장이 성공한 뒤에만 "저장됨"을 표시한다.
-import { rpc, requireLogin, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.2';
+import { rpc, requireLogin, guardBackForward, logout, loginUrl, PROD, pageUrl, describeError, requestIdFor, escapeHtml, kstTime, kstDateLabel, kstNowHour, compressImage, sha256Hex, uploadPhoto, signedUrls, PHOTO_BUCKET } from './tbm_api_test.mjs?v=1.3';
 
 const PAGE = pageUrl('tbm_report');
-const PAGE_VERSION = '0.70';
+const PAGE_VERSION = '0.80';
 const DRAFT_KEY = 'tbmReportDraft_v1';
 const RISKS = ['고소작업', '전기', '중량물', '화기', '장비사용', '기타'];
 const ROLES = ['작업자', '작업지휘자', '신호수', '화기감시자', '유도원', '기타'];
@@ -13,12 +13,14 @@ const $ = id => document.getElementById(id);
 let today = null;      // tbm_today 결과
 let sitePeople = null; // tbm_site_people 결과(같은 현장 현재 인원). 서버에 v0.4가 없으면 null → 우리 팀만
 const memberQuery = new Map(); // 작업별 인원 검색어 (화면에만)
+const openCarried = new Set(); // 펼쳐 둔 전일 이월 작업 (화면에만, 기본은 접힘)
+let cancelEdit = null;         // 이월 취소 사유 입력 { target: 후보 task_id 또는 오늘 작업 key, reason }
 let form = null;       // 작업계획 입력 상태
 let dirty = false;     // 서버에 저장되지 않은 변경
 let busy = false;      // 저장 중 (중복 전송 방지)
 let draftTimer = null;
 let taskSeq = 0;
-const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {}, attendance: {} };
+const slots = { plan: {}, morning: {}, afternoon: {}, alert: {}, stop: {}, result: {}, evening: {}, attendance: {}, carry: {} };
 const RESULTS = { DONE: '완료', PARTIAL: '일부완료', NOT_DONE: '미완료', EXCLUDED: '제외' };
 const ALERTS = { NORMAL: '정상', CHANGED: '변경', DELAYED: '지연', RISK: '위험' };
 // 작업정지(STOPPED)는 버튼 목록과 따로 둔다: 오후 TBM에서 사유·처리 방향과 함께 저장하고, 퇴근 결과도 함께 확정된다
@@ -32,10 +34,36 @@ function tell(text, kind = '') { $('message').textContent = text; $('message').c
 // 저장 중에는 화면 전체를 덮어 추가 입력·중복 전송을 막는다 (busy 플래그로 한 번 더 확인)
 function setBusy(on, title = '저장 중입니다') {
   busy = on;
+  if (on) hideSaveError();
   $('loadingTitle').textContent = title;
   $('loadingOverlay').classList.toggle('active', on);
   $('loadingOverlay').setAttribute('aria-hidden', on ? 'false' : 'true');
 }
+// 업무 단계 완료(계획 저장·출근 보고·오후 저장·작업정지·퇴근 마감)는 서버 성공을 확인한 뒤
+// 큰 성공 표시를 잠깐 보여 주고 홈으로 돌아간다. 홈으로 돌아오면 저장 완료 (홈의 단계 ✓로 한 번 더 확인)
+const DONE_MS = 1200;
+function finishStep(title, sub = '') {
+  $('loadingOverlay').classList.remove('active'); $('loadingOverlay').setAttribute('aria-hidden', 'true');
+  $('doneTitle').textContent = title; $('doneSub').textContent = sub; $('doneSub').hidden = !sub;
+  $('doneOverlay').classList.add('active'); $('doneOverlay').setAttribute('aria-hidden', 'false');
+  return new Promise(resolve => setTimeout(() => {
+    $('doneOverlay').classList.remove('active'); $('doneOverlay').setAttribute('aria-hidden', 'true');
+    showStage('stageHome'); resolve();
+  }, DONE_MS));
+}
+// 저장 실패: 홈으로 가지 않고, 누른 버튼 바로 위에 크게 알린다 (입력 내용은 그대로, 다른 버튼을 가리지 않음).
+// 「다시 저장」은 같은 단계를 다시 보낸다 (같은 요청번호라 한 번만 저장)
+let retryStep = null;
+const STEP_ANCHORS = { stagePlan: 'savePlan', stageMorning: 'submitMorning', stageAfternoon: 'afternoonTasks', stageEvening: 'eveningClose' };
+function showSaveError(text, retry = null) {
+  retryStep = retry;
+  const stage = document.querySelector('.app-stage.active')?.id;
+  const anchor = $(STEP_ANCHORS[stage]);
+  if (anchor) anchor.before($('errorSheet'));
+  $('errorSheetText').textContent = text; $('errorSheetRetry').hidden = !retry; $('errorSheet').hidden = false;
+  $('errorSheet').scrollIntoView({ block: 'nearest' });
+}
+function hideSaveError() { $('errorSheet').hidden = true; }
 function showStage(id) {
   document.querySelectorAll('.app-stage').forEach(s => s.classList.toggle('active', s.id === id));
   window.scrollTo({ top: 0 });
@@ -144,6 +172,10 @@ function renderAll() {
   const steps = [['계획', !!r?.tasks?.length], ['출근', !!r?.morning_at], ['오후', !!r?.afternoon_at], ['퇴근', !!r?.evening_at]];
   const now = steps.findIndex(s => !s[1]);
   $('homeSteps').innerHTML = steps.map(([label, done], i) => `<div class="step ${done ? 'done' : i === now ? 'now' : ''}">${label}${done ? ' ✓' : ''}</div>`).join('');
+  // 작업정지는 홈에서도 바로 보이게 (처리 방향 포함)
+  const stoppedTasks = (r?.tasks || []).filter(t => t.alert === 'STOPPED');
+  $('homeNotes').hidden = !stoppedTasks.length;
+  $('homeNotes').innerHTML = stoppedTasks.map(t => `<div class="home-stop"><b>⛔ 작업정지 · ${t.carry_over ? '내일 이월' : '정지로 종료'}</b><span>작업 ${t.task_no} · ${escapeHtml(t.place)}${t.alert_note ? ' — ' + escapeHtml(t.alert_note) : ''}</span></div>`).join('');
   $('openPlanSub').textContent = r?.evening_at ? '내용 보기' : r ? '보기 · 수정' : '먼저 작성';
   $('currentActions').hidden = !!r?.evening_at;
   $('openNextSession').hidden = !r?.evening_at;
@@ -198,9 +230,16 @@ function renderPlan() {
   $('addTask').hidden = locked; $('savePlan').hidden = locked; $('draftClear').hidden = locked;
   renderServerState();
 }
-function otherTaskNos(task, personId) {
-  return form.tasks.filter(t => t !== task && t.members.some(m => m.person_id === personId)).map(t => '작업' + (form.tasks.indexOf(t) + 1));
+// 화면 번호: 전일 이월은 '이월 N', 오늘 신규는 '작업 N' (서버 작업 번호와 별개, 작업계획 화면 안에서만)
+function taskLabel(task) {
+  const group = form.tasks.filter(t => !!t.carried_from_task_id === !!task.carried_from_task_id);
+  return (task.carried_from_task_id ? '이월 ' : '작업 ') + (group.indexOf(task) + 1);
 }
+function otherTaskNos(task, personId) {
+  return form.tasks.filter(t => t !== task && t.members.some(m => m.person_id === personId)).map(t => taskLabel(t).replace(' ', ''));
+}
+// 같은 사람이 여러 작업에 들어가는 것은 허용된다 (서버는 한 작업 안 중복만 막음). 오류처럼 보이지 않게 '에도 투입'으로 표시
+const alsoIn = others => others.length ? `<span class="task-member-also">${others.join('·')}에도 투입</span>` : '';
 // 고를 수 있는 인원 목록: 검색어가 없으면 우리 팀, 있으면 같은 현장 전체(이름·팀). 이미 고른 인원은 위 '선택된 인원'으로 옮긴다
 function memberPool(task) {
   const q = (memberQuery.get(task.key) || '').trim().toLowerCase();
@@ -222,7 +261,7 @@ function renderPool(task) {
       <input type="checkbox" data-member="${p.person_id}" ${task.closed || lock ? 'disabled' : ''}>
       <span>${escapeHtml(info.name)}</span>${otherBadge(info)}
       ${lock ? `<span class="task-member-assigned">${escapeHtml(lock.team_name)} 배정중</span>` : ''}
-      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}
+      ${alsoIn(others)}
       ${info.other ? '' : `<span class="member-sub">${escapeHtml(info.sub)}</span>`}
     </label>`;
   }).join('');
@@ -234,7 +273,7 @@ function renderChosen(task) {
     const others = otherTaskNos(task, m.person_id);
     return `<div class="task-member chosen ${info.other ? 'other-team' : ''}">
       <div class="chip-head"><span class="chip-name">${escapeHtml(info.name)}</span>${otherBadge(info)}
-      ${others.length ? `<span class="task-member-assigned">${others.join('·')} 중복</span>` : ''}</div>
+      ${alsoIn(others)}</div>
       <select class="task-role-select" data-role="${m.person_id}" ${task.closed ? 'disabled' : ''} aria-label="${escapeHtml(info.name)} 역할">
         ${ROLES.map(r => `<option ${m.role === r ? 'selected' : ''}>${r}</option>`).join('')}
       </select>
@@ -242,23 +281,57 @@ function renderChosen(task) {
     </div>`;
   }).join('');
 }
-function renderTasks() {
-  if (!form.tasks.length) form.tasks.push(emptyTask());
-  $('taskList').innerHTML = form.tasks.map((task, i) => {
-    const members = `<div class="chosen-list">${renderChosen(task)}</div>
-      ${task.closed ? '' : `<input type="search" class="member-search" data-msearch="${task.key}" value="${escapeHtml(memberQuery.get(task.key) || '')}" placeholder="이름·팀으로 검색" aria-label="작업 ${i + 1} 인원 검색" enterkeyhint="search" autocomplete="off">
-      <div class="task-members" data-member-pool="${task.key}">${renderPool(task)}</div>`}`;
-    return `<div class="task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}">
-      <div class="task-head">
-        <div class="task-title">작업 ${i + 1}${task.carried_from_task_id ? '<span class="task-tag">이월</span>' : ''}${task.closed ? '<span class="task-tag">결과 입력됨</span>' : ''}</div>
-        ${task.closed || !editable() ? '' : `<button class="task-remove" type="button" data-remove="${task.key}">삭제</button>`}
-      </div>
-      <div class="field"><label class="label">작업 위치</label><input data-tfield="place" maxlength="120" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(task.place)}" ${task.closed ? 'disabled' : ''}></div>
+function taskBody(task) {
+  const label = taskLabel(task);
+  return `<div class="field"><label class="label">작업 위치</label><input data-tfield="place" maxlength="120" placeholder="예: 3층 MDF실 / A구역" value="${escapeHtml(task.place)}" ${task.closed ? 'disabled' : ''}></div>
       <div class="field"><label class="label">작업 내용</label><textarea data-tfield="content" maxlength="500" placeholder="예: 배선 작업 / 관로 작업" ${task.closed ? 'disabled' : ''}>${escapeHtml(task.content)}</textarea></div>
       <div class="member-head"><span class="label" style="margin:0">투입 인원</span><span class="member-count">선택된 인원 ${task.members.length}명</span></div>
-      ${members}
-    </div>`;
-  }).join('');
+      <div class="chosen-list">${renderChosen(task)}</div>
+      ${task.closed ? '' : `<input type="search" class="member-search" data-msearch="${task.key}" value="${escapeHtml(memberQuery.get(task.key) || '')}" placeholder="이름·팀으로 검색" aria-label="${label} 인원 검색" enterkeyhint="search" autocomplete="off">
+      <div class="task-members" data-member-pool="${task.key}">${renderPool(task)}</div>`}`;
+}
+const CARRY_RESULT = { PARTIAL: '전일 일부완료', NOT_DONE: '전일 미완료', STOPPED: '전일 작업정지' };
+function cancelEditor(target) {
+  if (cancelEdit?.target !== target) return '';
+  return `<div class="cancel-editor">
+    <label class="label" for="cancelReason">이월 취소 사유</label>
+    <input id="cancelReason" data-cancel-reason maxlength="200" value="${escapeHtml(cancelEdit.reason)}">
+    <div class="btn-row" style="margin-top:8px"><button type="button" class="task-save-btn cancel-confirm" data-cancel-confirm="${escapeHtml(target)}">이월 취소</button><button type="button" class="task-save-btn" style="background:#EEF4FA;color:var(--navy)" data-cancel-close>닫기</button></div>
+    <p class="stage-note">어제 기록은 지우지 않습니다. 누가·언제·사유가 이력에 남습니다.</p></div>`;
+}
+// 오늘 계획에 들어온 전일 이월 작업: 기본 접힘 (요약만), 누르면 내용·인원과 「이월 취소」
+function carriedCard(task) {
+  const label = taskLabel(task);
+  const summary = (task.content || '').split('\n')[0];
+  const source = CARRY_RESULT[task.carry_info?.result] || '전일 작업에서 이어받음';
+  const action = task.closed || !editable() ? '' : `<button class="task-remove carry-cancel-btn" type="button" data-carried-cancel="${task.key}">이월 취소</button>`;
+  return `<details class="carried-task task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}" ${openCarried.has(task.key) ? 'open' : ''}>
+    <summary class="carried-summary">
+      <span class="carried-main"><span class="carried-title"><span class="carry-badge">전일 이월</span> ${escapeHtml(task.place || '(위치 없음)')}</span>
+        <span class="carried-text">${escapeHtml(summary || '-')}</span>
+        <span class="carried-meta">${escapeHtml(label)} · ${escapeHtml(source)} · 인원 ${task.members.length}명${task.closed ? ' · 결과 입력됨' : task.id ? '' : ' · 저장 전'}</span></span>
+      <span class="fold-hint" aria-hidden="true"></span>
+    </summary>
+    <div class="carried-body">${taskBody(task)}
+      <div class="carried-actions">${action}</div>${cancelEditor(task.key)}</div>
+  </details>`;
+}
+function renderTasks() {
+  if (!form.tasks.length) form.tasks.push(emptyTask());
+  const carried = form.tasks.filter(t => t.carried_from_task_id);
+  const fresh = form.tasks.filter(t => !t.carried_from_task_id);
+  $('carriedBox').hidden = !carried.length;
+  $('carriedCount').textContent = carried.length ? `${carried.length}건` : '';
+  $('carriedList').innerHTML = carried.map(carriedCard).join('');
+  const split = carried.length > 0 || carryCandidates().length > 0;
+  $('newTasksHead').hidden = !split;
+  $('taskList').innerHTML = fresh.map(task => `<div class="task-card ${task.closed ? 'closed' : ''}" data-task="${task.key}">
+      <div class="task-head">
+        <div class="task-title">${taskLabel(task)}${split ? '<span class="new-badge">오늘 신규</span>' : ''}${task.closed ? '<span class="task-tag">결과 입력됨</span>' : ''}</div>
+        ${task.closed || !editable() ? '' : `<button class="task-remove" type="button" data-remove="${task.key}">삭제</button>`}
+      </div>
+      ${taskBody(task)}
+    </div>`).join('') || '<div class="task-member-empty">오늘 신규 작업이 없습니다. 필요하면 「＋ 작업 추가」를 누르세요.</div>';
 }
 function renderServerState() {
   const r = report();
@@ -278,17 +351,14 @@ function renderCarry() {
   const locked = !editable();
   $('carryBox').hidden = !list.length;
   $('carryCount').textContent = list.length ? `${list.length}건` : '';
-  $('carryList').innerHTML = list.map(c => {
-    const dropped = form.drop_carry_ids.includes(c.task_id);
-    return `<div class="carry-item" data-carry="${c.task_id}">
-      <strong>${escapeHtml(kstDateLabel(c.work_date))} 작업 ${c.task_no} · ${escapeHtml(c.place)}</strong>
+  $('carryList').innerHTML = list.map(c => `<div class="carry-item" data-carry="${c.task_id}">
+      <div class="carried-title"><span class="carry-badge">전일 이월</span> ${escapeHtml(c.place)}</div>
       <span>${escapeHtml(c.carry_note || c.content)}</span>
-      <span>${({ PARTIAL: '일부완료', NOT_DONE: '미완료', STOPPED: '작업정지' })[c.result] || '미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원: ${c.members.map(m => escapeHtml(m.name)).join(', ') || '-'}</span>
+      <span>${escapeHtml(kstDateLabel(c.work_date))} · ${CARRY_RESULT[c.result] || '전일 미완료'}${c.result_note ? ' · ' + escapeHtml(c.result_note) : ''} · 인원 ${c.members.length}명</span>
       <div class="carry-actions">
         <button type="button" data-carry-take="${c.task_id}" ${locked ? 'disabled' : ''}>오늘 이어서</button>
-        <button type="button" class="drop ${dropped ? 'selected' : ''}" data-carry-drop="${c.task_id}" ${locked ? 'disabled' : ''}>${dropped ? '이어받지 않음 (저장 시 반영)' : '이어받지 않음'}</button>
-      </div></div>`;
-  }).join('');
+        <button type="button" class="drop" data-carry-cancel="${c.task_id}" ${locked ? 'disabled' : ''}>이월 취소</button>
+      </div>${cancelEditor(c.task_id)}</div>`).join('');
 }
 function takeCarry(id) {
   const c = today.carry_candidates.find(x => x.task_id === id);
@@ -301,25 +371,73 @@ function takeCarry(id) {
   // 비어 있는 첫 작업 칸은 이월 작업으로 대신한다
   const blank = form.tasks.find(t => !t.id && !t.place.trim() && !t.content.trim() && !t.members.length);
   if (blank) form.tasks = form.tasks.filter(t => t !== blank);
-  form.tasks.push({ ...emptyTask(), place: c.place, content: c.carry_note || c.content, carried_from_task_id: c.task_id, members });
+  const task = { ...emptyTask(), place: c.place, content: c.carry_note || c.content, carried_from_task_id: c.task_id, members, carry_info: { result: c.result, work_date: c.work_date } };
+  form.tasks.push(task);
   form.drop_carry_ids = form.drop_carry_ids.filter(x => x !== id);
+  if (cancelEdit?.target === id) cancelEdit = null;
   renderCarry(); renderTasks(); saveDraftSoon();
-  tell(`이월 작업을 오늘 작업 ${form.tasks.length}(으)로 가져왔습니다. 저장해야 서버에 반영됩니다.${skipped.length ? ` 오늘 선택할 수 없는 인원은 빠졌습니다: ${skipped.join(', ')}` : ''}`);
+  tell(`이월 작업을 「${taskLabel(task)}」(으)로 가져왔습니다 (접혀 있음). 저장해야 서버에 반영됩니다.${skipped.length ? ` 오늘 선택할 수 없는 인원은 빠졌습니다: ${skipped.join(', ')}` : ''}`);
+}
+// 이월 취소: 서버에 이유를 남긴다 (어제 기록은 그대로, 이월 상태만 '이어받지 않음'). 오늘 계획에 저장된 이월이면 오늘 작업에서도 뺀다
+async function cancelCarry(taskId, reason, todayTask) {
+  if (busy) return;
+  if ((reason || '').trim().length < 2) { tell('이월 취소 사유를 2자 이상 적어주세요.', 'error'); return; }
+  if (todayTask && planIsDirty()) return;
+  const args = { p_task_id: taskId, p_reason: reason.trim() };
+  args.p_request_id = requestIdFor(slots.carry, args);
+  setBusy(true, '이월 취소 중');
+  try {
+    const res = await rpc('tbm_carry_cancel', args);
+    slots.carry = {}; cancelEdit = null;
+    if (res.mode === 'TODAY') await load({ quiet: true });
+    else { today.carry_candidates = (today.carry_candidates || []).filter(c => c.task_id !== taskId); renderCarry(); renderTasks(); }
+    tell('이월을 취소했습니다. 어제 기록은 그대로이고, 취소 사유가 이력에 남았습니다.', 'ok');
+  } catch (e) {
+    if (e.code === 'UNKNOWN') tell('이월 취소는 서버 준비(DB v0.5) 뒤에 쓸 수 있습니다. 관리자에게 알려주세요.', 'error');
+    else await handleActionError(e);
+  } finally { setBusy(false); }
+}
+function onCancelEditor(e) {
+  if (e.target.closest('[data-cancel-close]')) { cancelEdit = null; renderCarry(); renderTasks(); return true; }
+  const target = e.target.closest('[data-cancel-confirm]')?.dataset.cancelConfirm;
+  if (!target) return false;
+  const task = form.tasks.find(t => t.key === target);
+  cancelCarry(task ? task.id : target, cancelEdit?.reason || '', !!task);
+  return true;
 }
 $('carryList').addEventListener('click', e => {
+  if (busy || onCancelEditor(e)) return;
   const take = e.target.closest('[data-carry-take]')?.dataset.carryTake;
   if (take) { takeCarry(take); return; }
-  const drop = e.target.closest('[data-carry-drop]')?.dataset.carryDrop;
-  if (drop) {
-    form.drop_carry_ids = form.drop_carry_ids.includes(drop) ? form.drop_carry_ids.filter(x => x !== drop) : [...form.drop_carry_ids, drop];
-    renderCarry(); saveDraftSoon();
-  }
+  const cancel = e.target.closest('[data-carry-cancel]')?.dataset.carryCancel;
+  if (cancel) { cancelEdit = { target: cancel, reason: '잘못 이월 처리함' }; renderCarry(); document.querySelector('#carryList [data-cancel-reason]')?.focus(); }
 });
+$('carriedList').addEventListener('click', e => {
+  if (busy || onCancelEditor(e)) return;
+  const key = e.target.closest('[data-carried-cancel]')?.dataset.carriedCancel;
+  if (!key) return;
+  const task = form.tasks.find(t => t.key === key);
+  if (!task.id) {
+    // 아직 서버에 저장하지 않은 이어받기는 목록에서만 빼면 된다 (후보로 돌아감, 서버 기록 없음)
+    if (!confirm('아직 저장하지 않은 이월 작업입니다. 오늘 작업에서 뺄까요?')) return;
+    form.tasks = form.tasks.filter(t => t !== task); openCarried.delete(key);
+    renderCarry(); renderTasks(); saveDraftSoon();
+    tell('이월 작업을 오늘 작업에서 뺐습니다 (저장 전이라 서버 기록 없음). 다시 이어받을 수 있습니다.', 'ok');
+    return;
+  }
+  cancelEdit = { target: key, reason: '잘못 이월 처리함' }; renderTasks();
+  document.querySelector('#carriedList [data-cancel-reason]')?.focus();
+});
+$('stagePlan').addEventListener('toggle', e => {
+  const key = e.target.matches?.('.carried-task') ? e.target.dataset.task : null;
+  if (key) { if (e.target.open) openCarried.add(key); else openCarried.delete(key); }
+}, true);
 
 // ---------- 입력 ----------
 function taskOf(el) { const key = el.closest('[data-task]')?.dataset.task; return form.tasks.find(t => t.key === key); }
 $('stagePlan').addEventListener('input', e => {
   const el = e.target;
+  if (el.hasAttribute('data-cancel-reason')) { if (cancelEdit) cancelEdit.reason = el.value; return; }
   if (el.dataset.msearch) {
     // 검색은 서버 저장·임시저장과 무관. 목록만 다시 그린다 (입력칸 포커스 유지)
     memberQuery.set(el.dataset.msearch, el.value);
@@ -392,7 +510,7 @@ async function savePlan() {
   const problem = validatePlan();
   if (problem) { tell(problem, 'error'); return; }
   const dup = [...new Set(form.tasks.flatMap(t => t.members.map(m => m.person_id)).filter((id, i, all) => all.indexOf(id) !== i))];
-  if (dup.length && !confirm(`다음 인원이 여러 작업에 중복 배정되어 있습니다.\n${dup.map(memberName).join(', ')}\n\n그래도 저장할까요?`)) return;
+  if (dup.length && !confirm(`같은 인원이 여러 작업에 들어 있습니다.\n${dup.map(memberName).join(', ')}\n\n이대로 저장할까요?`)) return;
   const payload = buildPayload();
   const request_id = requestIdFor(slots.plan, payload);
   setBusy(true, '작업계획 저장 중');
@@ -404,6 +522,7 @@ async function savePlan() {
     renderAll();
     const carried = result.report.tasks.filter(t => t.carried_from_task_id).length;
     tell(`작업계획을 서버에 저장했습니다 (${kstTime(result.report.updated_at)}, 작업 ${result.report.tasks.length}건${carried ? `, 이월 이어받음 ${carried}건` : ''}${payload.drop_carry_ids.length ? `, 이어받지 않음 ${payload.drop_carry_ids.length}건` : ''}).`, 'ok');
+    await finishStep('작업계획 저장 완료', `작업 ${result.report.tasks.length}건${carried ? ` · 전일 이월 ${carried}건` : ''}`);
   } catch (e) {
     if (e.code === 'VERSION_CONFLICT' || e.code === 'CARRY_NOT_AVAILABLE' || e.code === 'TASK_NOT_FOUND') {
       slots.plan = {}; clearDraft();
@@ -412,6 +531,7 @@ async function savePlan() {
     } else if (e.code === 'REPORT_NOT_EDITABLE') {
       slots.plan = {}; await load({ quiet: true }); tell(describeError(e), 'error');
     } else tell(describeError(e) + (e.code === 'NETWORK' || e.code === 'TIMEOUT' ? '' : ' (서버에 저장되지 않았습니다)'), 'error');
+    if (!BLOCKING.includes(e.code)) showSaveError(saveErrorText(e), ['VERSION_CONFLICT', 'CARRY_NOT_AVAILABLE', 'TASK_NOT_FOUND', 'REPORT_NOT_EDITABLE'].includes(e.code) ? null : savePlan);
   } finally { setBusy(false); }
 }
 $('savePlan').addEventListener('click', savePlan);
@@ -460,6 +580,16 @@ async function handleActionError(e) {
   else if (BLOCKING.includes(e.code)) block(describeError(e));
   else tell(describeError(e) + (e.code === 'NETWORK' || e.code === 'TIMEOUT' ? '' : ' (서버에 저장되지 않았습니다)'), 'error');
 }
+function saveErrorText(e) {
+  if (e.code === 'NETWORK' || e.code === 'TIMEOUT') return '저장됐는지 확인되지 않았습니다. 입력한 내용은 그대로 있습니다. 다시 눌러주세요 (같은 요청은 한 번만 저장됩니다).';
+  if (RELOAD_CODES.includes(e.code)) return `${describeError(e)} 최신 내용을 다시 불러왔습니다. 확인한 뒤 다시 저장해주세요.`;
+  return `${describeError(e)} 입력한 내용은 그대로 있습니다. 다시 저장해주세요.`;
+}
+// 업무 단계 완료 버튼의 실패: 지금 화면에 그대로 남는다
+async function stepFailed(e, retry = null) {
+  await handleActionError(e);
+  if (!BLOCKING.includes(e.code)) showSaveError(saveErrorText(e), RELOAD_CODES.includes(e.code) ? null : retry);
+}
 async function submitMorning() {
   const r = report();
   if (busy || !r || r.morning_at || planIsDirty()) return;
@@ -471,7 +601,8 @@ async function submitMorning() {
     slots.morning = {};
     applyReport(res.report);
     tell(`출근 TBM을 보고했습니다 (${kstTime(res.report.morning_at)}).`, 'ok');
-  } catch (e) { await handleActionError(e); }
+    await finishStep('출근 TBM 보고 완료', kstTime(res.report.morning_at));
+  } catch (e) { await stepFailed(e, submitMorning); }
   finally { setBusy(false); }
 }
 $('submitMorning').addEventListener('click', submitMorning);
@@ -662,7 +793,8 @@ async function afternoonAllClear() {
     slots.afternoon = {}; afternoonNoteTouched = false; alertEdit = null;
     applyReport(res.report);
     tell(`오후 TBM을 저장했습니다. 확인 안 한 작업 ${count}건을 정상으로 표시했습니다.`, 'ok');
-  } catch (e) { await handleActionError(e); }
+    await finishStep('오후 TBM 저장 완료', count ? `정상 ${count}건` : '');
+  } catch (e) { await stepFailed(e, afternoonAllClear); }
   finally { setBusy(false); }
 }
 // 작업정지: 사유와 처리 방향(내일 이월 / 오늘 정지로 종료)을 함께 저장. CANCEL은 잘못 누른 정지를 되돌린다
@@ -688,7 +820,9 @@ async function saveStop(taskId, disposition) {
     applyReport(res.report);
     tell(disposition === 'CANCEL' ? `작업 ${task.task_no}의 작업정지를 취소했습니다. 오후 상태를 다시 입력해주세요.`
       : `작업 ${task.task_no}을(를) 작업정지(${STOP_DISPOSITIONS[args.p_disposition]})로 저장했습니다.`, 'ok');
-  } catch (e) { await handleActionError(e); }
+    // 정지 취소는 고치는 중이라 화면에 남고, 작업정지 저장은 단계 완료로 홈에 간다
+    if (disposition !== 'CANCEL') await finishStep('작업정지 저장 완료', `작업 ${task.task_no} · ${STOP_DISPOSITIONS[args.p_disposition]}`);
+  } catch (e) { if (disposition === 'CANCEL') await handleActionError(e); else await stepFailed(e, () => saveStop(taskId, disposition)); }
   finally { setBusy(false); }
 }
 $('afternoonAllClear').addEventListener('click', afternoonAllClear);
@@ -809,10 +943,13 @@ async function eveningClose() {
     applyReport(res.report);
     const carried = res.report.tasks.filter(t => t.carry_over).length;
     tell(`퇴근 TBM을 마감했습니다 (${kstTime(res.report.evening_at)}).${carried ? ` 내일 이월 ${carried}건은 다음 날 작업계획에서 이어받을 수 있습니다.` : ''}`, 'ok');
-  } catch (e) { await handleActionError(e); }
+    await finishStep('퇴근 TBM 마감 완료', carried ? `내일 이월 ${carried}건` : kstTime(res.report.evening_at));
+  } catch (e) { await stepFailed(e, eveningClose); }
   finally { setBusy(false); }
 }
 $('eveningClose').addEventListener('click', eveningClose);
+$('errorSheetClose').addEventListener('click', hideSaveError);
+$('errorSheetRetry').addEventListener('click', () => { const retry = retryStep; hideSaveError(); if (retry && !busy) retry(); });
 $('eveningNote').addEventListener('input', () => { eveningNoteTouched = true; });
 $('eveningTasks').addEventListener('click', e => {
   const btn = e.target.closest('button'); if (!btn || busy) return;
@@ -983,7 +1120,7 @@ async function openCompleted(id) {
         <span>인원: ${membersLine(t.members)}</span><span>오후: ${ALERT_LABELS[t.alert] || '미확인'} · ${escapeHtml(t.alert_note || '')} ${escapeHtml(t.alert_action || '')}</span>
         <span>퇴근: ${t.result === 'STOPPED' ? stopLabel(t) : RESULTS[t.result] || '미입력'} · ${escapeHtml(t.result_note || '')}</span>${t.carry_over ? `<span>이월: ${escapeHtml(t.carry_note || '')}</span>` : ''}</div>`).join('')}</div>
       ${['MORNING','AFTERNOON','EVENING'].map((kind,i) => `<h3>${['출근','오후','퇴근'][i]} 사진</h3><div class="photo-preview">${r.photos.filter(p => p.kind===kind).map(p => `<div class="photo-thumb"><img alt="${['출근','오후','퇴근'][i]} 사진" data-photo-path="${escapeHtml(p.path)}"><span class="photo-state">${kstTime(p.created_at)}</span></div>`).join('') || '사진 없음'}</div>`).join('')}
-      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험',TASK_STOPPED:'작업정지',TASK_STOP_CANCELLED:'작업정지 취소'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
+      <h3>저장 이력</h3><ul>${d.history.map(h => `<li>${kstTime(h.at)} · ${escapeHtml(h.actor)} · ${escapeHtml(({SESSION_OPENED:'새 작업 열기',PLAN_SAVE:'계획 저장',MORNING_SUBMIT:'출근 TBM',AFTERNOON_ALL_CLEAR:'오후 TBM',EVENING_CLOSE:'퇴근 마감',PHOTO_ADD:'사진 추가',PHOTO_REMOVE:'사진 숨김',TASK_RESULT:'작업 결과',TASK_NORMAL:'정상',TASK_CHANGED:'변경',TASK_DELAYED:'지연',TASK_RISK:'위험',TASK_STOPPED:'작업정지',TASK_STOP_CANCELLED:'작업정지 취소',CARRY_CANCELLED:'이월 취소'})[h.action] || '작업 기록')} ${escapeHtml(h.note || '')}</li>`).join('')}</ul>`;
     await loadPhotoUrls(); showStage('stageSessionDetail');
   } catch(e) { tell(describeError(e),'error'); } finally { setBusy(false); }
 }
@@ -1024,6 +1161,7 @@ $('goLogin').addEventListener('click', async () => { await logout(); location.re
 window.addEventListener('beforeunload', e => { if (dirty || attPending('IN').length || attPending('OUT').length) { e.preventDefault(); e.returnValue = ''; } });
 
 // 운영 화면에는 TEST 표시를 하지 않는다
-const VERSION_LABEL = PROD ? 'v1.1' : `v${PAGE_VERSION} TEST`;
+const VERSION_LABEL = PROD ? 'v1.2' : `v${PAGE_VERSION} TEST`;
 $('pageVersion').textContent = VERSION_LABEL; $('footerVersion').textContent = VERSION_LABEL;
+guardBackForward(PAGE);
 if (requireLogin(PAGE)) load();

@@ -223,3 +223,50 @@ input,select,textarea{font-size:16px}input,select{height:50px}
 .task-tbm-card.is-risk{border-left:6px solid #B42318}.task-tbm-card.is-alert{border-left:6px solid #C67A00}.task-tbm-card.is-changed{border-left:6px solid #2E7CF6}.task-tbm-card.saved{border-left:6px solid #229A62}
 /* 좁은 휴대폰: 단계 제목 줄의 버튼은 한 줄 유지, 모자라면 제목 아래 줄로 */
 @media(max-width:400px){.stage-nav-inner{flex-wrap:wrap}.stage-actions{flex-wrap:nowrap;margin-left:auto}.stage-small-btn{padding:9px 10px;white-space:nowrap}}
+
+/* v1.2 전일 이월: 기본 접힘 · 오늘 신규와 구분 · 인원은 숫자만 */
+.carry-badge,.new-badge{display:inline-block;font-size:12px;font-weight:900;border-radius:999px;padding:3px 9px;white-space:nowrap;vertical-align:middle}
+.carry-badge{background:#7A5516;color:#fff}.new-badge{background:#195FB8;color:#fff;margin-left:8px}
+details.carry-box{padding:0}
+.carry-summary,.carried-summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:52px}
+.carry-summary::-webkit-details-marker,.carried-summary::-webkit-details-marker{display:none}
+.carry-summary{padding:12px 14px;font-size:16px;font-weight:900;color:#7A5516}
+details.carry-box > :not(summary){margin:0 12px 12px}
+.fold-hint{flex:0 0 auto;font-size:13px;font-weight:900;color:#7A5516;border:1px solid #E5C98D;background:#fff;border-radius:999px;padding:6px 10px}
+.fold-hint::before{content:'펼치기 ▼'}details[open] > summary .fold-hint::before{content:'접기 ▲'}
+.group-head{font-size:16px;font-weight:900;color:var(--navy);margin:16px 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.carried-list{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.carried-task.task-card{background:#FFF9ED;border:1px solid #E5C98D;border-left:6px solid #B7791F;padding:0}
+.carried-summary{padding:12px 12px 12px 14px}
+.carried-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.carried-title{font-size:16px;font-weight:900;color:var(--navy);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.carried-text{font-size:14px;color:#3D4A5C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carried-meta{font-size:13px;font-weight:800;color:#7A5516}
+.carried-body{padding:4px 12px 14px;border-top:1px dashed #E5C98D}
+.carried-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.carry-cancel-btn{min-height:44px}
+.carry-item .carried-title{margin-bottom:2px}
+.carry-actions button{min-height:48px;font-size:15px}
+.cancel-editor{margin-top:10px;padding:12px;border-radius:12px;background:#FEF3F2;border:1px solid #F4C7C3}
+.task-save-btn.cancel-confirm{background:#B42318}
+.task-member-also{font-size:12px;font-weight:800;border-radius:999px;padding:3px 7px;white-space:nowrap;background:#EEF4FA;color:#39495C;border:1px solid #D6E1ED}
+
+/* v1.2 저장 성공 → 홈 / 저장 실패 → 화면에 남음 */
+.done-overlay{position:fixed;inset:0;background:rgba(9,21,37,.40);display:none;align-items:center;justify-content:center;z-index:10000;padding:20px}
+.done-overlay.active{display:flex}
+.done-card{width:min(340px,100%);background:#fff;border-radius:20px;padding:26px 20px;text-align:center;border:3px solid #229A62;box-shadow:0 18px 44px rgba(9,21,37,.22)}
+.done-check{width:64px;height:64px;margin:0 auto 12px;border-radius:50%;background:#229A62;color:#fff;font-size:38px;font-weight:900;line-height:64px}
+.done-title{font-size:22px;font-weight:900;color:#177247;line-height:1.35}
+.done-sub{font-size:17px;font-weight:800;color:var(--navy);margin-top:6px;line-height:1.4}
+.done-note{font-size:14px;color:var(--muted);margin-top:10px}
+.error-sheet{margin:12px 0;background:#FEF3F2;border:3px solid #B42318;border-radius:16px;padding:14px 16px;box-shadow:0 8px 22px rgba(180,35,24,.18)}
+.error-sheet-title{font-size:19px;font-weight:900;color:#B42318}
+.error-sheet-text{font-size:15px;font-weight:700;color:#7A271A;line-height:1.5;margin-top:4px}
+.error-sheet-actions{display:flex;gap:8px;margin-top:10px}
+.error-sheet-retry,.error-sheet-close{flex:1;min-height:48px;border-radius:12px;font-size:16px;font-weight:900;cursor:pointer}
+.error-sheet-retry{border:0;background:#B42318;color:#fff}.error-sheet-close{border:1px solid #F4C7C3;background:#fff;color:#B42318}
+.home-notes{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.home-stop{border:2px solid #C2410C;border-left-width:8px;border-radius:12px;background:#FFF4ED;padding:9px 12px;font-size:14px;line-height:1.45;color:#7A2E0E}
+.home-stop b{display:block;font-size:16px;color:#C2410C}
+.carry-item .carry-badge{display:inline-block;color:#fff;font-size:12px;margin:0}
+.group-head .new-badge{margin-left:0}

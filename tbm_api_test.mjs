@@ -93,6 +93,10 @@ export function clearSession() {
   sessionStorage.removeItem('tbmAuthUser');
 }
 export function loginUrl(next) { return pageUrl('login') + '?next=' + encodeURIComponent(next); }
+// 뒤로가기 캐시(Safari BFCache)로 업무 화면이 다시 보일 때, 그 사이 로그아웃됐으면 로그인으로 보낸다
+export function guardBackForward(next) {
+  window.addEventListener('pageshow', e => { if (e.persisted && !loadSession()) location.replace(loginUrl(next)); });
+}
 // 세션이 없으면 통합 로그인으로 보낸다 (로그인 후 next 화면으로 돌아옴, 허용 역할은 로그인 화면이 서버 기준으로 확인)
 export function requireLogin(next) {
   const session = loadSession();

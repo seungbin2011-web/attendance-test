@@ -3,8 +3,8 @@ import { setup, newPage, issuePin, sql, noHorizontalScroll, step, summary, asser
 
 const env = await setup();
 const PASS = 'pilot-test-pass';
-const REPORT_VERSION = 'v0.70 TEST';
-const MANAGER_VERSION = 'v0.50 TEST';
+const REPORT_VERSION = 'v0.80 TEST';
+const MANAGER_VERSION = 'v0.60 TEST';
 const TEAM2 = 'b0000000-0000-0000-0000-000000000002';
 const TEAM3 = 'b0000000-0000-0000-0000-000000000003';
 const P = n => `c0000000-0000-0000-0000-0000000000${n}`;
@@ -55,6 +55,11 @@ async function makeJpegs(page, colors) {
 async function thumbsLoaded(page, kind) {
   await page.waitForFunction(k => [...document.querySelectorAll(`[data-photo-preview=${k}] img`)].every(i => i.complete && i.naturalWidth > 0), kind, { timeout: 8000 });
   return page.locator(`[data-photo-preview=${kind}] .photo-thumb`).count();
+}
+// v1.2: 업무 단계 완료(계획 저장·출근 보고·오후 저장·작업정지·퇴근 마감) 뒤에는 성공 표시 후 홈으로 돌아간다
+async function waitHome(page) {
+  await page.waitForSelector('#stageHome.active');
+  await page.waitForFunction(() => !document.querySelector('#doneOverlay.active'));
 }
 async function rpcFromPage(page, name, args) {
   return page.evaluate(async ([name, args]) => {
@@ -137,7 +142,7 @@ try {
     assert.equal(r.version, 2); assert.deepEqual(r.risks.sort(), ['기타', '전기'].sort()); assert.equal(r.risk_other, '협소 공간');
     assert.equal(r.needs_manager_check, true); assert.equal(r.end_time, '17:30'); assert.equal(r.reporter_label, '시험이팀장');
     assert.deepEqual(r.tasks, [{ no: 1, place: '3층 MDF실', members: ['작업지휘자:T-0026', '작업자:T-0027'] }, { no: 2, place: 'B동 옥상', members: ['신호수:T-0036'] }]);
-    await page.click('.app-stage.active [data-go=stageHome]');
+    await waitHome(page);
     assert.equal(await page.textContent('#homeStatus'), '계획 저장');
   });
 
@@ -174,10 +179,13 @@ try {
     assert.equal(ids.length, 2); assert.equal(ids[0], ids[1]);
     const v = await sql(env, `select version, safety_note from field_pilot_v1.daily_reports where team_id = $1`, [TEAM2]);
     assert.equal(v[0].version, 3); assert.equal(v[0].safety_note, '안전대 착용, 공구 낙하 주의');
+    await waitHome(page);
   });
 
   await step('다른 화면이 먼저 저장하면 충돌 안내 후 최신 내용으로 다시 불러옴', async () => {
     const { page } = leader;
+    await page.click('#openPlan');
+    await page.waitForSelector('#stagePlan.active');
     await sql(env, `update field_pilot_v1.daily_reports set version = version + 1, safety_note = '다른 화면에서 수정' where team_id = $1`, [TEAM2]);
     await page.fill('#safetyNote', '이 화면의 수정');
     await page.click('#savePlan');
@@ -258,7 +266,7 @@ try {
     assert.deepEqual(rows[0], { status: 'SUBMITTED', morning_note: '장비 점검 후 작업 시작', done: true });
     const hist = await sql(env, `select count(*)::int as n from field_pilot_v1.workflow_history h join field_pilot_v1.daily_reports r on r.id = h.report_id where r.team_id = $1 and h.action = 'MORNING_SUBMIT'`, [TEAM2]);
     assert.equal(hist[0].n, 1);
-    await page.click('.app-stage.active [data-go=stageHome]');
+    await waitHome(page);
     assert.equal(await page.textContent('#homeStatus'), '출근 보고 완료');
   });
 
@@ -411,6 +419,9 @@ try {
 
   await step('오후 TBM: 위험은 내용 없이 저장 안 됨, 내용·조치 적으면 작업별 저장', async () => {
     const { page } = leader;
+    await waitHome(page);
+    await page.click('#openAfternoon');
+    await page.waitForSelector('#stageAfternoon.active');
     let calls = 0; const count = r => { if (r.url().includes('tbm_task_alert')) calls++; };
     page.on('request', count);
     const card2 = page.locator('.task-tbm-card').nth(1);

@@ -46,9 +46,11 @@ await page.locator('[data-tfield="place"]').fill('화면 작성 위치 4');
 await page.locator('[data-tfield="content"]').fill('화면 작성 내용 4');
 await page.locator('[data-member="c0000000-0000-0000-0000-000000000026"]').check();
 await page.locator('#savePlan').click();await page.locator('#message').filter({hasText:'서버에 저장했습니다'}).waitFor();await idle();
+// v1.2: 업무 단계 완료 뒤에는 성공 표시 후 홈으로 돌아간다
+await page.locator('#stageHome.active').waitFor();
 assert.equal((await rpc('tbm_today')).report.id,four.id);
 assert.equal((await rpc('tbm_today')).report.tasks[0].content,'화면 작성 내용 4');
-await page.locator('#stagePlan [data-open="openMorning"]').click();await page.locator('#submitMorning').click();await idle();
+await page.locator('#openMorning').click();await page.locator('#submitMorning').click();await idle();await page.locator('#stageHome.active').waitFor();
 assert.ok((await rpc('tbm_today')).report.morning_at);
 await page.reload();await page.locator('#homeTitle').filter({hasText:'작업 4'}).waitFor();await idle();
 await page.locator('#logoutBtn').click();await page.waitForURL(origin+'index.html');assert.equal(await page.evaluate(()=>sessionStorage.getItem('personnelPilotSessionV2')),null);

@@ -62,6 +62,8 @@ await card(t1.id).locator('[data-stop-disp=CARRY]').click();
 await card(t1.id).locator('[data-aedit=action]').fill('내일 오전 재개');
 await page.screenshot({path:'artifacts/v04-stop-editor-360.png',fullPage:true});
 await card(t1.id).locator('[data-stop-save]').click();await msg(/작업정지\(내일 이월\)로 저장/);await idle();
+// v1.2: 작업정지 저장은 단계 완료 → 홈. 오후 TBM을 다시 연다
+await page.locator('#stageHome.active').waitFor();await page.locator('#openAfternoon').click();await page.locator('#stageAfternoon.active').waitFor();await idle();
 assert.match(await card(t1.id).getAttribute('class'),/is-stopped/);
 assert.match(await card(t1.id).locator('.task-save-state').innerText(),/작업정지 · 내일 이월/);
 assert.match(await card(t1.id).innerText(),/정지 사유 자재 미입고 · 조치: 내일 오전 재개/);
@@ -69,6 +71,8 @@ let k=(await rpc('tbm_today')).report.tasks[0];assert.ok(k.alert==='STOPPED'&&k.
 ok('stop CARRY saved with reason, action and carryover');
 await card(t2.id).locator('[data-alert=STOPPED]').click();await card(t2.id).locator('[data-aedit=note]').fill('우천');
 await card(t2.id).locator('[data-stop-disp=END]').click();await card(t2.id).locator('[data-stop-save]').click();await msg(/오늘 정지로 종료/);await idle();
+// v1.2: 작업정지 저장은 단계 완료 → 홈. 오후 TBM을 다시 연다
+await page.locator('#stageHome.active').waitFor();await page.locator('#openAfternoon').click();await page.locator('#stageAfternoon.active').waitFor();await idle();
 await card(t2.id).locator('[data-alert=STOPPED]').click();
 assert.equal(await card(t2.id).locator('[data-aedit=note]').inputValue(),'우천');
 assert.match(await card(t2.id).locator('[data-stop-disp=END]').getAttribute('class'),/selected/);
@@ -77,23 +81,26 @@ assert.doesNotMatch(await card(t2.id).getAttribute('class'),/is-stopped/);
 ok('reopen stop editor keeps values; cancel stop returns task to unchecked');
 await card(t2.id).locator('[data-alert=STOPPED]').click();await card(t2.id).locator('[data-aedit=note]').fill('우천 지속');
 await card(t2.id).locator('[data-stop-disp=END]').click();await card(t2.id).locator('[data-stop-save]').click();await msg(/오늘 정지로 종료/);await idle();
+// v1.2: 작업정지 저장은 단계 완료 → 홈. 오후 TBM을 다시 연다
+await page.locator('#stageHome.active').waitFor();await page.locator('#openAfternoon').click();await page.locator('#stageAfternoon.active').waitFor();await idle();
 assert.equal(await card(t1.id).locator('[data-alert=NORMAL]').isDisabled(),true,'other status buttons locked on stopped task');
 assert.equal(await page.locator('#afternoonAllClear').innerText(),'전체 이상 없음');
 await page.locator('#afternoonAllClear').click();await msg(/오후 TBM을 저장/);await idle();
+await page.locator('#stageHome.active').waitFor();await page.locator('#openAfternoon').click();await page.locator('#stageAfternoon.active').waitFor();await idle();
 assert.match(await card(t1.id).locator('.task-save-state').innerText(),/작업정지/);
 await noHScroll('afternoon 360');
 await page.screenshot({path:'artifacts/v04-afternoon-360.png',fullPage:true});
 ok('all-clear keeps stopped tasks');
 
 // ---- 퇴근 TBM: 작업정지는 다시 입력하지 않음 ----
-await page.locator('#stageAfternoon [data-open="openEvening"]').click();await page.locator('#stageEvening.active').waitFor();await idle();
+await page.locator('#stageAfternoon [data-go="stageHome"]').click();await page.locator('#openEvening').click();await page.locator('#stageEvening.active').waitFor();await idle();
 const ev=id=>page.locator(`[data-evening-task="${id}"]`);
 assert.equal(await ev(t1.id).locator('[data-result]').count(),0);
 assert.match(await ev(t1.id).locator('.stop-note').innerText(),/퇴근 결과 입력 필요 없음/);
 assert.match(await ev(t2.id).locator('.task-save-state').innerText(),/작업정지 · 정지로 종료/);
 assert.equal(await page.locator('#eveningClose').innerText(),'나머지 1건 완료로 하고 퇴근 마감');
 await page.screenshot({path:'artifacts/v04-evening-360.png',fullPage:true});
-await page.locator('#eveningClose').click();await msg(/퇴근 TBM을 마감했습니다.*내일 이월 1건/);await idle();
+await page.locator('#eveningClose').click();await msg(/퇴근 TBM을 마감했습니다.*내일 이월 1건/);await idle();await page.locator('#stageHome.active').waitFor();
 const closed=(await rpc('tbm_report_detail',{p_report_id:r.id},'manager')).report;
 assert.deepEqual(closed.tasks.map(t=>t.result),['STOPPED','STOPPED','DONE']);
 assert.ok(closed.evening_at&&closed.tasks[0].alert_note==='자재 미입고'&&closed.tasks[1].alert_note==='우천 지속');
@@ -157,12 +164,12 @@ await page.locator('.task-card').first().locator('[data-tfield=place]').fill('�
 await page.locator('.task-card').first().locator('[data-tfield=content]').fill('타 팀 지원 작업');
 await noHScroll('plan 320');
 await page.screenshot({path:'artifacts/v04-plan-320.png',fullPage:true});
-await page.locator('#savePlan').click();await msg(/서버에 저장했습니다/);await idle();
+await page.locator('#savePlan').click();await msg(/서버에 저장했습니다/);await idle();await page.locator('#stageHome.active').waitFor();
 const four=(await rpc('tbm_today')).report;
 const m51=four.tasks[0].members.find(m=>m.name==='시험삼팀원');
 assert.ok(four.session_no===4&&m51.other_team&&m51.home_team_name==='시험3팀'&&m51.role==='신호수');
 assert.equal((await db.query("select team_id from personnel_pilot_v1.memberships where person_id=$1 and valid_to is null",[P('051')])).rows[0].team_id,'b0000000-0000-0000-0000-000000000003');
-await page.locator('#stagePlan [data-open="openMorning"]').click();await page.locator('#stageMorning.active').waitFor();
+await page.locator('#openMorning').click();await page.locator('#stageMorning.active').waitFor();
 assert.match(await page.locator('#morningTasks').innerText(),/시험삼팀원\(신호수\)\s*타 팀원 · 시험3팀/);
 ok('saved with other-team member; official team unchanged; morning view shows badge');
 
