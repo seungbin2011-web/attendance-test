@@ -70,7 +70,7 @@ async function loginRosterMember(name, pin) {
   const destination = appRole === 'MANAGER' ? 'admin_test.html' : appRole === 'LEADER' ? 'leader_test.html' : 'member_test.html';
   const destinationLabel = appRole === 'MANAGER' ? '소장 현황' : appRole === 'LEADER' ? '팀장 TBM' : '팀원 화면';
   tell(`${user.name}님 확인 완료 · ${destinationLabel}으로 이동합니다.`);
-  setTimeout(() => { location.href = destination; }, 350);
+  setTimeout(() => { location.replace(destination); }, 350);
 }
 // 개인 로그인은 업무계정 전용 화면(인원 편집)으로 보내지 않는다.
 const WORK_ONLY_PAGES = ['admin_test.html'];
@@ -125,7 +125,8 @@ async function continueMemberSession() {
   const [home, label] = MEMBER_HOMES[actor.app_role] || MEMBER_HOMES.MEMBER;
   const destination = nextPage(actor.app_role, true) || home;
   tell(`${actor.name}님 확인 완료 · ${label}으로 이동합니다.`);
-  setTimeout(() => { location.href = destination; }, 350);
+  // 로그인 화면을 방문 기록에 남기지 않는다 (replace): 업무 화면에서 뒤로가기를 눌러도 로그인 폼이 다시 나오지 않게
+  setTimeout(() => { location.replace(destination); }, 350);
 }
 function showPinChange(actor) {
   $('loginPanel').hidden = true; $('directory').hidden = true; $('pinPanel').hidden = false;
@@ -332,8 +333,26 @@ $('gradeForm').addEventListener('submit', async event => {
   } finally { $('gradeSave').disabled = false; $('gradeCancel').disabled = false; }
 });
 
+// 로그인 세션이 살아 있으면 로그인 폼을 보여 주지 않고 역할 화면으로 바로 보낸다.
+// (세션은 「로그아웃」 버튼으로만 끝낸다. 뒤로가기·새로고침으로는 로그아웃하지 않는다)
+function resumeSession() {
+  if (session?.kind === 'member' && document.body.dataset.adminOnly === 'true') { clearSession(); tell('관리자 또는 소장 업무 계정으로 로그인해주세요.', true); return; }
+  if (!session) return;
+  $('loginPanel').hidden = true; tell('로그인 상태를 확인하는 중입니다…');
+  if (session.kind === 'member') continueMemberSession().catch(e => { clearSession(); tell(e.message, true); });
+  else loadRoster().then(() => tell('로그인 상태를 복원했습니다.')).catch(e => { clearSession(); tell(e.message, true); });
+}
 syncSecretField();
 restoreSession();
-if (session?.kind === 'member' && document.body.dataset.adminOnly === 'true') { clearSession(); tell('관리자 또는 소장 업무 계정으로 로그인해주세요.', true); }
-else if (session?.kind === 'member') continueMemberSession().catch(e => { clearSession(); tell(e.message, true); });
-else if (session) loadRoster().then(() => tell('로그인 상태를 복원했습니다.')).catch(e => { clearSession(); tell(e.message, true); });
+resumeSession();
+// Safari·Chrome 뒤로가기 캐시(BFCache)로 이 화면이 그대로 다시 보일 때: 세션을 다시 확인한다
+window.addEventListener('pageshow', event => {
+  if (!event.persisted) return;
+  const stored = sessionStorage.getItem(SESSION_KEY);
+  if (!stored) {
+    if (session) clearSession();
+    $('loginButton').disabled = false; $('password').value = ''; tell('');
+    return;
+  }
+  restoreSession(); resumeSession();
+});
