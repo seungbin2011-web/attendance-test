@@ -14,25 +14,25 @@ PAGES = {
     'index.html': ('personnel_test.html', [
         ('<title>현장 업무 통합 로그인 · 시험</title>', '<title>현장 업무 통합 로그인</title>', 1),
         ('TEST v0.92', 'v1.0', 2),
-        ('personnel_test.mjs?v=0.92.1', 'personnel_test.mjs?v=1.0', 1),
+        ('personnel_test.mjs?v=0.93', 'personnel_test.mjs?v=1.1', 1),
     ]),
     'member.html': ('member_test.html', [
         ('<title>팀원 홈 TEST</title>', '<title>팀원 홈</title>', 1),
         ('<span class="ver">TEST v0.10</span>', '<span class="ver">v1.0</span>', 1),
         ('팀원 홈 TEST v0.11', '팀원 홈 v1.0', 1),
-        ('tbm_api_test.mjs?v=0.13', 'tbm_api_test.mjs?v=1.2', 3),
+        ('tbm_api_test.mjs?v=0.14', 'tbm_api_test.mjs?v=1.3', 3),
     ]),
     'tbm_report.html': ('tbm_report_test.html', [
         ('<title>팀장 TBM 보고 TEST</title>', '<title>팀장 TBM 보고</title>', 1),
-        ('v0.70 TEST', 'v1.1', 2),
+        ('v0.80 TEST', 'v1.2', 2),
         (' · 시험 화면</div>', '</div>', 1),
-        ('tbm_report_test.mjs?v=0.70', 'tbm_report_test.mjs?v=1.2', 1),
+        ('tbm_report_test.mjs?v=0.80', 'tbm_report_test.mjs?v=1.3', 1),
     ]),
     'tbm_manager.html': ('tbm_manager_test.html', [
         ('<title>현장 TBM 현황 TEST</title>', '<title>현장 TBM 현황</title>', 1),
-        ('v0.50 TEST', 'v1.1', 2),
+        ('v0.60 TEST', 'v1.2', 2),
         (' · 시험 화면</div>', '</div>', 1),
-        ('tbm_manager_test.mjs?v=0.50', 'tbm_manager_test.mjs?v=1.2', 1),
+        ('tbm_manager_test.mjs?v=0.60', 'tbm_manager_test.mjs?v=1.3', 1),
     ]),
 }
 

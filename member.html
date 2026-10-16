@@ -418,7 +418,7 @@ async function loadMyTodayTasks(){
   try{
     let res;
     if(String(authUser?.authSource||'').startsWith('supabase')){
-      const api=await import("./tbm_api_test.mjs?v=1.2");
+      const api=await import("./tbm_api_test.mjs?v=1.3");
       res=await api.rpc("tbm_my_today");
       if(!res?.ok) throw new Error("오늘 작업 조회 실패");
     }else{
@@ -513,7 +513,7 @@ function isSeason2(){
   return !!authUser&&authUser.authSource==="supabase-pin";
 }
 async function teamFromSupabase(){
-  const api=await import("./tbm_api_test.mjs?v=1.2");
+  const api=await import("./tbm_api_test.mjs?v=1.3");
   try{
     const res=await api.rpc("pilot_my_team");
     return {success:true,team:res.team,leaders:res.leaders||[],members:res.members||[]};
@@ -573,21 +573,23 @@ function goHome(){
 async function logout(){
   if(isSeason2()){
     // Season 2 개인 세션은 서버 세션까지 끝내고 통합 로그인으로
-    try{const api=await import("./tbm_api_test.mjs?v=1.2");await api.logout();}catch(e){}
-    location.href=LOGIN_PAGE;
+    try{const api=await import("./tbm_api_test.mjs?v=1.3");await api.logout();}catch(e){}
+    location.replace(LOGIN_PAGE); // 로그아웃한 화면을 방문 기록에 남기지 않는다
     return;
   }
   sessionStorage.removeItem("attendanceAuthUser");
   sessionStorage.removeItem("tbmAuthUser");
-  location.href=PROD?LOGIN_PAGE:"index_test.html";
+  location.replace(PROD?LOGIN_PAGE:"index_test.html");
 }
+// 뒤로가기 캐시(BFCache: iPhone Chrome·Safari 등)로 다시 보일 때 로그아웃된 상태면 로그인으로
+window.addEventListener("pageshow",e=>{ if(e.persisted&&!readAuth()) location.replace(PROD?LOGIN_PAGE:"index_test.html"); });
 
 (function init(){
   authUser=readAuth();
 
   if(!authUser){
     alert("로그인이 필요합니다.");
-    location.href=PROD?LOGIN_PAGE:"index_test.html";
+    location.replace(PROD?LOGIN_PAGE:"index_test.html");
     return;
   }
 

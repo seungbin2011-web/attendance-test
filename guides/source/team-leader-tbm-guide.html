@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>팀장 TBM 사용 가이드 v1.1</title>
+<title>팀장 TBM 사용 가이드 v1.2</title>
 <style>
 @font-face { font-family: "NSKR"; font-weight: 500; src: url("fonts/NotoSansKR-500.ttf"); }
 @font-face { font-family: "NSKR"; font-weight: 700; src: url("fonts/NotoSansKR-700.ttf"); }
@@ -50,6 +50,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
 .badge-other { font-weight: 900; color: #6B21A8; background: #F3E8FF; border: 0.4mm solid #D8B4FE; border-radius: 3mm; padding: 0 1.6mm; white-space: nowrap; }
 .shot.crop { max-height: var(--h, 190mm); }
 .shot.crop img { object-fit: cover; object-position: top; }
+.shot.crop.bottom img { object-position: bottom; }
 
 .shot { border: 0.35mm solid var(--line); border-radius: 3mm; overflow: hidden; background: #F3F6FA; }
 .shot img { display: block; width: 100%; height: auto; }
@@ -80,7 +81,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
 .legend div { display: flex; gap: 3mm; align-items: center; font-size: 15pt; line-height: 1.35;
   background: #F4F7FB; border-radius: 3mm; padding: 3.5mm 4mm; }
 .legend .n { width: 11mm; height: 11mm; font-size: 17pt; margin: 0; }
-.big-tip { margin-top: 5mm; border: 0.8mm solid var(--green); border-radius: 3.5mm; padding: 4mm 5mm;
+.big-tip { margin-top: 3mm; border: 0.8mm solid var(--green); border-radius: 3.5mm; padding: 4mm 5mm;
   font-size: 16pt; line-height: 1.45; }
 .big-tip b { font-weight: 900; }
 </style>
@@ -89,12 +90,12 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
 
 <!-- 표지 -->
 <section class="page cover" style="--c: var(--navy)">
-  <h1>팀장 TBM<br>사용 가이드 <span class="ver">v1.1</span></h1>
+  <h1>팀장 TBM<br>사용 가이드 <span class="ver">v1.2</span></h1>
   <p class="sub">화면을 보고 번호 순서대로 따라 하세요.</p>
   <div class="band"></div>
   <ol class="flow">
     <li style="--c: var(--navy)"><span class="k">1</span><span class="t">로그인</span><span class="d">이름 + 휴대폰 뒤 4자리</span></li>
-    <li style="--c: var(--navy)"><span class="k">2</span><span class="t">오늘 작업계획 작성</span><span class="d">위치 · 내용 · 인원</span></li>
+    <li style="--c: var(--navy)"><span class="k">2</span><span class="t">오늘 작업계획 작성</span><span class="d">위치 · 내용 · 인원 · 전일 이월</span></li>
     <li style="--c: var(--navy)"><span class="k">3</span><span class="t">위험요인 · 안전조치 저장</span><span class="d">「작업계획 저장」</span></li>
     <li style="--c: var(--blue)"><span class="k">4</span><span class="t">출근 TBM</span><span class="d">작업 시작 전</span></li>
     <li style="--c: var(--orange)"><span class="k">5</span><span class="t">오후 TBM · 작업정지</span><span class="d">정상 · 변경 · 지연 · 위험 · ⛔ 정지</span></li>
@@ -107,10 +108,10 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     <div><span class="n ok">✓</span>초록 표시는 잘 됐는지<br>확인하는 곳입니다.</div>
   </div>
   <div class="big-tip">
-    화면에 <b class="ok-text">「서버 저장됨」</b>이 보여야 저장이 끝난 것입니다.<br>
-    이 문구가 안 보이면 저장 버튼을 다시 누르세요.
+    <b class="ok-text">✓ 완료 표시</b> 후 <b>홈으로 돌아오면 저장 완료</b>입니다.<br>
+    저장이 안 되면 빨간 안내가 나옵니다 → <b>「다시 저장」</b>.
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>1 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>1 / 12</span></div>
 </section>
 
 <!-- 1 로그인 -->
@@ -128,7 +129,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/s1_login.jpg" alt="통합 로그인 화면"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>2 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>2 / 12</span></div>
 </section>
 
 <!-- 2 작업계획 -->
@@ -149,7 +150,28 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot crop" style="--h: 205mm"><img src="img/s2_people_v11.jpg" alt="선택된 인원과 이름·팀 검색"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>3 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>3 / 12</span></div>
+</section>
+
+<!-- 2-1 전일 이월 작업 -->
+<section class="page" style="--c: #7A5516">
+  <div class="head"><span class="no">2</span><div><div class="kicker">2단계 · 어제 넘어온 작업</div><h1>전일 이월 작업</h1></div></div>
+  <p class="lead">어제 「내일 이월」한 작업은 <b>접힌 상태</b>로 나옵니다. 오늘 할 작업만 이어받고,
+    잘못 이월된 작업은 <b>「이월 취소」</b>로 정리합니다.</p>
+  <div class="cols" style="--split: 1fr 1.05fr">
+    <div class="col">
+      <ol class="steps">
+        <li><span class="n">1</span><span><b>「전일 이월 · 이어받을 후보」</b>를 눌러 펼칩니다.</span></li>
+        <li><span class="n">2</span><span>오늘 할 작업만 <span class="btn">오늘 이어서</span></span></li>
+        <li><span class="n">3</span><span>잘못 이월된 작업은 <span class="btn">이월 취소</span> → 사유 확인 → <span class="btn stop">이월 취소</span></span></li>
+        <li><span class="n ok">✓</span><span>이어받은 작업은 <b>「전일 이월」</b>로 접혀 있고, 새 작업은 <b>「오늘 신규」</b>로 따로 보입니다.</span></li>
+      </ol>
+      <div class="shot crop bottom" style="--h: 66mm"><img src="img/s2_carry_cancel.jpg" alt="이월 취소 사유 입력"></div>
+      <div class="tip" style="--c: #7A5516">어제 기록은 지우지 않습니다. 저장한 이월 작업도 펼쳐서 <b>「이월 취소」</b> (사유 남음).</div>
+    </div>
+    <div class="col"><div class="shot crop" style="--h: 205mm"><img src="img/s2_carry_fold.jpg" alt="접힌 전일 이월과 오늘 신규 작업"></div></div>
+  </div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>4 / 12</span></div>
 </section>
 
 <!-- 3 위험요인 / 안전조치 / 특이사항 / 저장 -->
@@ -164,14 +186,14 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
         <li><span class="n">2</span><span><b>안전조치 / 전달사항</b>을 적습니다.</span></li>
         <li><span class="n">3</span><span>소장님께 알릴 내용은 <b>특이사항</b>에 적습니다.</span></li>
         <li><span class="n">4</span><span><span class="btn green">작업계획 저장</span>을 누릅니다.</span></li>
-        <li><span class="n ok">✓</span><span><span class="ok-text">「서버 저장됨」</span>이 보이면 끝입니다.</span></li>
+        <li><span class="n ok">✓</span><span><span class="ok-text">「작업계획 저장 완료」</span>가 나오고 <b>홈으로 돌아오면</b> 끝입니다.</span></li>
       </ol>
-      <div class="shot"><img src="img/s3_save.jpg" alt="작업계획 저장 버튼과 서버 저장됨 표시"></div>
+      <div class="shot"><img src="img/s3_done.jpg" alt="작업계획 저장 완료 표시"></div>
       <div class="tip">소장님 확인이 필요하면 <b>「소장 확인 필요」</b>에 체크합니다.</div>
     </div>
     <div class="col"><div class="shot"><img src="img/s3_risk.jpg" alt="위험요인, 안전조치, 특이사항 입력"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>4 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>5 / 12</span></div>
 </section>
 
 <!-- 4 출근 TBM -->
@@ -192,10 +214,10 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     <div class="col">
       <div class="shot"><img src="img/s4_form.jpg" alt="출근 TBM 전달사항과 사진 등록"></div>
       <div class="shot"><img src="img/s4_done.jpg" alt="출근 TBM 보고 완료"></div>
-      <p class="cap"><span class="ok-text">✓ 「출근 TBM 보고 완료」</span>로 바뀌면 끝입니다.</p>
+      <p class="cap"><span class="ok-text">✓ 「출근 TBM 보고 완료」</span>가 나오고 홈으로 돌아오면 끝입니다.</p>
     </div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>5 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>6 / 12</span></div>
 </section>
 
 <!-- 5 오후 TBM -->
@@ -209,7 +231,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
         <li><span class="n">1</span><span>홈 화면에서 주황색 <span class="btn orange">오후 TBM</span></span></li>
         <li><span class="n">2</span><span>작업마다 <b>정상 · 변경 · 지연 · 위험</b> 중 하나를 누릅니다.</span></li>
         <li><span class="n">3</span><span><b>「파일 선택」</b>으로 현장 사진을 등록합니다.</span></li>
-        <li><span class="n ok">✓</span><span><span class="ok-text">「모든 작업 확인됨」</span>과 <span class="ok-text">「서버 저장됨」</span>을 확인합니다.</span></li>
+        <li><span class="n ok">✓</span><span><span class="btn green">전체 이상 없음</span>을 누르면 <span class="ok-text">「오후 TBM 저장 완료」</span> 후 홈으로 돌아갑니다.</span></li>
       </ol>
       <div class="shot"><img src="img/s5_btn.jpg" alt="오후 TBM 버튼"></div>
       <div class="tip" style="--c: var(--orange)">계획대로 진행 중이면 <b>「정상」</b>만 누르면 됩니다.
@@ -217,7 +239,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/s5_form.jpg" alt="오후 TBM 작업 상태 선택과 사진 등록"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>6 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>7 / 12</span></div>
 </section>
 
 <!-- 5-1 작업정지 -->
@@ -232,14 +254,14 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
         <li><span class="n">2</span><span><b>정지 사유</b>를 적습니다. (필수)</span></li>
         <li><span class="n">3</span><span><b>처리 방향</b>을 고릅니다.<br><b>내일 이월</b> 또는 <b>오늘 정지로 종료</b></span></li>
         <li><span class="n">4</span><span><span class="btn stop">작업정지 저장</span>을 누릅니다.</span></li>
-        <li><span class="n ok">✓</span><span><b>「⛔ 작업정지 · 내일 이월」</b>로 바뀌면 끝입니다.</span></li>
+        <li><span class="n ok">✓</span><span>완료 표시 후 <b>홈</b>에 <b>「⛔ 작업정지 · 내일 이월」</b>이 보이면 끝입니다.</span></li>
       </ol>
       <div class="shot crop" style="--h: 64mm"><img src="img/s5_stop_done.jpg" alt="작업정지 저장 후 작업 카드"></div>
       <div class="tip" style="--c: #C2410C"><b>퇴근 TBM에서 다시 입력하지 않습니다.</b> 잘못 눌렀으면 <b>「작업정지 내용 고치기」</b> → <b>「작업정지 취소」</b>.</div>
     </div>
     <div class="col"><div class="shot crop" style="--h: 215mm"><img src="img/s5_stop_form.jpg" alt="정지 사유와 처리 방향 입력"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>7 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>8 / 12</span></div>
 </section>
 
 <!-- 6 퇴근 TBM 및 마감 -->
@@ -262,12 +284,12 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     <div class="col">
       <div class="shot"><img src="img/s6_form.jpg" alt="퇴근 TBM 사진, 전달사항, 마감 버튼"></div>
       <div class="shot"><img src="img/s6_done.jpg" alt="서버 저장됨 마감 표시"></div>
-      <p class="cap"><span class="ok-text">✓ 「서버 저장됨 · 마감」</span>이 보이면 끝입니다.</p>
+      <p class="cap"><span class="ok-text">✓ 「퇴근 TBM 마감 완료」</span> 후 홈의 「퇴근 ✓」가 보이면 끝입니다.</p>
       <div class="tip" style="--c: var(--night)"><b>일부완료 · 미완료</b> 작업은 사유와 내일 이월 여부를 적습니다.
         오후에 <b>⛔ 작업정지</b>한 작업은 다시 입력하지 않습니다.</div>
     </div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>8 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>9 / 12</span></div>
 </section>
 
 <!-- 7 새 작업 열기 -->
@@ -289,7 +311,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot"><img src="img/s7_home.jpg" alt="새 작업 열기 버튼과 오늘 완료 작업 목록"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>9 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>10 / 12</span></div>
 </section>
 
 <!-- 8 출역 관리: 출근 -->
@@ -312,7 +334,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot crop" style="--h: 212mm"><img src="img/s8_att_in.jpg" alt="전체 출근 후 지각·휴무만 바꾼 화면"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>10 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>11 / 12</span></div>
 </section>
 
 <!-- 8 출역 관리: 퇴근 -->
@@ -334,7 +356,7 @@ ol.steps li { display: flex; gap: 3mm; align-items: flex-start; font-size: 17pt;
     </div>
     <div class="col"><div class="shot crop" style="--h: 212mm"><img src="img/s8_att_out.jpg" alt="퇴근 탭: 전체 퇴근 후 조퇴만 바꾼 화면"></div></div>
   </div>
-  <div class="foot"><span>팀장 TBM 사용 가이드 v1.1</span><span>11 / 11</span></div>
+  <div class="foot"><span>팀장 TBM 사용 가이드 v1.2</span><span>12 / 12</span></div>
 </section>
 
 </body>

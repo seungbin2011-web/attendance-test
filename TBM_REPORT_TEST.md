@@ -4,8 +4,8 @@
 
 ## 화면
 
-- `tbm_report_test.html` TEST v0.70 — 팀장 TBM 보고 (출역 관리 · 작업계획 · 출근 · 오후(작업정지) · 퇴근 · 사진 · 이월)
-- `tbm_manager_test.html` TEST v0.50 — 소장·관리자 현황 (읽기 전용, 출역 현황 · 관리자 출역 정정)
+- `tbm_report_test.html` TEST v0.80 — 팀장 TBM 보고 (출역 관리 · 작업계획 · 출근 · 오후(작업정지) · 퇴근 · 사진 · 이월, 저장 후 홈)
+- `tbm_manager_test.html` TEST v0.60 — 소장·관리자 현황 (읽기 전용, 출역 현황 · 관리자 출역 정정, PC 넓은 화면)
 - 공통: `tbm_api_test.mjs` (tbm_api v0.1), `tbm_test.css`
 - 사용 가이드: 팀장 화면 홈 「새로고침 / 사용 가이드 / 로그아웃」, 소장 목록 「사용 가이드 / 로그아웃」 → 역할별 PDF 새 탭 (`guides/team-leader-tbm-guide.pdf`, `guides/site-manager-tbm-guide.pdf`, 원본·다시 만들기는 `guides/source/README.md`)
 
@@ -72,3 +72,13 @@ bash tests/e2e/run_e2e.sh          # Chromium: 로그인(S0) + 하루 흐름(S1)
 - 소장: 작업정지 수·사유, 「👷 출역 현황」(조회), 관리자만 정정.
 - 가독성: 본문 16px, 주요 버튼 56px, 누르는 칸 44px 이상, 상태 색+글자.
 - DB: `field_sql_v04*.sql` (적용 순서 `field_sql_v04_apply.md`). 운영 화면 표시 v1.1.
+
+## v0.80 / v0.60 (2026-10-16, TBM v1.1 현장 UX 보정 — 운영 표시 v1.2)
+
+- 저장 후 홈: 작업계획 저장 · 출근 TBM 보고 · 오후 TBM 저장(전체 이상 없음) · 작업정지 저장 · 퇴근 TBM 마감은 서버 성공 뒤 「✓ … 완료」를 1.2초 보여 주고 홈으로. 실패하면 홈으로 가지 않고 누른 버튼 위에 빨간 안내와 「다시 저장」.
+- 전일 이월: 이어받을 후보·이어받은 작업 모두 기본 접힘(작업·내용 요약·전일 결과·인원 N명). 「전일 이월」/「오늘 신규」 배지. 「이월 취소」(사유 → `tbm_carry_cancel`, 어제 기록 보존).
+- 같은 사람이 여러 작업에 들어가면 「작업2에도 투입」 (서버 규칙은 그대로: 한 작업 안 중복과 다른 팀 진행 중 작업만 거절).
+- 홈에 작업정지 표시 (⛔ 작업정지 · 내일 이월 / 정지로 종료).
+- 소장 화면 PC(900px 이상): 넓은 화면 · 팀 카드 2열 · 요약 칸 넓게. 휴대폰 화면은 그대로.
+- 로그인: 로그인 성공 이동을 `location.replace`로 바꿔 뒤로가기에 로그인 폼이 남지 않게. 세션이 살아 있으면 로그인 화면을 열어도 역할 화면으로. 뒤로가기 캐시(pageshow) 확인. 대표 브라우저 iPhone Chrome, iPhone Safari도 같은 대응 (브라우저 구분 없음). 시험 `tests/sessions/history_chrome.mjs`.
+- DB: `field_sql_v05*.sql` (적용 순서 `field_sql_v05_apply.md`).

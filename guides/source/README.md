@@ -27,3 +27,9 @@
   가짜 시험 인원 이름을 예시 이름(홍길동·김철수·이영희·김민수 등)으로 바꾼 뒤 찍는다.
 - 다시 만들기: `cd tests/sessions && node guide_shots_v11.mjs` → `img/`에 저장 → `bash guides/source/build_pdf.sh`
 - 추가된 쪽: 팀장 가이드 「⛔ 작업정지」, 「출역 관리 ① 출근 확정 / ② 퇴근 확정」, 작업계획 인원 검색·타 팀원. 소장 가이드 「작업정지 확인」, 「출역 현황」.
+
+## v1.2 그림 (2026-10, TBM v1.1 현장 UX 보정)
+
+- 새 그림 `s2_carry_fold.jpg`(접힌 전일 이월 · 오늘 신규), `s2_carry_cancel.jpg`(이월 취소 사유), `s3_done.jpg`(저장 완료 표시)도 로컬 흉내 DB + 예시 이름으로 찍었다.
+- 다시 만들기: `cd tests/sessions && node guide_shots_v12.mjs` → `bash guides/source/build_pdf.sh`
+- 팀장 가이드 v1.2(12쪽): 「전일 이월 작업」 쪽 추가, 저장 후 홈 복귀 규칙(표지·각 단계). 소장 가이드 v1.2: PC 화면 안내 한 줄.

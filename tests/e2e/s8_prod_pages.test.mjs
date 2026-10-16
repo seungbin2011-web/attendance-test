@@ -92,20 +92,20 @@ try {
     assert.deepEqual(errors, []);
   });
 
-  await step('팀장 → 운영 팀장 TBM (v1.1), 로그아웃 → 루트 로그인', async () => {
+  await step('팀장 → 운영 팀장 TBM (v1.2), 로그아웃 → 루트 로그인', async () => {
     const { page, errors } = await rootLogin('시험지휘03', '1203', /\/tbm_report\.html$/);
     await page.waitForSelector('#stageHome.active');
-    assert.equal(await page.textContent('#pageVersion'), 'v1.1');
+    assert.equal(await page.textContent('#pageVersion'), 'v1.2');
     await noTestMarks(page);
     await page.click('#logoutBtn');
     await page.waitForURL(/\/index\.html$/);
     assert.deepEqual(errors, []);
   });
 
-  await step('현장관리 → 운영 현장 TBM 현황 (v1.1), 로그아웃 → 루트 로그인', async () => {
+  await step('현장관리 → 운영 현장 TBM 현황 (v1.2), 로그아웃 → 루트 로그인', async () => {
     const { page, errors } = await rootLogin('시험현장관리2', '1402', /\/tbm_manager\.html$/);
     await page.waitForSelector('#stageList.active');
-    assert.equal(await page.textContent('#pageVersion'), 'v1.1');
+    assert.equal(await page.textContent('#pageVersion'), 'v1.2');
     await noTestMarks(page);
     await page.click('#logoutBtn');
     await page.waitForURL(/\/index\.html$/);

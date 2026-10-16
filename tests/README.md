@@ -44,6 +44,10 @@ node sql.mjs                          # v03 순차 작업 33개
 node v04.mjs                          # v04 CHECK→APPLY→VERIFY→되돌리기→재적용, 작업정지·타 팀원·출역 89개
 node ui_v04.mjs                       # v04 화면: 작업정지·인원 검색·출역(팀장·소장·관리자)·팀원, 320/360/390 폭
 node guide_shots_v11.mjs              # 사용 가이드 v1.1 그림 (예시 이름, guides/source/img)
+node v05.mjs                          # v05 이월 취소 CHECK→APPLY→VERIFY→되돌리기→재적용, 권한, 어제 기록 불변 30개
+node ui_v12.mjs                       # v1.2 화면: 전일 이월 접힘·이월 취소, 저장 후 홈·실패 유지, 로그인 뒤로가기, 소장 PC 1024/1440
+node guide_shots_v12.mjs              # 사용 가이드 v1.2 그림
+node history_chrome.mjs              # Chrome 계열 뒤로가기·앞으로가기·새로고침 (로그인·팀장·팀원·소장, 뒤로가기 캐시 켬·끔) 38개
 ```
 
 - 브라우저 주소의 Supabase 요청을 흉내 DB(PGlite)로 돌린다. 실제 Supabase에 연결하지 않는다.
